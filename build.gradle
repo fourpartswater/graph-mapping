@@ -31,7 +31,7 @@ test << {
             jvmarg = '-Dfile.encoding=UTF-8'
         }
 	ant.scalatest(runpath: testClassesDir, haltonfailure: 'true', fork: 'false') {
-		reporter(type: 'file', filename: 'test.output')
+		reporter(type: 'file', filename: 'test-output')
 	}
 }
 
