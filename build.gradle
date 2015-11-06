@@ -1,0 +1,119 @@
+description = "A research library for graph processing"
+group = "software.uncharted"
+version = "0.1-SNAPSHOT"
+
+apply plugin: 'scala'
+apply plugin: 'maven'
+apply plugin: 'distribution'
+
+// Gradle/intellij don't work properly together with 1.8
+sourceCompatibility = '1.7'
+
+// maven repositories
+repositories {
+	mavenCentral()
+	mavenLocal()
+	maven {
+		url = "https://repository.cloudera.com/artifactory/cloudera-repos"
+	}
+}
+
+// shared version variables
+ext {
+	dependencyScalaVersion = "2.10"
+	scalaVersion = "2.10.3"
+	sparkVersion = "1.3.0-cdh5.4.1"
+}
+
+// appends scala test functionality to the baseline test task
+test << {
+	ant.taskdef(name: 'scalatest', classname: 'org.scalatest.tools.ScalaTestAntTask', classpath: classpath.asPath) {
+            jvmarg = '-Dfile.encoding=UTF-8'
+        }
+	ant.scalatest(runpath: testClassesDir, haltonfailure: 'true', fork: 'false') {
+		reporter(type: 'file', filename: 'test.output')
+	}
+}
+
+task wrapper(type: Wrapper) {
+  gradleVersion = '2.4'
+}
+
+// Configure a jar task to build a fat jar that includes dependencies added ot the assemblyJarReq config.
+task assemblyJar(type: Jar) {
+	classifier = "assembly"
+	from files(sourceSets.main.output.classesDir)
+	from files(sourceSets.main.output.resourcesDir)
+	from {
+		configurations.assemblyJarDepends.collect {
+			it.isDirectory() ? it : zipTree(it)
+		}
+	}
+}
+assemblyJar.mustRunAfter "jar"
+assemble.dependsOn "assemblyJar"
+
+configurations {
+	// IntelliJ does something funky when resolving conflicting jars - we need to force the exclusion
+	// below in order to run test cases from within IntelliJ.  Command line is fine.
+	compile.exclude group: "org.jboss.netty", module: "netty"
+
+	// Create a configuration to hold jars that we need to roll into our fat jar.  Disable transitive dependency
+	// resolution, since we only want the jars we specifically list.
+	assemblyJarDepends {
+		transitive = false
+	}
+
+	provided
+	compile.extendsFrom provided
+
+	dist
+}
+
+// Generate the assembly jar along with the build artifacts
+artifacts {
+	dist assemblyJar
+}
+
+// Jars / projects this project depends on.
+dependencies {
+	// Compile config - needed to build
+	compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
+	compile "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
+	compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
+	compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
+	compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
+	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1"
+	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.1"
+	compile "com.oculusinfo:factory-utilities:0.7-SNAPSHOT-cdh5.4.1"
+
+	provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
+
+	testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.1.1"
+	testCompile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1:tests"
+	testCompile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.1:tests"
+
+	assemblyJarDepends "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1:assembly"
+}
+
+// Creation of a distribution jar
+distributions {
+	main {
+		baseName = 'xdata-graph'
+		contents {
+			// Copy the run scripts over
+			into ("scripts"){
+				from("src/scripts")
+				fileMode 0755
+			}
+
+			// Copy assembly jar, stripping off the version info.
+			into("lib") {
+				from configurations.dist.artifacts.files.filter {
+					it.name =~ /assembly\w*\.jar/
+				}
+				rename "(.*)-$version-assembly(.*)", "\$1\$2"
+			}
+		}
+	}
+}

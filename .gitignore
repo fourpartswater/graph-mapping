@@ -1,0 +1,12 @@
+.classpath
+.idea
+.project
+.settings
+.cache
+target
+*.zip
+*.iml
+*.*~
+.gradle
+build
+test-output
