@@ -16,6 +16,7 @@ package software.uncharted.graphing.clustering.sotera
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx._
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 /**
@@ -61,6 +62,9 @@ class  LouvainHarness2(minProgressFactor:Double,progressCounter:Int) {
     var level = -1  // number of times the graph has been compressed
     var q = -1.0    // current modularity value
     var halt = false
+    var startTime = System.currentTimeMillis()
+    var startModularity = Double.NaN
+    val stats = mutable.Buffer[IterationStats]()
     do {
       level += 1
       println(s"\nStarting Louvain level $level")
@@ -87,10 +91,27 @@ class  LouvainHarness2(minProgressFactor:Double,progressCounter:Int) {
       q = currentQ
       louvainGraph = LouvainCore2.compressGraph(currentGraph)
 
+      val endTime = System.currentTimeMillis()
+
+      // Calculate stats
+      val nodes = louvainGraph.vertices.count
+      val links = louvainGraph.edges.count
+      val weight = louvainGraph.edges.map(_.attr).reduce(_ + _).toDouble
+      stats += IterationStats(level, startTime, endTime, nodes, links, weight, startModularity, currentQ)
+      startTime = System.currentTimeMillis()
+      startModularity = currentQ
     } while ( !halt )
+
     //level += 1
     //saveLevel(sc,level,q,louvainGraph)	// save final level after graph compression
     finalSave(sc,level,q,louvainGraph)
+
+
+
+    // Print out our calculation stats
+    stats.foreach(_.print)
+    val totalDuration = stats.map(stat => stat.endTime - stat.startTime).fold(0L)(_+_)/1000.0
+    println("Total duration: %.3f seconds".format(totalDuration))
   }
 
   /**

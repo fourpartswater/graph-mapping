@@ -54,7 +54,7 @@ import org.apache.spark.graphx._
  * 		"edge\t" + srcID + "\t" + dstID + "\t" + edge weight
  **/
 
-object GraphClusterApp {
+object GraphClusterApp2 {
 	
 	def main(args: Array[String]) {
 
@@ -80,7 +80,7 @@ object GraphClusterApp {
 		                                          Some("-1")).split(",").map(_.trim().toInt)
 
 		// Output arguments for logging and debugging purposes
-		println("Running Louvain Clustering, Sotera Version")
+		println("Running Louvain Clustering, Sotera Version, fixed for spark 1.3")
 		println("\tSource file:\t"+sourceFile)
 		println("\tOnly edges:\t"+(if (bOnlyEdges) "yes" else "no"))
 		println("\tOutput dir:\t"+outputDir)
@@ -150,7 +150,7 @@ object GraphClusterApp {
 			val graph = Graph.fromEdges(edgeRDD, None)
 			
 			// use a helper class to execute the louvain algorithm and save the output.
-			val runner = new HDFSLouvainRunner(minProgress,progressCounter,outputDir)
+			val runner = new HDFSLouvainRunner2(minProgress,progressCounter,outputDir)
 			runner.run(sc, graph)
 		}
 		else {
@@ -193,7 +193,7 @@ object GraphClusterApp {
 			val graph = Graph(nodeRDD, edgeRDD, "")
 			
 			// use a helper class to execute the louvain algorithm and save the output.
-			val runner = new HDFSLouvainRunner(minProgress,progressCounter,outputDir)
+			val runner = new HDFSLouvainRunner2(minProgress,progressCounter,outputDir)
 			runner.run(sc, graph)
 		}
 		
