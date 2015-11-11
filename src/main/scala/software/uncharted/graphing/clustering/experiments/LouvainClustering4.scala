@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.experiments
 
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
-import software.uncharted.graphing.clustering.utilities.{ClusterConsolidator, EdgeInfoVertexAugmentation}
+import software.uncharted.graphing.clustering.utilities.{EdgeCalculation, ClusterConsolidator}
 
 import scala.reflect.ClassTag
 
@@ -117,7 +117,7 @@ class LouvainClustering4 {
 	}
 
 	def addWeights[VD: ClassTag] (graph: Graph[VD, Double]): Graph[(VD, DegreesAndWeights), Double] = {
-		LouvainInitializer.augmentVertexInfo(graph)
+		LouvainInitializer.calculateAugmentedVertexInfo((d: Double) => d)(graph)
 	}
 
 	private def getNewCommunityForVertices[VD] (graph: Graph[(VD, DegreesAndWeights), Double], m2: Double): VertexRDD[VertexId] = {
@@ -189,23 +189,19 @@ object DegreesAndWeights {
  * Initialize a graph with degree and weight information by node, both interior and total (where interior is defined
  * by self-links)
  */
-object LouvainInitializer extends EdgeInfoVertexAugmentation[Double, DegreesAndWeights, DegreesAndWeights] {
-	override val dct= implicitly[ClassTag[Data]]
-	override val act = implicitly[ClassTag[Augmentation]]
+object LouvainInitializer extends EdgeCalculation[Double] {
+	type Data = DegreesAndWeights
+	val dct= implicitly[ClassTag[Data]]
+	val defaultData = DegreesAndWeights.default
 
-
-	def getEdgeInfo[VD] (context: EdgeContext[VD, Double, DegreesAndWeights]): Unit = {
+	def getEdgeInfo(context: EdgeContext[Long, Double, Data]) = {
 		if (context.srcId == context.dstId) {
-			context.sendToSrc(DegreesAndWeights(2, 2, 2.0*context.attr, 2.0*context.attr))
+			Some(Some(DegreesAndWeights(2, 2, 2.0*context.attr, 2.0*context.attr)), None)
 		} else {
-			context.sendToDst(DegreesAndWeights(0, 1, 0.0, context.attr))
-			context.sendToSrc(DegreesAndWeights(0, 1, 0.0, context.attr))
+			Some(Some(DegreesAndWeights(0, 1, 0.0, context.attr)), Some(DegreesAndWeights(0, 1, 0.0, context.attr)))
 		}
 	}
 
 	def mergeEdgeInfo (a: Data, b: Data): Data = a + b
-
-	def mergeVertexInfo[VD: ClassTag] (vid: VertexId, vertexData: VD, edgeDataOption: Option[Data]): (VD, Augmentation) =
-		(vertexData, edgeDataOption.getOrElse(DegreesAndWeights.default))
 }
 
