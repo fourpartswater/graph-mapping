@@ -70,7 +70,7 @@ class LouvainClusteringTestSuite extends FunSuite with BeforeAndAfter with Share
     c1.foreach(println)
   }
 
-  test("Test old louvain clustering") {
+  ignore("Test old louvain clustering") {
     var rlevel: Int = -1
     var rq: Double = 0.0
     var result: Graph[VertexState, Long] = null
@@ -104,7 +104,7 @@ class LouvainClusteringTestSuite extends FunSuite with BeforeAndAfter with Share
     edges.foreach(edge => println("\t\t"+edge))
   }
 
-  test("Test path clustering") {
+  ignore("Test path clustering") {
     // Raise log level to ignore info
     Logger.getRootLogger.setLevel(Level.WARN)
 
