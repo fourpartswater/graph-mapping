@@ -91,7 +91,7 @@ class CommunityClusteringTestSuite extends FunSuite with BeforeAndAfter {
 
   test("Test that consolidating communities into a single node does not change the modularity of the whole graph") {
     var c1 = new Community(graph, -1, 0.15)
-    val improvement = c1.one_level
+    val improvement = c1.one_level()
     val mod1 = c1.modularity
 
     val g2 = c1.partition2graph_binary

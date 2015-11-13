@@ -97,7 +97,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     }
   }
 
-  def one_level: Boolean = {
+  def one_level (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -107,12 +107,14 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     // Randomize the order of vertex inspection
     val random_order = (0 until size).toArray
     val randomizer = new Random()
-    for (i <- 0 until (size - 1)) {
-      val rand_pos = randomizer.nextInt(size - i) + i
-      val tmp = random_order(i)
-      random_order(i) = random_order(rand_pos)
-      random_order(rand_pos) = tmp
-    }
+	if (randomize) {
+	  for (i <- 0 until (size - 1)) {
+		val rand_pos = randomizer.nextInt(size - i) + i
+		val tmp = random_order(i)
+		random_order(i) = random_order(rand_pos)
+		random_order(rand_pos) = tmp
+	  }
+	}
 
     // repeat while
     //   there is an improvement of modularity
@@ -277,7 +279,8 @@ class CommunityHarness {
            passes: Int = -1,
            precision: Double = 0.000001,
            display_level: Int = -2,
-           verbose: Boolean = false) = {
+           verbose: Boolean = false,
+           randomize: Boolean = true) = {
     val time_begin = System.currentTimeMillis()
     if (verbose) {
       println("Start time: "+new Date(time_begin))
@@ -293,7 +296,7 @@ class CommunityHarness {
     var level = 0
 
     do {
-      improvement = c.one_level
+      improvement = c.one_level(randomize)
       new_mod = c.modularity
       level += 1
       if (level == display_level)
@@ -332,6 +335,7 @@ object Community {
   var filename_w: Option[String] = None
   var filename_part: Option[String] = None
   var verbose = false
+  var randomize = true
 
   def usage (prog_name: String, more: String) = {
     println(more)
@@ -346,6 +350,7 @@ object Community {
     println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
     println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
     println("-h\tshow this usage message.")
+	println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
     System.exit(0)
   }
 
@@ -380,6 +385,7 @@ object Community {
           case "v" => {
             verbose = true
           }
+          case "n" => randomize = false
           case _ => usage("community", "Unknown option: "+args(i))
         }
       } else if (filename.isDefined) {
@@ -416,7 +422,7 @@ object Community {
         Console.err.println("  network size: "+c.g.nb_nodes+" nodes, "+c.g.nb_links+" links, "+c.g.total_weight+" weight.")
       }
 
-      improvement = c.one_level
+      improvement = c.one_level(randomize)
       val new_mod = c.modularity
 
       level = level + 1
