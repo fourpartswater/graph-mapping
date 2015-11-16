@@ -9,7 +9,10 @@ package software.uncharted.graphing.clustering.reference
 
 import java.io.{DataInputStream, FileInputStream}
 
+import org.apache.spark.SparkContext
+import org.apache.spark.graphx.Edge
 import org.apache.spark.graphx.VertexId
+import org.apache.spark.graphx.{Graph => SparkGraph}
 
 import scala.collection.mutable.Buffer
 
@@ -34,8 +37,6 @@ class Graph (degrees: Array[Int], links: Array[Int], weightsOpt: Option[Array[Fl
     if (0 == node) {
       degrees(0)
     } else {
-      val n1  = degrees(node)
-      val n2 = degrees(node-1)
       degrees(node) - degrees(node - 1)
     }
 
@@ -75,7 +76,21 @@ class Graph (degrees: Array[Int], links: Array[Int], weightsOpt: Option[Array[Fl
       (nextLink, nextWeight)
     }
   }
+
+  def toSpark(sc: SparkContext): SparkGraph[Int, Float] = {
+    val nodes = (0 until nb_nodes).map(n => (n.toLong, n))
+    var i = 0
+    val edges = for (src <- 0 until nb_nodes; j <- 0 until degrees(src)) yield {
+      val target = links(i)
+      val weight = weightsOpt.map(_(i)).getOrElse(1.0f)
+      i = i + 1
+
+      new Edge(src, target, weight)
+    }
+    SparkGraph(sc.parallelize(nodes), sc.parallelize(edges))
+  }
 }
+
 object Graph {
   def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED], getEdgeWeight: Option[ED => Float] = None): Graph = {
     val nodes: Array[(VertexId, VD)] = source.vertices.collect.sortBy(_._1)

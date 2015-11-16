@@ -20,6 +20,8 @@ import org.scalatest.Matchers._
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 
+import software.uncharted.graphing.clustering.reference.{Graph => ReferenceGraph, Community}
+
 
 
 /**
@@ -138,8 +140,8 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext {
   }
 
   test("Test individual modularity on canonical graph with nodes 1 and 2 conjoined") {
-    // Try the test graph from https://sites.google.com/site/findcommunities/, in which the original Louvain algorithm is
-    // published.
+    // Here we take the test graph from https://sites.google.com/site/findcommunities/, in which the original Louvain
+    // algorithm is published, turn node 0 into node 1, and combine node 1 and 2 into 2
     val nodes = sc.parallelize(1L to 15L).map(n => (n, n))
     val edges = sc.parallelize(List[Edge[Double]](
       new Edge(1L, 2L, 1.0), new Edge(1L, 3L, 1.0), new Edge(1L, 4L, 1.0), new Edge(1L, 5L, 1.0),
@@ -160,5 +162,32 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext {
     val modularity = canonicalGraph.calculateIndividualModularity(d => d)
     val targetModularity = -1.0 / 14.0 + 2.0 * (1.0 - 15 / 56.0) / 56.0
     modularity should be (targetModularity +- epsilon)
+  }
+
+  test("Test modularity vs. baseline calculation") {
+    // Try the test graph from https://sites.google.com/site/findcommunities/, in which the original Louvain algorithm is
+    // published.
+    val nodes = sc.parallelize(0L to 15L).map(n => (n, n))
+    val edges = sc.parallelize(List[Edge[Double]](
+      new Edge(0L, 2L, 1.0), new Edge(0L, 3L, 1.0), new Edge(0L, 4L, 1.0), new Edge(0L, 5L, 1.0),
+      new Edge(1L, 2L, 1.0), new Edge(1L, 4L, 1.0), new Edge(1L, 7L, 1.0),
+      new Edge(2L, 4L, 1.0), new Edge(2L, 5L, 1.0), new Edge(2L, 6L, 1.0),
+      new Edge(3L, 7L, 1.0),
+      new Edge(4L, 10L, 1.0),
+      new Edge(5L, 7L, 1.0), new Edge(5L, 11L, 1.0),
+      new Edge(6L, 7L, 1.0), new Edge(6L, 11L, 1.0),
+      new Edge(8L, 9L, 1.0), new Edge(8L, 10L, 1.0), new Edge(8L, 11L, 1.0), new Edge(8L, 14L, 1.0), new Edge(8L, 15L, 1.0),
+      new Edge(9L, 12L, 1.0), new Edge(9L, 14L, 1.0),
+      new Edge(10L, 11L, 1.0), new Edge(10L, 12L, 1.0), new Edge(10L, 13L, 1.0), new Edge(10L, 14L, 1.0),
+      new Edge(11L, 13L, 1.0)
+    ))
+    val canonicalGraph = Graph(nodes, edges)
+    // Convert to reference form
+    val refGraph = ReferenceGraph(canonicalGraph)
+    val refCom = new Community(refGraph, -1, 0.0001)
+    val referenceModularity = refCom.modularity
+
+    val modularity = canonicalGraph.calculateIndividualModularity(d => 1.0)
+    assert(referenceModularity === modularity)
   }
 }
