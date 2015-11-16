@@ -13,9 +13,11 @@
 package software.uncharted.graphing.clustering.utilities
 
 
-import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
+import scala.collection.mutable.{Map => MutableMap}
+
+import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
 
 
@@ -94,6 +96,59 @@ class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends 
         weightOption.getOrElse(0.0) - k_i * k_j * 0.5 / m
     }.reduce(_ + _) * 0.5 / m
     modularity
+  }
+
+
+  /**
+   * Take the graph, and duplicate all links so that for each input edge, there will be an output edge in each
+   * direction.
+   *
+   * Note that this assumes that _all_ links are unidirectional to begin with.  If any links are already duplicated
+   * so as to have explicit bidirectionality, they will, after this operation, be tetra-directional
+   *
+   * @param selfEdgeWeight A function to adjust the weight of a self edge; typically, this should double said weight.
+   * @return A new graph with each edge duplicated, once in each direction
+   */
+  def explicitlyBidirectional (selfEdgeWeight: ED => ED): Graph[VD, ED] =
+    Graph(graph.vertices, graph.edges.flatMap(edge =>
+      if (edge.srcId == edge.dstId) {
+        Iterator(new Edge(edge.srcId, edge.dstId, selfEdgeWeight(edge.attr)))
+      } else {
+        Iterator(edge, new Edge(edge.dstId, edge.srcId, edge.attr))
+      }
+    ))
+
+  /**
+   * Take the graph, and remove links that are duplicated but in the reverse direction of one another.
+   *
+   * @param selfEdgeWeight A function to adjust the weight of a self edge; typically, this should halve said weight.
+   * @return A new graph with duplicate reversed edges combined
+   */
+  def implicitlyBidirectional (selfEdgeWeight: ED => ED): Graph[VD, ED] = {
+    val combinedEdges = graph.partitionBy(PartitionStrategy.EdgePartition2D).edges.mapPartitionsWithIndex{case (partition, edges) =>
+      val seen = MutableMap[(VertexId, VertexId, ED), Int]()
+      edges.filter{edge =>
+        // Don't add self-links - they should never be duplicated - duplicates, so checking them is redundant
+        if (edge.srcId == edge.dstId) true
+        else {
+          val reverse = (edge.dstId, edge.srcId, edge.attr)
+
+          seen.get(reverse).map{numSeen =>
+            if (1 == numSeen) seen.remove(reverse)
+            else seen(reverse) = numSeen-1
+            false
+          }.getOrElse{
+            val forward = (edge.srcId, edge.dstId, edge.attr)
+            seen(forward) = seen.get(forward).getOrElse(0) + 1
+            true
+          }
+        }
+      }.map{edge =>
+        if (edge.srcId == edge.dstId) new Edge(edge.srcId, edge.dstId, selfEdgeWeight(edge.attr))
+        else edge
+      }
+    }
+    Graph(graph.vertices, combinedEdges)
   }
 }
 

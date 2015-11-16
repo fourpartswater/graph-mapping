@@ -1,13 +1,27 @@
+/**
+ * Copyright © 2014-2015 Uncharted Software Inc. All rights reserved.
+ *
+ * Property of Uncharted™, formerly Oculus Info Inc.
+ * http://uncharted.software/
+ *
+ * This software is the confidential and proprietary information of
+ * Uncharted Software Inc. ("Confidential Information"). You shall not
+ * disclose such Confidential Information and shall use it only in
+ * accordance with the terms of the license agreement you entered into
+ * with Uncharted Software Inc.
+ */
 package software.uncharted.graphing.clustering.usc
 
 
-import scala.reflect.ClassTag
+
 import scala.collection.mutable.{Buffer, Map => MutableMap}
 
-import org.apache.spark.Partitioner
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx.{PartitionID, Graph, PartitionStrategy, VertexId}
+import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
+
+import software.uncharted.spark.ExtendedRDDOpertations._
+
 
 
 /**
@@ -19,14 +33,20 @@ import org.apache.spark.rdd.RDD
  * As such, a subgraph will consist of all the nodes in a single partition, the links within nodes on that partition,
  * and the links to nodes outside that partition
  *
- * @param nodeIds The ID in the complete graph of each node in our subgraph
- * @param degrees The degree of each node in our subgraph
+ * @param nodes The ID and original data in the complete graph of each node in our subgraph
+ * @param degrees The cumulative degree of each node in our subgraph (divided into internal and external degree)
+ * @param links The internal and external links of each node in our subgraph.  Internal links reference the internal
+ *              node ID of their destination(i.e., order within this subgraph).  External links use the original
+ *              node ID of their destination in the full graph.
+ * @param weightsOpt An optional pair of lists of the weights of all the internal and external links.  The lengths
+ *                   of these lists must, of course, match the lengths of the lists that comprise the links
+ *                   parameter.
  */
-class SubGraph (nodeIds: Array[VertexId],
-                degrees: Array[(Int, Int)],
-                links: (Array[Int], Array[VertexId]),
-                weightsOpt: Option[(Array[Float], Array[Float])] = None) {
-  assert(nodeIds.size == degrees.size)
+class SubGraph[VD] (nodes: Array[(VertexId, VD)],
+                    degrees: Array[(Int, Int)],
+                    links: (Array[Int], Array[VertexId]),
+                    weightsOpt: Option[(Array[Float], Array[Float])] = None) {
+  assert(nodes.size == degrees.size)
   assert(links._1.size == links._2.size)
   weightsOpt.foreach { weights =>
     assert(weights._1.size == weights._2.size)
@@ -71,6 +91,33 @@ class SubGraph (nodeIds: Array[VertexId],
     (totalInternal, totalExternal, totalInternal + totalExternal)
   }
 
+  /** Get the links out of this SubGraph, for use in reconstructing the full graph */
+  def toFullGraphNodes: Iterator[(VertexId, VD)] = nodes.iterator
+  /** Get the edges out of this SubGraph, for use in reconstruction the full graph */
+  def toFullGraphLinks: Iterator[Edge[Float]] = {
+    val (internalLinks, externalLinks) = weightsOpt.map(weights =>
+      (links._1 zip weights._1, links._2 zip weights._2)
+    ).getOrElse(links._1.map(dst => (dst, 1.0f)), links._2.map(dst => (dst, 1.0f)))
+
+    (0 until nodes.size).toIterator.flatMap{src =>
+      val srcId: VertexId = nodes(src)._1
+      val startLinks: (Int, Int) = if (0 == src) (0, 0) else degrees(src-1)
+      val endLinks: (Int, Int) = degrees(src)
+      (startLinks._1 until endLinks._1).map { i =>
+        val dst = links._1(i)
+        val dstId = nodes(dst)._1
+        val weight = weightsOpt.map(_._1(i)).getOrElse(1.0f)
+        new Edge[Float](srcId, dstId, weight)
+      } union(startLinks._2 until endLinks._2).map { i =>
+        val dstId = links._2(i)
+        val weight = weightsOpt.map(_._1(i)).getOrElse(1.0f)
+        new Edge[Float](srcId, dstId, weight)
+      }
+    }
+  }
+
+
+
 
 
   private class InternalNeighborIterator (node: Int) extends Iterator[(Int, Float)] {
@@ -89,8 +136,9 @@ class SubGraph (nodeIds: Array[VertexId],
 }
 object SubGraph {
   def graphToSubGraphs[VD, ED] (graph: Graph[VD, ED],
+                                getEdgeWeight: Option[ED => Float],
                                 partitions: Int)
-                               (implicit order: Ordering[(VertexId, VD)]): RDD[SubGraph] = {
+                               (implicit order: Ordering[(VertexId, VD)]): RDD[SubGraph[VD]] = {
     val sc = graph.vertices.context
 
     // Order our vertices
@@ -98,7 +146,7 @@ object SubGraph {
     orderedVertices.cache
 
     // Repartition the vertices
-    val repartitionedVertices = repartitionEqually(orderedVertices, partitions)
+    val repartitionedVertices = orderedVertices.repartitionEqually(partitions)
 
     // Get the vertex boundaries of each partition, so we can repartition the edges the same way
     val partitionBoundaries = repartitionedVertices.mapPartitionsWithIndex { case (partition, elements) =>
@@ -117,97 +165,77 @@ object SubGraph {
     repartitionedVertices.zipPartitions(repartitionedEdges, true) { case (vi, ei) =>
       val vertices = vi.toArray
       val numNodes = vertices.size
-      val nodeIds = new Array[VertexId](numNodes)
-      val degrees = new Array[(Int, Int)](numNodes)
+      val nodes = new Array[(VertexId, VD)](numNodes)
       val newIdByOld = MutableMap[Long, Int]()
 
       // Renumber the nodes (so that the IDs are integers, since the BGLL algorithm doesn't work in scala with Long
       // node ids)
       for (i <- 0 until numNodes) {
-        nodeIds(i) = vertices(i)._1
+        nodes(i) = vertices(i)
         newIdByOld(vertices(i)._1) = i
       }
 
-      // Copy and move over edges, separating them out as internal and external
-      val internalLinks = Buffer[Int]()
-      val externalLinks = Buffer[Long]()
+      // Separate edges into internal and external edges
+      val internalLinks = new Array[Buffer[Int]](numNodes)
+      var numInternalLinks = 0
 
-      // Collect edges by link, in order, and insert into links and weights arrays.
+      val externalLinks = new Array[Buffer[VertexId]](numNodes)
+      var numExternalLinks = 0
 
-      //      class SubGraph (nodeIds: Array[VertexId],
-      //                      degrees: Array[(Int, Int)],
-      //                      links: (Array[Int], Array[VertexId]),
-      //                      weightsOpt: Option[(Array[Float], Array[Float])] = None) {
+      val weightsOpt = getEdgeWeight.map(fcn => (new Array[Buffer[Float]](numNodes), new Array[Buffer[Float]](numNodes)))
 
-      null
-    }
+      ei.foreach{edge =>
+        val srcIdOric = edge.srcId
+        val srcId = newIdByOld(srcIdOric)
+        val dstIdOrig = edge.dstId
+        if (newIdByOld.contains(dstIdOrig)) {
+          val dstId = newIdByOld(dstIdOrig)
+          if (null == internalLinks(srcId)) internalLinks(srcId) = Buffer[Int]()
+          internalLinks(srcId) += dstId
+          getEdgeWeight.map { fcn =>
+            val weights = weightsOpt.get._1
+            if (null == weights(srcId)) weights(srcId) = Buffer[Float]()
+            weights(srcId) += fcn(edge.attr)
+          }
 
-    null
-  }
-
-  def repartitionEqually[T: ClassTag] (rdd: RDD[T], partitions: Int): RDD[T] = {
-    // Figure out the points at which to best cut our vertex list into the given number of partitions
-    val partitionSizes = rdd.mapPartitionsWithIndex{case (partition, iter) =>
-      Iterator((partition, iter.size))
-    }.collect.toMap
-    val totalSize = partitionSizes.values.fold(0)(_ + _)
-    val cutIndices = (0 until partitions).map(n => (totalSize.toDouble*n.toDouble/partitions.toDouble).floor.toLong).toArray
-
-    // Figure out, for each current partition, the partitions and indices within it at which to cut
-    var soFar = 0L
-    val cutPoints = (0 until partitionSizes.size).map { currentPartition =>
-      val start: Long = (0 until currentPartition).map(p => partitionSizes(p).toLong).fold(0L)(_ + _)
-      val end: Long = start + partitionSizes(currentPartition)
-
-      val newPartitions = (0 until cutIndices.size).filter{n =>
-        val nS: Long = cutIndices(n)
-        val nE: Long = if (n < (cutIndices.size-1)) cutIndices(n+1) else Long.MaxValue
-        // We want segments with an endpoint inside our range, or surrounding our range
-        ((start <= nS && nS < end) ||
-          (start <= nE && nE < end) ||
-          (nS <= start && end <= nE))
-      }.map { newPartition =>
-        val targetPartitionStart = cutIndices(newPartition)
-        val targetPartitionEnd = if (newPartition == partitions-1) totalSize else cutIndices(newPartition+1)
-        (newPartition, (targetPartitionStart - start).toInt, (targetPartitionEnd - start).toInt)
+          numInternalLinks = numInternalLinks + 1
+        } else {
+          if (null == externalLinks(srcId)) externalLinks(srcId) = Buffer[VertexId]()
+          externalLinks(srcId) += dstIdOrig
+          getEdgeWeight.map { fcn =>
+            val weights = weightsOpt.get._2
+            if (null == weights(srcId)) weights(srcId) = Buffer[Float]()
+            weights(srcId) += fcn(edge.attr)
+          }
+        }
       }
-      (currentPartition, newPartitions)
-    }.toMap
-    val cutPointsB = rdd.context.broadcast(cutPoints)
 
-    // Label our points by target partition
-    val labelledRDD = rdd.mapPartitionsWithIndex { case (partition, pIter) =>
-      val cutPointsForPartition = cutPointsB.value(partition)
-      pIter.zipWithIndex.map { case (datum, index) =>
-        val targetPartition = cutPointsForPartition.filter { case (p, start, end) =>
-          start <= index && index < end
-        }.head._1
-        (targetPartition, datum)
+      // Get our cumulative degree arrays
+      val degrees: Array[(Int, Int)] = new Array[(Int, Int)](numNodes)
+      var totalInternalDegree = 0
+      var totalExternalDegree = 0
+      for (i <- 0 until numNodes) {
+        if (null != internalLinks(i)) totalInternalDegree = totalInternalDegree + internalLinks(i).size
+        if (null != externalLinks(i)) totalExternalDegree = totalExternalDegree + externalLinks(i).size
+        degrees(i) = (totalInternalDegree, totalExternalDegree)
       }
+
+      // Put our links into our needed array form
+      val allInternalLinks: Array[Int] = internalLinks.flatMap(linksForNode => linksForNode).toArray
+      val allExternalLinks: Array[VertexId] = externalLinks.flatMap(linksForNode => linksForNode).toArray
+
+      // Put our weights into our needed array form
+      val allWeights: Option[(Array[Float], Array[Float])] = weightsOpt.map { case (internalWeights, externalWeights) =>
+        (
+          internalWeights.flatMap(weightsForNode => weightsForNode).toArray,
+          externalWeights.flatMap(weightsForNode => weightsForNode).toArray
+          )
+      }
+
+      Iterator(new SubGraph(nodes, degrees, (allInternalLinks, allExternalLinks), allWeights))
     }
-
-    // Repartition using the stored value...
-    val repartitionedRDD = labelledRDD.partitionBy(new KeyPartitioner(partitions))
-
-    /// .. And, finally, remove the stored value
-    repartitionedRDD.map{case (partition, datum) => datum}
   }
-
 }
-
-/**
- * A partitioner that assumes an RDD[(Key, Value)], where the key is the partition into which each record should be
- * placed.
- *
- * @param size The number of partitions expected.  If any key is not in the range [0, size), behavior of this
- *             partitioner is underfined.
- */
-class KeyPartitioner(size: Int) extends Partitioner {
-  override def numPartitions: Int = size
-
-  override def getPartition(key: Any): Int = key.asInstanceOf[Int]
-}
-
 
 class SourcePartitioner (boundaries: Broadcast[Map[Int, (Long, Long)]]) extends PartitionStrategy {
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
