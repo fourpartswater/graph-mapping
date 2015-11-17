@@ -45,12 +45,13 @@ import software.uncharted.spark.ExtendedRDDOpertations._
 class SubGraph[VD] (nodes: Array[(VertexId, VD)],
                     degrees: Array[(Int, Int)],
                     links: (Array[Int], Array[VertexId]),
-                    weightsOpt: Option[(Array[Float], Array[Float])] = None) {
+                    weightsOpt: Option[(Array[Float], Array[Float])] = None) extends Serializable {
   assert(nodes.size == degrees.size)
-  assert(links._1.size == links._2.size)
+  assert(links._1.size == degrees(degrees.length-1)._1)
+  assert(links._2.size == degrees(degrees.length-1)._2)
   weightsOpt.foreach { weights =>
-    assert(weights._1.size == weights._2.size)
     assert(links._1.size == weights._1.size)
+    assert(links._2.size == weights._2.size)
   }
 
   // Number of nodes in our subgraph
@@ -159,53 +160,49 @@ object SubGraph {
 
     // Repartition the edges using these partition boundaries - collect all edges of node X into the partition of the
     // EdgeRDD corresponding to the partition of the VertexRDD containing node X
-    val repartitionedEdges = graph.partitionBy(new SourcePartitioner(sc.broadcast(partitionBoundaries))).edges
+    val repartitionedEdges = graph.partitionBy(
+      new SourcePartitioner(sc.broadcast(partitionBoundaries)),
+      repartitionedVertices.partitions.size
+    ).edges
 
     // Combine the two into an RDD of subgraphs, one per partition
     repartitionedVertices.zipPartitions(repartitionedEdges, true) { case (vi, ei) =>
-      val vertices = vi.toArray
-      val numNodes = vertices.size
-      val nodes = new Array[(VertexId, VD)](numNodes)
+      val nodes = vi.toArray
+      val numNodes = nodes.size
       val newIdByOld = MutableMap[Long, Int]()
 
       // Renumber the nodes (so that the IDs are integers, since the BGLL algorithm doesn't work in scala with Long
       // node ids)
       for (i <- 0 until numNodes) {
-        nodes(i) = vertices(i)
-        newIdByOld(vertices(i)._1) = i
+        newIdByOld(nodes(i)._1) = i
       }
 
       // Separate edges into internal and external edges
       val internalLinks = new Array[Buffer[Int]](numNodes)
-      var numInternalLinks = 0
-
       val externalLinks = new Array[Buffer[VertexId]](numNodes)
-      var numExternalLinks = 0
-
       val weightsOpt = getEdgeWeight.map(fcn => (new Array[Buffer[Float]](numNodes), new Array[Buffer[Float]](numNodes)))
+      for (i <- 0 until numNodes) {
+        internalLinks(i) = Buffer[Int]()
+        externalLinks(i) = Buffer[VertexId]()
+        weightsOpt.foreach{case (internalWeights, externalWeights) =>
+            internalWeights(i) = Buffer[Float]()
+            externalWeights(i) = Buffer[Float]()
+        }
+      }
 
       ei.foreach{edge =>
         val srcIdOric = edge.srcId
         val srcId = newIdByOld(srcIdOric)
         val dstIdOrig = edge.dstId
         if (newIdByOld.contains(dstIdOrig)) {
-          val dstId = newIdByOld(dstIdOrig)
-          if (null == internalLinks(srcId)) internalLinks(srcId) = Buffer[Int]()
-          internalLinks(srcId) += dstId
+          internalLinks(srcId) += newIdByOld(dstIdOrig)
           getEdgeWeight.map { fcn =>
-            val weights = weightsOpt.get._1
-            if (null == weights(srcId)) weights(srcId) = Buffer[Float]()
-            weights(srcId) += fcn(edge.attr)
+            (weightsOpt.get._1)(srcId) += fcn(edge.attr)
           }
-
-          numInternalLinks = numInternalLinks + 1
         } else {
-          if (null == externalLinks(srcId)) externalLinks(srcId) = Buffer[VertexId]()
           externalLinks(srcId) += dstIdOrig
           getEdgeWeight.map { fcn =>
-            val weights = weightsOpt.get._2
-            if (null == weights(srcId)) weights(srcId) = Buffer[Float]()
-            weights(srcId) += fcn(edge.attr)
+            (weightsOpt.get._2)(srcId) += fcn(edge.attr)
           }
         }
       }
@@ -215,8 +212,8 @@ object SubGraph {
       var totalInternalDegree = 0
       var totalExternalDegree = 0
       for (i <- 0 until numNodes) {
-        if (null != internalLinks(i)) totalInternalDegree = totalInternalDegree + internalLinks(i).size
-        if (null != externalLinks(i)) totalExternalDegree = totalExternalDegree + externalLinks(i).size
+        totalInternalDegree = totalInternalDegree + internalLinks(i).size
+        totalExternalDegree = totalExternalDegree + externalLinks(i).size
         degrees(i) = (totalInternalDegree, totalExternalDegree)
       }
 
