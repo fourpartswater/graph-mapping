@@ -18,15 +18,14 @@ import scala.reflect.ClassTag
 
 import org.scalatest.FunSuite
 
-import org.apache.spark.SparkContext
-import org.apache.spark.SharedSparkContext
+import org.apache.spark.{SparkContext, SharedSparkContext}
 import org.apache.spark.rdd.RDD
 
 
 
 object ExtendedRDDOperationsTestSuite {
   def mapToPartitions[K: ClassTag] (sc: SparkContext, data: Map[Int, Iterator[K]], optPartitions: Option[Int] = None): RDD[K] = {
-    val partitions = optPartitions.getOrElse(data.map(_._1).reduce(_ max _))
+    val partitions = optPartitions.getOrElse(data.map(_._1).reduce(_ max _)) + 1
     sc.parallelize(0 until partitions, partitions).mapPartitionsWithIndex { case (partition, i) =>
       data.get(partition).getOrElse(Iterator[K]())
     }
