@@ -61,9 +61,6 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
   // The total weight of our subgraph (Again, internal, external, and total)
   lazy val totalWeight = calculateTotalWeight
 
-  def internalNeighbors (node: Int): Iterator[(Int, Float)] =
-    new InternalNeighborIterator(node)
-
   def numInternalNeighbors (node: Int): Int =
     if (0 == node) {
       degrees(0)._1
@@ -71,10 +68,42 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
       degrees(node)._1 - degrees(node - 1)._1
     }
 
+
+
+  def internalNeighbors (node: Int): Iterator[(Int, Float)] =
+    new InternalNeighborIterator(node)
+
   def weightedInternalDegree (node: Int): Double =
-    weightsOpt.map { case (internal, external) =>
+    weightsOpt.map(weights =>
       internalNeighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
-    }.getOrElse(numInternalNeighbors(node).toDouble)
+    ).getOrElse(numInternalNeighbors(node).toDouble)
+
+  def numExternalNeighbors (node: Int): Int =
+    if (0 == node) {
+      degrees(0)._2
+    } else {
+      degrees(node)._2 - degrees(node - 1)._2
+    }
+
+
+
+  def externalNeighbors (node: Int): Iterator[(Long, Float)] =
+    new ExternalNeighborIterator(node)
+
+  def weightedExternalDegree (node: Int): Double =
+    weightsOpt.map(weights =>
+      externalNeighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
+    ).getOrElse(numExternalNeighbors(node).toDouble)
+
+  def weightedSelfLoopDegree (node: Int): Double =
+    internalNeighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
+
+
+
+  def weightedDegree (node: Int): Double =
+    weightedInternalDegree(node) + weightedExternalDegree(node)
+
+
 
   private def calculateTotalWeight = {
     val (totalInternal, totalExternal) = weightsOpt.map { case (internal, external) =>
@@ -94,6 +123,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 
   /** Get the links out of this SubGraph, for use in reconstructing the full graph */
   def toFullGraphNodes: Iterator[(VertexId, VD)] = nodes.iterator
+
   /** Get the edges out of this SubGraph, for use in reconstruction the full graph */
   def toFullGraphLinks: Iterator[Edge[Float]] = {
     val (internalLinks, externalLinks) = weightsOpt.map(weights =>
@@ -111,7 +141,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
         new Edge[Float](srcId, dstId, weight)
       } union(startLinks._2 until endLinks._2).map { i =>
         val dstId = links._2(i)
-        val weight = weightsOpt.map(_._1(i)).getOrElse(1.0f)
+        val weight = weightsOpt.map(_._2(i)).getOrElse(1.0f)
         new Edge[Float](srcId, dstId, weight)
       }
     }
@@ -134,7 +164,23 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
       (nextLink, nextWeight)
     }
   }
+  private class ExternalNeighborIterator (node: Int) extends Iterator[(Long, Float)] {
+    var index: Int = if (0 == node) 0 else degrees(node-1)._2
+    var end: Int = degrees(node)._2
+
+    override def hasNext: Boolean = index < end
+
+    override def next(): (Long, Float) = {
+      val nextLink: Long = links._2(index)
+      val nextWeight: Float = weightsOpt.map(_._2(index)).getOrElse(1.0f)
+      index = index + 1
+      (nextLink, nextWeight)
+    }
+  }
 }
+
+
+
 object SubGraph {
   def graphToSubGraphs[VD, ED] (graph: Graph[VD, ED],
                                 getEdgeWeight: Option[ED => Float],
