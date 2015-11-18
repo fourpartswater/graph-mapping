@@ -13,12 +13,12 @@
 package software.uncharted.graphing.clustering.utilities
 
 
-
+import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
 import org.apache.spark.SharedSparkContext
-import org.apache.spark.graphx.{VertexId, Edge, Graph}
+import org.apache.spark.graphx.{Edge, Graph}
 
 import software.uncharted.graphing.clustering.reference.{Graph => ReferenceGraph, Community}
 import software.uncharted.spark.ExtendedRDDOperationsTestSuite
