@@ -13,7 +13,6 @@
 package software.uncharted.graphing.clustering.utilities
 
 
-import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
