@@ -213,4 +213,27 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
     subGraphs(2).weightedSelfLoopDegree(2) should be (0.0 +- epsilon)
     subGraphs(2).weightedSelfLoopDegree(3) should be (0.0 +- epsilon)
   }
+
+  test("Test conversion to reference implementation") {
+    val inSubGraphs = constructSampleSubgraphs(3)
+    val subGraphs = inSubGraphs.mapPartitionsWithIndex { case (p, i) => Iterator((p, i.toList)) }.collect.toMap
+
+    val subGraph0 = subGraphs(0)(0)
+    val ref0 = subGraph0.toReferenceImplementation
+    assert(4 === ref0.nb_nodes)
+    assert(7 === ref0.nb_links)
+    assert(8.0 === ref0.total_weight)
+
+    val subGraph1 = subGraphs(1)(0)
+    val ref1 = subGraph1.toReferenceImplementation
+    assert(4 === ref1.nb_nodes)
+    assert(6 === ref1.nb_links)
+    assert(6.0 === ref1.total_weight)
+
+    val subGraph2 = subGraphs(2)(0)
+    val ref2 = subGraph2.toReferenceImplementation
+    assert(4 === ref2.nb_nodes)
+    assert(8 === ref2.nb_links)
+    assert(8.0 === ref2.total_weight)
+  }
 }
