@@ -16,7 +16,7 @@ import scala.util.Random
  * @param minModularity a new pass is computed if the last one has generated an increase greater than min_modularity
  *                      if 0, even a minor increase is enough to go for one more pass
  */
-class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity: Float) {
+class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity: Double) {
   val size = sg.numNodes
   val n2c = (0 until size).toArray
   val tot = n2c.map(n => sg.weightedDegree(n))
@@ -211,15 +211,11 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     val nodeInfos = new Array[(VertexId, VD)](newSize)
     val highestOriginalDegree = new Array[Double](newSize) // Keep track of the most important node in each cluster,
     // so we can renumber to that one.
-    val internalLinks = new Array[Buffer[Int]](newSize)
-    val externalLinks = new Array[Buffer[VertexId]](newSize)
-    val internalWeights = new Array[Buffer[Float]](newSize)
-    val externalWeights = new Array[Buffer[Float]](newSize)
+    val internalLinks = new Array[MutableMap[Int, Float]](newSize)
+    val externalLinks = new Array[MutableMap[VertexId, Float]](newSize)
     for (node <- 0 until newSize) {
-      internalLinks(node) = Buffer[Int]()
-      externalLinks(node) = Buffer[VertexId]()
-      internalWeights(node) = Buffer[Float]()
-      externalWeights(node) = Buffer[Float]()
+      internalLinks(node) = MutableMap[Int, Float]()
+      externalLinks(node) = MutableMap[VertexId, Float]()
     }
 
     for (node <- 0 until size) {
@@ -242,14 +238,12 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       }
 
       // Add links and weights from this node into the new community
-      sg.internalNeighbors(node).foreach{case (oldNeighborId, weight) =>
+      sg.internalNeighbors(node).foreach { case (oldNeighborId, weight) =>
         val newNeighborId = renumbering(n2c(oldNeighborId))
-        internalLinks(newCommunity) += newNeighborId
-        internalWeights(newCommunity) += weight
+        internalLinks(newCommunity)(newNeighborId) = internalLinks(newCommunity).get(newNeighborId).getOrElse(0.0f) + weight
       }
-      sg.externalNeighbors(node).foreach{case (oldNeighborId, weight) =>
-          externalLinks(newCommunity) += oldNeighborId
-          externalWeights(newCommunity) += weight
+      sg.externalNeighbors(node).foreach { case (oldNeighborId, weight) =>
+        externalLinks(newCommunity)(oldNeighborId) = externalLinks(newCommunity).get(oldNeighborId).getOrElse(0.0f) + weight
       }
     }
 
@@ -260,32 +254,33 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     val numExternalLinks = externalLinks.iterator.map(_.size).reduce(_ + _)
     val allExternalLinks = new Array[VertexId](numExternalLinks)
     val allExternalWeights = new Array[Float](numExternalLinks)
-    val ce = 0
+    var ce = 0
     val degrees = new Array[(Int, Int)](newSize)
     for (node <- 0 until newSize) {
       val nodeInternalLinks = internalLinks(node)
-      val nodeInternalWeights = internalWeights(node)
       val nodeInternalDegree = nodeInternalLinks.size
-      for (i <- 0 until nodeInternalDegree) {
-        allInternalLinks(ci) = nodeInternalLinks(i)
-        allInternalWeights(ci) = nodeInternalWeights(i)
+      nodeInternalLinks.foreach { case (link, weight) =>
+        allInternalLinks(ci) = link
+        allInternalWeights(ci) = weight
         ci = ci + 1
       }
       val nodeExternalLinks = externalLinks(node)
-      val nodeExternalWeights = externalWeights(node)
       val nodeExternalDegree = nodeExternalLinks.size
-      for (i <- 0 until nodeExternalDegree) {
-        allExternalLinks(ce) = nodeExternalLinks(i)
-        allExternalWeights(ce) = nodeExternalWeights(i)
+      nodeExternalLinks.foreach { case (link, weight) =>
+        allExternalLinks(ce) = link
+        allExternalWeights(ce) = weight
+        ce = ce + 1
       }
-      degrees(node) = (nodeInternalDegree, nodeExternalDegree)
+      degrees(node) =
+        if (0 == node) (nodeInternalDegree, nodeExternalDegree)
+        else (degrees(node - 1)._1 + nodeInternalDegree, degrees(node - 1)._2 + nodeExternalDegree)
     }
 
     new SubGraph(
       nodeInfos,
       degrees,
-      (internalLinks.flatten.toArray, externalLinks.flatten.toArray),
-      Some((internalWeights.flatten.toArray, externalWeights.flatten.toArray))
+      (allInternalLinks, allExternalLinks),
+      Some((allInternalWeights, allExternalWeights))
     )
   }
 }
