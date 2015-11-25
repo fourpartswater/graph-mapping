@@ -180,7 +180,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
    * @return
    */
   def getVertexMapping: Map[VertexId, VertexId] = {
-    Range(0, size - 1).iterator.map { node =>
+    Range(0, size).iterator.map { node =>
       val newCommunity = n2c(node)
       val oldVertexId = sg.nodeData(node)._1
       val newVertexId = sg.nodeData(newCommunity)._1
