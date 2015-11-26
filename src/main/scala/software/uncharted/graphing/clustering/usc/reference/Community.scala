@@ -1,6 +1,7 @@
 package software.uncharted.graphing.clustering.usc.reference
 
 
+import software.uncharted.graphing.clustering.ClusteringStatistics
 
 import scala.collection.mutable.Buffer
 import scala.collection.mutable.{Map => MutableMap}
@@ -31,6 +32,8 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
   private var neigh_last = 0
 
   val newCommunities = new Vector[Int](0)
+
+  var clusteringStatistics: Option[ClusteringStatistics] = None
 
   def remove (node: Int, community: Int, dnodecomm: Double): Unit = {
     assert(0 <= node && node < size)
@@ -150,10 +153,27 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
       }
     }
 
-    new Graph(degrees, links, g.remoteLinks)
+    val result = new Graph(degrees, links, g.remoteLinks)
+
+    // Add nodes and links to clustering statistics, if there are any
+    clusteringStatistics = clusteringStatistics.map(cs =>
+      ClusteringStatistics(
+        cs.level, cs.partition, cs.iterations,
+        cs.startModularity, cs.startNodes, cs.startLinks,
+        cs.endModularity, result.nb_nodes, result.nb_links,
+        cs.timeToCluster
+      )
+    )
+    result
   }
 
   def one_level (randomize: Boolean = true): Boolean = {
+    val startNodes = g.nb_nodes
+    val startLinks = g.nb_links
+    val startModularity = modularity
+    val startTime = System.currentTimeMillis()
+    var iterations = 0
+
     var improvement = false
     var nb_moves = 0
     var nb_pass_done = 0
@@ -206,9 +226,23 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
       }
 
       new_mod = modularity
+      iterations = iterations + 1
       if (nb_moves > 0) improvement = true
     } while (nb_moves > 0 && (new_mod - cur_mod) > min_modularity)
 //  } while (nb_moves > 0 && (new_mod - cur_mod).abs > min_modularity)
+
+    // Deal with recording the end nodes and end links when we calculate the new graph
+    val endNodes = 0
+    val endLinks = 0L
+    val endModularity = new_mod
+    val endTime = System.currentTimeMillis()
+
+    clusteringStatistics = Some(ClusteringStatistics(
+      -1, -1, iterations,
+      startModularity, startNodes, startLinks,
+      endModularity, endNodes, endLinks,
+      endTime - startTime
+    ))
 
     improvement
   }

@@ -3,6 +3,7 @@ package software.uncharted.graphing.clustering.usc.reference
 
 
 import org.apache.spark.rdd.RDD
+import software.uncharted.graphing.clustering.ClusteringStatistics
 
 import scala.collection.mutable.Buffer
 import scala.collection.mutable.{Map => MutableMap}
@@ -26,13 +27,16 @@ class LouvainSpark {
       val startModularity = c.modularity
       c.one_level(randomize)
       val endModularity = c.modularity
+      val endGraph = c.partition2graph_binary
 
-      Iterator(new GraphMessage(partition, graph, c))
+      val stats = c.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
+      Iterator((new GraphMessage(partition, endGraph, c), stats))
     }
 
-    val g = firstPass.coalesce(1).mapPartitions{i =>
+    val (graph, stats) = firstPass.coalesce(1).mapPartitions{i =>
       val precision = 0.000001
-      val g = reconstructGraph(i)
+      val stats = Buffer[ClusteringStatistics]()
+      val g = reconstructGraph(i, stats)
       var g2 = g
       var c  = new Community(g, -1, precision)
 
@@ -46,18 +50,26 @@ class LouvainSpark {
         improvement = c.one_level()
         new_modularity = c.modularity
         level = level + 1
-        g2 = c.partition2graph_binary()
+        g2 = c.partition2graph_binary
+        c.clusteringStatistics.map(cs =>
+          stats += cs.addLevelAndPartition(level, -1)
+        )
 
         c = new Community(g2, -1, precision)
         modularity = new_modularity
       } while (improvement || level < 4)
 
-      Iterator(g2)
-    }.collect
+      Iterator((g2, stats.toArray))
+    }.collect.head
+    (graph, stats)
   }
 
-  def reconstructGraph (i: Iterator[GraphMessage]): Graph = {
-    val messages = i.toList.sortBy(_.partition)
+  def reconstructGraph (i: Iterator[(GraphMessage, Option[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
+    val messages = Buffer[GraphMessage]()
+    i.foreach{case (message, msgStatsOption) =>
+        messages += message
+        msgStatsOption.map(msgStats => stats += msgStats)
+    }
 
     var gap = 0
     var degreeGap = 0
