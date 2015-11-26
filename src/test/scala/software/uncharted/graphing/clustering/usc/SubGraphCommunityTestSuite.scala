@@ -3,7 +3,7 @@ package software.uncharted.graphing.clustering.usc
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx._
 import org.scalatest.FunSuite
-import software.uncharted.graphing.clustering.reference
+import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
 import software.uncharted.graphing.clustering.reference.Community
 
 /**
@@ -30,7 +30,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
       /* 14 */ 8, 9, 10,
       /* 15 */ 8
     )
-    val refGraph = new reference.Graph(degrees, links)
+    val refGraph = new BGLLGraph(degrees, links)
     val refClusterer = new Community(refGraph, 1, 0.15)
     refClusterer.one_level(false)
     val refResult = refClusterer.partition2graph_binary

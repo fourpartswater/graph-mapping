@@ -14,8 +14,6 @@ package software.uncharted.graphing.clustering.usc
 
 
 import org.apache.log4j.{Level, Logger}
-import software.uncharted.graphing.clustering.reference
-import software.uncharted.graphing.clustering.reference.Community
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -23,7 +21,7 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
 import org.apache.spark.SharedSparkContext
-import org.apache.spark.graphx.{VertexId, Edge, Graph}
+import org.apache.spark.graphx.{Edge, Graph}
 
 import software.uncharted.graphing.clustering.utilities.GraphOperations
 

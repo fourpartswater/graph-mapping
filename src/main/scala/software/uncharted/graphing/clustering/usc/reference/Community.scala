@@ -30,7 +30,7 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
   private val neigh_weight = Array.fill(size)(-1.0)
   private var neigh_last = 0
 
-  val newCommunities = new Vector[Int]()
+  val newCommunities = new Vector[Int](0)
 
   def remove (node: Int, community: Int, dnodecomm: Double): Unit = {
     assert(0 <= node && node < size)

@@ -16,7 +16,7 @@ import scala.collection.mutable.{Map => MutableMap}
 class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLinks: Option[Seq[RemoteMap]]) {
   val nb_nodes: Int = degrees.size
   var nb_links: Long = links.size
-  var formerlyRemoteLinks: Option[Map[Int, _ Seq[(Int, Float)]]] = None
+  var formerlyRemoteLinks: Option[Map[Int, Seq[(Int, Float)]]] = None
   var total_weight: Double = links.iterator.map(_._2.toDouble).fold(0.0)(_ + _)
 
   def containRemote = formerlyRemoteLinks.isDefined
@@ -65,7 +65,7 @@ class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLink
   /** @return the weighted degree of the node */
   def weighted_degree (node: Int): Double = {
     assert(0 <= node && node < nb_nodes)
-    neighbors(node).map(_._2).fold(0.0)(_ + _)
+    neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
   }
 
   def weighted_degree_remote (node: Int): Double = {

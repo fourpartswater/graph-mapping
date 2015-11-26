@@ -48,7 +48,9 @@ class LouvainSpark {
     messages.foreach{gm =>
       if (gap > 0) {
         for (i <- 0 until gm.links.size) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
-        for (i <- 0 until gm.remoteMaps.size) gm.remoteMaps(i).source = gm.remoteMaps(i).source + gap
+        gm.remoteMaps.map(remoteMaps =>
+          for (i <- 0 until remoteMaps.size) remoteMaps(i).source = remoteMaps(i).source + gap
+        )
         for (i <- 0 until gm.nodeToCommunity.size) gm.nodeToCommunity(i) = gm.nodeToCommunity(i) + gap
         for (i <- 0 until gm.degrees.size) gm.degrees(i) = gm.degrees(i) + degreeGap
       }
@@ -68,9 +70,11 @@ class LouvainSpark {
     val remoteLinks = MutableMap[Int, Buffer[(Int, Float)]]()
     messages.foreach{message =>
       val m = MutableMap[(Int, Int), Float]()
-      message.remoteMaps.foreach{remoteMap =>
-        val key = (remoteMap.source, messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink))
-        m(key) = m.get(key).getOrElse(0.0f) + 1.0f
+      message.remoteMaps.foreach{remoteMaps =>
+        remoteMaps.foreach { remoteMap =>
+          val key = (remoteMap.source, messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink))
+          m(key) = m.get(key).getOrElse(0.0f) + 1.0f
+        }
       }
 
       // set graph.numLinks to graph.numLinks + m.size
@@ -86,22 +90,3 @@ class LouvainSpark {
   }
 }
 
-class GraphMessage (val partition: Int,
-                    val degrees: Array[Int],
-                    val links: Array[(Int, Float)],
-                    val totalWeight: Double,
-                    val nodeToCommunity: Array[Int],
-                    val remoteMaps: Array[RemoteMap]) extends Serializable {
-  val numNodes = degrees.size
-  val numLinks = links.size
-
-  def this(partition: Int, graph: Graph, community: Community) =
-    this(
-      partition,
-      graph.degrees.toArray,
-      graph.links.toArray,
-      graph.total_weight,
-      community.newCommunities,
-      graph.remoteLinks
-    )
-}

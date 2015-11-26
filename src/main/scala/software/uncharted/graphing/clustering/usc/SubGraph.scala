@@ -21,8 +21,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
 import software.uncharted.spark.ExtendedRDDOpertations._
-import software.uncharted.graphing.clustering.reference
-
+import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
 
 
 /**
@@ -66,8 +65,8 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
   def nodeData (node: Int): (VertexId, VD) = nodes(node)
 
   // A quick function to mutate to our reference implementation for testing
-  private[usc] def toReferenceImplementation: reference.Graph = {
-    new reference.Graph(degrees.map(_._1), links._1, weightsOpt.map(_._1))
+  private[usc] def toReferenceImplementation: BGLLGraph = {
+    new BGLLGraph(degrees.map(_._1), links._1, weightsOpt.map(_._1))
   }
 
   def numInternalNeighbors (node: Int): Int =
