@@ -30,13 +30,30 @@ class LouvainSpark {
       Iterator(new GraphMessage(partition, graph, c))
     }
 
-    firstPass.coalesce(1).mapPartitions{i =>
+    val g = firstPass.coalesce(1).mapPartitions{i =>
+      val precision = 0.000001
       val g = reconstructGraph(i)
+      var g2 = g
+      var c  = new Community(g, -1, precision)
 
-      // TODO: Continue clustering
-      
-      null
-    }
+      // First pass is done; do the rest of the clustering
+      var modularity = c.modularity
+      var new_modularity = modularity
+      var improvement = true
+      var level = 2
+
+      do {
+        improvement = c.one_level()
+        new_modularity = c.modularity
+        level = level + 1
+        g2 = c.partition2graph_binary()
+
+        c = new Community(g2, -1, precision)
+        modularity = new_modularity
+      } while (improvement || level < 4)
+
+      Iterator(g2)
+    }.collect
   }
 
   def reconstructGraph (i: Iterator[GraphMessage]): Graph = {
@@ -89,4 +106,3 @@ class LouvainSpark {
     graph
   }
 }
-
