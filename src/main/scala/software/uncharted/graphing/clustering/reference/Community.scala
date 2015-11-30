@@ -57,6 +57,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     val degc = w_degree
     val m2 = g.total_weight
     val dnc = dnodecomm
+
     (dnc - totc * degc / m2)
   }
 
@@ -107,14 +108,14 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     // Randomize the order of vertex inspection
     val random_order = (0 until size).toArray
     val randomizer = new Random()
-	if (randomize) {
-	  for (i <- 0 until (size - 1)) {
-		val rand_pos = randomizer.nextInt(size - i) + i
-		val tmp = random_order(i)
-		random_order(i) = random_order(rand_pos)
-		random_order(rand_pos) = tmp
-	  }
-	}
+    if (randomize) {
+      for (i <- 0 until (size - 1)) {
+        val rand_pos = randomizer.nextInt(size - i) + i
+        val tmp = random_order(i)
+        random_order(i) = random_order(rand_pos)
+        random_order(rand_pos) = tmp
+      }
+    }
 
     // repeat while
     //   there is an improvement of modularity
