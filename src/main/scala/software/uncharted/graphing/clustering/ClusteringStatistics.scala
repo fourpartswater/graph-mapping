@@ -20,4 +20,12 @@ case class ClusteringStatistics (level: Int,
       endModularity, endNodes, endLinks,
       timeToCluster
     )
+
+  override def toString: String = {
+     """{"level": %d, "partition": %d, "iterations": %d,
+       | "start": {"modularity": %.6f, "nodes": %d, "links": %d},
+       | "end": {"modularity": %.6f, "nodes": %d, "links": %d},
+       | "time": %.3f}""".stripMargin.format(
+      level, partition, iterations, startModularity, startNodes, startLinks, endModularity, endNodes, endLinks, (timeToCluster/1000.0))
+  }
 }
