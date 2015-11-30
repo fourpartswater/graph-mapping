@@ -1,11 +1,10 @@
 package software.uncharted.graphing.clustering.usc.reference
 
 
+import com.oculusinfo.tilegen.util.ArgumentParser
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx.{Graph => SparkGraph}
-import org.apache.spark.graphx.PartitionStrategy
-import org.apache.spark.graphx.PartitionID
-import org.apache.spark.graphx.VertexId
+import org.apache.spark.graphx.{Graph => SparkGraph, Edge, PartitionStrategy, PartitionID, VertexId}
 import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.Buffer
@@ -21,6 +20,77 @@ import software.uncharted.spark.ExtendedRDDOpertations._
  * https://github.com/usc-cloud/hadoop-louvain-community/blob/master/src/main/java/edu/usc/pgroup/louvain/hadoop/ReduceCommunity.java
  */
 object LouvainSpark {
+  def usage: Unit = {
+    println("Usage: LouvainSpark <node file> <node prefix> <edge file> <edge prefix> <partitions>")
+  }
+
+  def parseLine[TA] (separator: String, columnA: Int, conversionA: String => TA)(line: String): TA = {
+    val fields = line.split(separator)
+    conversionA(fields(columnA))
+  }
+
+  def parseLine[TA, TB] (separator: String,
+                         columnA: Int, conversionA: String => TA,
+                         columnB: Int, conversionB: String => TB)(line: String): (TA, TB) = {
+    val fields = line.split(separator)
+    (conversionA(fields(columnA)), conversionB(fields(columnB)))
+  }
+
+  def parseLine[TA, TB, TC] (separator: String,
+                             columnA: Int, conversionA: String => TA,
+                             columnB: Int, conversionB: String => TB,
+                             columnC: Int, conversionC: String => TC)(line: String): (TA, TB, TC) = {
+    val fields = line.split(separator)
+    (conversionA(fields(columnA)), conversionB(fields(columnB)), conversionC(fields(columnC)))
+  }
+
+  def getData[T] (sc: SparkContext, source: String, prefixOpt: Option[String], parser: String => T): RDD[T] = {
+    val rawSource = sc.textFile(source)
+    val filteredSource = prefixOpt.map(prefix => rawSource.filter(_.startsWith(prefix))).getOrElse(rawSource)
+    filteredSource.map{line => parser(line)}
+  }
+
+  def main (args: Array[String]): Unit = {
+    val argParser = new ArgumentParser(args)
+
+    val nodeFile = argParser.getString("nodeFile", "The data file from which to get nodes")
+    val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", Some("node"))
+    val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
+    val nodeIdCol = argParser.getInt("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
+
+    val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
+    val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", Some("edge"))
+    val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
+    val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
+    val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
+    val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge")
+
+    val partitions = argParser.getInt("partitions", "The number of partitions into which to break the graph for first-round processing")
+
+    val sc = new SparkContext(new SparkConf)
+
+    val nodes: RDD[(Long, Long)] = getData(
+      sc, nodeFile, nodePrefix,
+      parseLine(nodeSeparator, nodeIdCol, _.toLong)
+    ).map(n => (n, n))
+
+    val edges: RDD[Edge[Float]] = weightColOpt.map(weightCol =>
+      getData(
+        sc, edgeFile, edgePrefix,
+        parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong, weightCol, _.toFloat)
+      ).map{case (src, dst, weight) => new Edge(src, dst, weight)}
+    ).getOrElse(
+        getData(
+          sc, edgeFile, edgePrefix,
+          parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong)
+        ).map { case (src, dst) => new Edge(src, dst, 1.0f)}
+      )
+    val sparkGraph = SparkGraph(nodes, edges)
+    val uscGraph = sparkGraphToUSCGraphs(sparkGraph, Some((weight: Float) => weight), partitions)
+    val (resultGraph, stats) = doClustering(-1, 0.15, false)(uscGraph)
+    stats.foreach(println)
+  }
+
   /**
    * Run the complete USC version of Louvain clustering
    * @param input An RDD of graph objects, one per partition
