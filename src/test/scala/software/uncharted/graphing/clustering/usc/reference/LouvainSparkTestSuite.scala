@@ -69,4 +69,42 @@ class LouvainSparkTestSuite extends FunSuite with SharedSparkContext with Before
     val (result, stats) = LouvainSpark.doClustering(1, 0.15, false)(uscVersion)
     stats.foreach(println)
   }
+
+  test("Test that consolidating communities into a single node does not change the modularity of the whole graph") {
+    val graph = new Graph(
+      Array(4, 7, 12, 14, 18, 22, 25, 29, 34, 37, 43, 48, 50, 52, 55, 56),
+      Array(
+        /*  0 */ (2, 1.0f), (3, 1.0f), (4, 1.0f), (5, 1.0f),
+        /*  1 */ (2, 1.0f), (4, 1.0f), (7, 1.0f),
+        /*  2 */ (0, 1.0f), (1, 1.0f), (4, 1.0f), (5, 1.0f), (6, 1.0f),
+        /*  3 */ (0, 1.0f), (7, 1.0f),
+        /*  4 */ (0, 1.0f), (1, 1.0f), (2, 1.0f), (10, 1.0f),
+        /*  5 */ (0, 1.0f), (2, 1.0f), (7, 1.0f), (11, 1.0f),
+        /*  6 */ (2, 1.0f), (7, 1.0f), (11, 1.0f),
+        /*  7 */ (1, 1.0f), (3, 1.0f), (5, 1.0f), (6, 1.0f),
+        /*  8 */ (9, 1.0f), (10, 1.0f), (11, 1.0f), (14, 1.0f), (15, 1.0f),
+        /*  9 */ (8, 1.0f), (12, 1.0f), (14, 1.0f),
+        /* 10 */ (4, 1.0f), (8, 1.0f), (11, 1.0f), (12, 1.0f), (13, 1.0f), (14, 1.0f),
+        /* 11 */ (5, 1.0f), (6, 1.0f), (8, 1.0f), (10, 1.0f), (13, 1.0f),
+        /* 12 */ (9, 1.0f), (10, 1.0f),
+        /* 13 */ (10, 1.0f), (11, 1.0f),
+        /* 14 */ (8, 1.0f), (9, 1.0f), (10, 1.0f),
+        /* 15 */ (8, 1.0f)
+      ),
+      None
+    )
+
+    var c1 = new Community(graph, -1, 0.15)
+    val improvement = c1.one_level(false)
+    val mod1 = c1.modularity
+
+    println(c1.newCommunities.toArray.toList.zipWithIndex)
+
+    val g2 = c1.partition2graph_binary
+    val c2 = new Community(g2, -1, 0.15)
+    val mod2 = c2.modularity
+
+
+    assert(mod1 === mod2)
+  }
 }

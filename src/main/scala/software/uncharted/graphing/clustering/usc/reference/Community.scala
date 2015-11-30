@@ -24,7 +24,7 @@ import scala.util.Random
  */
 class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
   private var size = g.nb_nodes
-  private val nodeInfos = Array.tabulate(size)(i => new NodeInfo(i, g.weighted_degree(i), g.nb_selfloops(i)))
+  private val nodeInfos = Array.tabulate(size)(i => new NodeInfo(i, g.nb_selfloops(i), g.weighted_degree(i)))
 
   // Used for calculation of new communities
   private val neigh_pos = Array.fill(size)(0)
@@ -48,6 +48,7 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
 
     nodeInfos(community).totalWeight = nodeInfos(community).totalWeight + g.weighted_degree(node) + g.weighted_degree_remote(node)
     nodeInfos(community).internalWeight = nodeInfos(community).internalWeight + (2 * dnodecomm + g.nb_selfloops(node))
+    nodeInfos(node).community = community
   }
 
   def modularity_gain (node: Int, community: Int, dnodecomm: Double, w_degree: Double): Double = {
@@ -65,7 +66,7 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
     val neigh_comm = nodeInfos(neigh).community
     if (node != neigh) {
       if (-1 == neigh_weight(neigh_comm)) {
-        neigh_weight(neigh_comm) + 0.0
+        neigh_weight(neigh_comm) = 0.0
         neigh_pos(neigh_last) = neigh_comm
         neigh_last = neigh_last + 1
       }
@@ -144,12 +145,12 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
           val neigh_comm = renumber(nodeInfos(neigh).community)
           m(neigh_comm) = m.get(neigh_comm).getOrElse(0.0) + neigh_weight
         })
+      }
 
-        degrees += (if (0 == comm) m.size else m.size + degrees.last)
+      degrees += (if (0 == comm) m.size else m.size + degrees.last)
 
-        m.foreach { case (node, weight) =>
-          links += ((node, weight.toFloat))
-        }
+      m.foreach { case (node, weight) =>
+        links += ((node, weight.toFloat))
       }
     }
 
