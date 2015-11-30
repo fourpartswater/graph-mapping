@@ -125,7 +125,7 @@ class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends 
    * @return A new graph with duplicate reversed edges combined
    */
   def implicitlyBidirectional (selfEdgeWeight: ED => ED): Graph[VD, ED] = {
-    val combinedEdges = graph.partitionBy(PartitionStrategy.EdgePartition2D).edges.mapPartitionsWithIndex{case (partition, edges) =>
+    val combinedEdges = graph.partitionBy(LowerEndpointPartition).edges.mapPartitionsWithIndex{case (partition, edges) =>
       val seen = MutableMap[(VertexId, VertexId, ED), Int]()
       edges.filter{edge =>
         // Don't add self-links - they should never be duplicated - duplicates, so checking them is redundant
@@ -225,4 +225,15 @@ object DegreeAndIntraCommunityDegreeCalculation extends EdgeCalculation[Double] 
   }
 
   def mergeEdgeInfo (a: Data, b: Data): Data = (a._1 + b._1, a._2 + b._2)
+}
+
+/**
+ * Assigns edges so that alternated directions of edges between the same two nodes end up in the same partition
+ */
+case object LowerEndpointPartition extends PartitionStrategy {
+  override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {
+    val lesser = src min dst
+    val mixingPrime: VertexId = 1125899906842597L
+    (math.abs(lesser * mixingPrime) % numParts).toInt
+  }
 }

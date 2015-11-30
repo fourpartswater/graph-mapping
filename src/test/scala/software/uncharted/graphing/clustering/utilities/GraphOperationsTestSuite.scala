@@ -13,7 +13,8 @@
 package software.uncharted.graphing.clustering.utilities
 
 
-import org.scalatest.FunSuite
+import org.apache.log4j.{Level, Logger}
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.Matchers._
 
 import org.apache.spark.SharedSparkContext
@@ -26,7 +27,7 @@ import software.uncharted.spark.ExtendedRDDOperationsTestSuite
 /**
  * Created by nkronenfeld on 11/11/15.
  */
-class GraphOperationsTestSuite extends FunSuite with SharedSparkContext {
+class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
   import GraphOperations._
   val epsilon = 1E-6
 
@@ -49,6 +50,10 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext {
     ))
     Graph(nodes, edges)
   }
+
+  before(
+    Logger.getRootLogger.setLevel(Level.WARN)
+  )
 
   test("Test individual modularity calculation with cannonical graph") {
     val canonicalGraph = getCanonicalGraph

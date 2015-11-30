@@ -13,6 +13,8 @@ import scala.collection.mutable.{Map => MutableMap}
 import software.uncharted.graphing.clustering.ClusteringStatistics
 import software.uncharted.spark.ExtendedRDDOpertations._
 
+import scala.reflect.ClassTag
+
 
 /**
  * Basically, this is a combination of the LouvainMR and the ReduceCommunity classes in our reference implementation
@@ -44,7 +46,7 @@ object LouvainSpark {
     (conversionA(fields(columnA)), conversionB(fields(columnB)), conversionC(fields(columnC)))
   }
 
-  def getData[T] (sc: SparkContext, source: String, prefixOpt: Option[String], parser: String => T): RDD[T] = {
+  def getData[T: ClassTag] (sc: SparkContext, source: String, prefixOpt: Option[String], parser: String => T): RDD[T] = {
     val rawSource = sc.textFile(source)
     val filteredSource = prefixOpt.map(prefix => rawSource.filter(_.startsWith(prefix))).getOrElse(rawSource)
     filteredSource.map{line => parser(line)}
