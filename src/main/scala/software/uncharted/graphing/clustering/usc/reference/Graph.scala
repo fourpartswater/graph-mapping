@@ -13,7 +13,7 @@ import scala.collection.mutable.{Map => MutableMap}
  *    * We assume all graphs are weighted.  Just use weights of 1.0f if you don't have any inherently.
  *    * because of that, we can store links and weights in the same structure.
  */
-class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLinks: Option[Seq[RemoteMap]]) {
+class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLinks: Option[Seq[RemoteMap]]) extends Serializable {
   val nb_nodes: Int = degrees.size
   var nb_links: Long = links.size
   var formerlyRemoteLinks: Option[Map[Int, Seq[(Int, Float)]]] = None
@@ -22,8 +22,13 @@ class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLink
   def containRemote = formerlyRemoteLinks.isDefined
 
   /** @return an iterator over the ids of the neighbors of this node, and the weight of the link to said neighbor  */
-  def neighbors (node: Int): Iterator[(Int, Float)] =
+  def neighbors (node: Int): Iterator[(Int, Float)] = {
+    val allLinks = links.toList
+    val first = firstNeighbor(node)
+    val num = nb_neighbors(node)
+    val neighbors = links.iterator.drop(first).take(num).toList
     links.iterator.drop(firstNeighbor(node)).take(nb_neighbors(node))
+  }
 
 
 
