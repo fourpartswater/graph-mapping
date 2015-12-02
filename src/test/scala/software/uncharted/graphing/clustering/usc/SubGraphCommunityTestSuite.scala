@@ -51,7 +51,5 @@ class SubGraphCommunityTestSuite extends FunSuite {
       val subNeighbors = subResult.internalNeighbors(n).toList
       assert(refResult.neighbors(n).toList === subResult.internalNeighbors(n).toList)
     }
-
-    subClusterer.getVertexMapping.foreach(println)
   }
 }

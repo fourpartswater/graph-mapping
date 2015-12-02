@@ -175,14 +175,14 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test implicit bidirectionality with complex partition breakup") {
-    // Make sure that if the two versions of an edge start in different partions, they still get combined
-    val nodes = sc.parallelize(0 until 4).map(n => (n.toLong, n))
-    val links = ExtendedRDDOperationsTestSuite.mapToPartitions(sc, Map(
-      0 -> Iterator(new Edge(0, 1, 0.4), new Edge(0, 2, 0.5), new Edge(0, 3, 0.6)),
-      1 -> Iterator(new Edge(1, 0, 0.4), new Edge(2, 0, 0.5), new Edge(3, 0, 0.6))
-    ))
-    val base = Graph(nodes, links)
-    val implicitVersion = base.implicitlyBidirectional(d => d*0.5)
+    val base = constructGraph(sc,
+      Map(0 -> Seq((0L, 0L), (1L, 1L), (2L, 2L), (3L, 3L))),
+      Map(
+        0 -> Seq(new Edge(0, 1, 0.4), new Edge(0, 2, 0.5), new Edge(0, 3, 0.6)),
+        1 -> Seq(new Edge(1, 0, 0.4), new Edge(2, 0, 0.5), new Edge(3, 0, 0.6))
+      )
+    )
+    val implicitVersion = base.implicitlyBidirectional(d => d * 0.5)
 
     val edges = getEdges(implicitVersion)
 
@@ -193,9 +193,7 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test implicit and explicit bidirectionality with multiple self-links") {
-    val nodes = sc.parallelize(0 until 4).map(n => (n.toLong, n))
-    val links = sc.parallelize(List(new Edge(0, 0, 1.0), new Edge(0, 0, 1.0), new Edge(0, 0, 2.0)))
-    val base = Graph(nodes, links)
+    val base = constructGraph(sc, 4, Map(0 -> Seq(new Edge(0, 0, 1.0), new Edge(0, 0, 1.0), new Edge(0, 0, 2.0))))
 
     val explicitVersion = base.explicitlyBidirectional(d => d*2.0)
     val implicitVersion = explicitVersion.implicitlyBidirectional(d => d*0.5)
@@ -210,14 +208,12 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test implicit bidirectionality with multiple links in the same direction") {
-    val nodes = sc.parallelize(0 until 4).map(n => (n.toLong, n))
-    val links = sc.parallelize(List(
+    val base = constructGraph(sc, 4, Map(0 -> Seq(
       new Edge(0, 1, 1.0), new Edge(0, 1, 1.0), new Edge(1, 0, 1.0), new Edge(1, 0, 1.0),
       new Edge(2, 3, 1.0), new Edge(3, 2, 1.0), new Edge(3, 2, 1.0), new Edge(3, 2, 1.0),
       new Edge(4, 5, 1.0), new Edge(4, 5, 1.0), new Edge(4, 5, 1.0), new Edge(5, 4, 1.0), new Edge(5, 4, 1.0),
       new Edge(6, 7, 1.0), new Edge(7, 6, 1.0), new Edge(7, 6, 1.0)
-    ))
-    val base = Graph(nodes, links)
+    )))
 
     val implicitVersion = base.implicitlyBidirectional(d => d*0.5)
 
@@ -226,19 +222,5 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
     assert(List(1.0, 1.0, 1.0) === implicitEdges((2, 3)))
     assert(List(1.0, 1.0, 1.0) === implicitEdges((4, 5)))
     assert(List(1.0, 1.0) === implicitEdges((6, 7)))
-  }
-
-  ignore("Test renumbering of graphs") {
-    val oldNodes = sc.parallelize(List((5L, 5L), (9L, 9L), (2L, 2L), (-5L, -5L), (12L, 12L), (0L, 0L)), 2)
-    val oldEdges = sc.parallelize(List(new Edge(5L, 9L, 1.0), new Edge(5L, 2L, 2.0), new Edge(12L, -5L, 4.1), new Edge(2L, 12L, 1.4)))
-    val oldNumbered = Graph(oldNodes, oldEdges)
-    val newNumbered = oldNumbered.renumber()
-    val nodes = newNumbered.vertices.collect()
-    val edges = newNumbered.edges.collect.map(edge => ((edge.srcId, edge.dstId), edge.attr)).toMap
-    assert(List((0L, 5L), (1L, 9L), (2L, 2L), (3L, -5L), (4L, 12L), (5L, 0L)) === nodes)
-    assert(edges((0L, 1L)) === 1.0)
-    assert(edges((0L, 2L)) === 2.0)
-    assert(edges((4L, 3L)) === 4.1)
-    assert(edges((2L, 4L)) === 1.4)
   }
 }

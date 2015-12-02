@@ -12,15 +12,23 @@
  */
 package software.uncharted.graphing.clustering.utilities
 
+
+
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx._
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
+
+import software.uncharted.graphing.utilities.TestUtilities
+
 
 
 /**
  * Created by nkronenfeld on 10/29/2015.
  */
-class ClusterConsolidatorTestSuite extends FunSuite with SharedSparkContext {
+class ClusterConsolidatorTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
+  import TestUtilities._
+  before(turnOffLogSpew)
+
   test("Test node consolidation without data consolidation or edge consolidation") {
     val nodes = sc.parallelize(1 to 4).map(n => (n.toLong, (n-(n-1)%2).toLong))
     val edges = sc.parallelize(List(

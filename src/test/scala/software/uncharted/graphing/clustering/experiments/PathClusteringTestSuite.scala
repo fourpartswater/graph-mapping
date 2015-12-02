@@ -12,16 +12,25 @@
  */
 package software.uncharted.graphing.clustering.experiments
 
+
+
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
+
+import software.uncharted.graphing.utilities.TestUtilities
+
+
 
 
 /**
  * Created by nkronenfeld on 10/28/2015.
  */
-class PathClusteringTestSuite extends FunSuite with SharedSparkContext {
+class PathClusteringTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
+  import TestUtilities._
+  before(turnOffLogSpew)
+
   test("Test trivial path clustering") {
     val N = 6
     // Construct our graph

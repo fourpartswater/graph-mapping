@@ -21,37 +21,29 @@ import org.scalatest.FunSuite
 import org.apache.spark.{SparkContext, SharedSparkContext}
 import org.apache.spark.rdd.RDD
 
+import software.uncharted.graphing.utilities.TestUtilities
 
 
-object ExtendedRDDOperationsTestSuite {
-  def mapToPartitions[K: ClassTag] (sc: SparkContext, data: Map[Int, Iterator[K]], optPartitions: Option[Int] = None): RDD[K] = {
-    val partitions = optPartitions.getOrElse(data.map(_._1).reduce(_ max _)) + 1
-    sc.parallelize(0 until partitions, partitions).mapPartitionsWithIndex { case (partition, i) =>
-      data.get(partition).getOrElse(Iterator[K]())
-    }
-  }
-  def collectByPartition[K: ClassTag] (data: RDD[K]): Map[Int, List[K]] = {
-    data.mapPartitionsWithIndex{case (p, i) =>
-      Iterator((p, i.toList))
-    }.collect.toMap
-  }
-}
 class ExtendedRDDOperationsTestSuite extends FunSuite with SharedSparkContext {
+  import TestUtilities._
   import ExtendedRDDOpertations._
-  import ExtendedRDDOperationsTestSuite._
 
   test("Simple test of repartitionEqually") {
-    val data = mapToPartitions(sc,
+    val data = parallelizePartitions(sc,
       Map(
-        1 -> Iterator("a", "b", "c", "d", "e"),
-        4 -> Iterator("f", "g"),
-        5 -> Iterator("h", "i", "j", "k", "l")
-      ),
-      Some(8)
+        0 -> Seq[String](),
+        1 -> Seq("a", "b", "c", "d", "e"),
+        2 -> Seq[String](),
+        3 -> Seq[String](),
+        4 -> Seq("f", "g"),
+        5 -> Seq("h", "i", "j", "k", "l"),
+        6 -> Seq[String](),
+        7 -> Seq[String]()
+      )
     )
     val repartitioned = data.repartitionEqually(4)
     assert(4 === repartitioned.partitions.size)
-    val partitions = collectByPartition(repartitioned)
+    val partitions = collectPartitions(repartitioned)
 
     assert(List("a", "b", "c") === partitions(0))
     assert(List("d", "e", "f") === partitions(1))
@@ -63,7 +55,7 @@ class ExtendedRDDOperationsTestSuite extends FunSuite with SharedSparkContext {
   test("Test repartitionEqually to make sure that all partitions' sizes are within one of each other") {
     val data = sc.parallelize(0 to 59)
     val repartitioned = data.repartitionEqually(8)
-    val partitions = collectByPartition(repartitioned)
+    val partitions = collectPartitions(repartitioned)
     partitions.foreach { case (partition, contents) =>
       assert(7 === contents.size || 8 === contents.size)
       println("Partition " + partition + ": " + contents)

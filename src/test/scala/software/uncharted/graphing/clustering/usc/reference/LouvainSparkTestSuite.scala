@@ -99,12 +99,9 @@ class LouvainSparkTestSuite extends FunSuite with SharedSparkContext with Before
     val improvement = c1.one_level(false)
     val mod1 = c1.modularity
 
-    println(c1.newCommunities.toArray.toList.zipWithIndex)
-
     val g2 = c1.partition2graph_binary
     val c2 = new Community(g2, -1, 0.15)
     val mod2 = c2.modularity
-
 
     assert(mod1 === mod2)
   }
