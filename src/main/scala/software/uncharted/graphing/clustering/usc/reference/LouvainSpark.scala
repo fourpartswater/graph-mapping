@@ -116,14 +116,20 @@ object LouvainSpark {
    */
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)(input: RDD[Graph]) = {
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
+      println("Beginning first pass on partition "+partition+" at "+new Date())
       val graph = index.next()
+      println("Got graph at "+new Date())
       val c = new Community(graph, numPasses, minModularityIncrease)
+      println("Got community at "+new Date())
       val startModularity = c.modularity
       c.one_level(randomize)
       val endModularity = c.modularity
+      println("Did one level (modularity went from "+startModularity+" to "+endModularity+") at "+new Date())
       val endGraph = c.partition2graph_binary
+      println("Consolidate first level at "+new Date())
 
       val stats = c.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
+      println("Got stats ("+new Date()+"): \n"+stats)
       Iterator((new GraphMessage(partition, endGraph, c), stats))
     }
 
