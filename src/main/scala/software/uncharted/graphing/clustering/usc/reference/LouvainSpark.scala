@@ -106,6 +106,14 @@ object LouvainSpark {
       )
     val sparkGraph = SparkGraph(nodes, edges).explicitlyBidirectional(f => f).renumber()
     val uscGraph = sparkGraphToUSCGraphs(sparkGraph, Some((weight: Float) => weight), partitions)
+    uscGraph.mapPartitionsWithIndex{case (partition, graphs) =>
+      graphs.map(graph => (partition, graph))
+    }.foreach { case (partition, graph) =>
+      println("Partition " + partition + " constructed with: ")
+      println("\tnodes: " + graph.nb_nodes)
+      println("\tlinks: " + graph.nb_links)
+      println("\tRemote links: " + graph.remoteLinks.map(_.size).getOrElse(0))
+    }
     val (resultGraph, stats) = doClustering(-1, 0.15, false)(uscGraph)
     stats.foreach(println)
   }
