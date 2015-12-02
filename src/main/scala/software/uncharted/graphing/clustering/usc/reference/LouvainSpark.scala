@@ -133,8 +133,13 @@ object LouvainSpark {
       println("Beginning consolidation at "+new Date())
       val g = reconstructGraph(i, stats)
       println("Consolidation done at "+new Date()+", beginning consolidated clusering runs")
+
       var g2 = g
       var c  = new Community(g, -1, precision)
+      println("Initial statistics: ")
+      println("\tNodes: "+g.nb_nodes)
+      println("\tLinks: "+g.nb_links)
+      println("\tModularity: "+c.modularity)
 
       // First pass is done; do the rest of the clustering
       var modularity = c.modularity
@@ -149,9 +154,11 @@ object LouvainSpark {
         level = level + 1
         println("Consolidating clustered nodes on level "+level+" at "+new Date())
         g2 = c.partition2graph_binary
-        c.clusteringStatistics.map(cs =>
-          stats += cs.addLevelAndPartition(level, -1)
-        )
+        c.clusteringStatistics.map { cs =>
+          val levelStats = cs.addLevelAndPartition(level, -1)
+          println("\tLevel stats: "+levelStats)
+          stats += levelStats
+        }
 
         println("Constructing Community object for consolidated nodes on level "+level+" at "+new Date())
         c = new Community(g2, -1, precision)
