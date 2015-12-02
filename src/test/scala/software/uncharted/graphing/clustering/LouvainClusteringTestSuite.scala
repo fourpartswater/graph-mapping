@@ -14,13 +14,16 @@ package software.uncharted.graphing.clustering
 
 
 import org.apache.log4j.{Level, Logger}
+
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import org.apache.spark.{SparkContext, SharedSparkContext}
 import org.apache.spark.graphx.{VertexId, Edge, Graph}
+
 import software.uncharted.graphing.clustering.experiments.{PathClustering, LouvainClustering4}
 import software.uncharted.graphing.clustering.sotera.{VertexState, LouvainHarness2}
 import software.uncharted.graphing.clustering.utilities.ClusterConsolidator
+import software.uncharted.graphing.utilities.TestUtilities._
 
 
 /**
@@ -30,32 +33,11 @@ import software.uncharted.graphing.clustering.utilities.ClusterConsolidator
  *
  * Created by nkronenfeld on 10/30/2015.
  */
-class LouvainClusteringTestSuite extends FunSuite with BeforeAndAfter with SharedSparkContext {
-  var testGraph: Graph[Long, Double] = null
-  before {
-    // Take test graph from https://sites.google.com/site/findcommunities/, in which the original Louvain algorithm is
-    // published.
-    val nodes = sc.parallelize(0L to 15L).map(n => (n, n))
-    val edges = sc.parallelize(List[Edge[Double]](
-      new Edge(0L, 2L, 1.0), new Edge(0L, 3L, 1.0), new Edge(0L, 4L, 1.0), new Edge(0L, 5L, 1.0),
-      new Edge(1L, 2L, 1.0), new Edge(1L, 4L, 1.0), new Edge(1L, 7L, 1.0),
-      new Edge(2L, 4L, 1.0), new Edge(2L, 5L, 1.0), new Edge(2L, 6L, 1.0),
-      new Edge(3L, 7L, 1.0),
-      new Edge(4L, 10L, 1.0),
-      new Edge(5L, 7L, 1.0), new Edge(5L, 11L, 1.0),
-      new Edge(6L, 7L, 1.0), new Edge(6L, 11L, 1.0),
-      new Edge(8L, 9L, 1.0), new Edge(8L, 10L, 1.0), new Edge(8L, 11L, 1.0), new Edge(8L, 14L, 1.0), new Edge(8L, 15L, 1.0),
-      new Edge(9L, 12L, 1.0), new Edge(9L, 14L, 1.0),
-      new Edge(10L, 11L, 1.0), new Edge(10L, 12L, 1.0), new Edge(10L, 13L, 1.0), new Edge(10L, 14L, 1.0),
-      new Edge(11L, 13L, 1.0)
-    ))
-    testGraph = Graph(nodes, edges)
-  }
-  after {
-    testGraph = null
-  }
+class LouvainClusteringTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
+  before(turnOffLogSpew)
 
   ignore("Test new Louvain clustering") {
+    val testGraph = standardBGLLGraph(sc, d => d)
     val lc = new LouvainClustering4
     val (gr1, cr1) = lc.runLouvainClustering(testGraph, 1)
     val n1 = gr1.vertices.collect()
@@ -71,6 +53,7 @@ class LouvainClusteringTestSuite extends FunSuite with BeforeAndAfter with Share
   }
 
   ignore("Test old louvain clustering") {
+    val testGraph = standardBGLLGraph(sc, d => d)
     var rlevel: Int = -1
     var rq: Double = 0.0
     var result: Graph[VertexState, Long] = null
@@ -105,6 +88,7 @@ class LouvainClusteringTestSuite extends FunSuite with BeforeAndAfter with Share
   }
 
   ignore("Test path clustering") {
+    val testGraph = standardBGLLGraph(sc, d => d)
     // Raise log level to ignore info
     Logger.getRootLogger.setLevel(Level.WARN)
 

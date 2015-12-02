@@ -25,6 +25,7 @@ import scala.reflect.ClassTag
  * A set of operations to run on RDDs beyond the normal distributed with Spark.
  */
 class ExtendedRDDOpertations[T: ClassTag] (rdd: RDD[T]) {
+
   /**
    * Repartition an RDD into roughly equal-sized partitions, without changing order
    * @param partitions The number of partitions into which to divide the RDD

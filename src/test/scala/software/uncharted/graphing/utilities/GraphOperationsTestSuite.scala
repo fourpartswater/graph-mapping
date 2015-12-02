@@ -10,17 +10,15 @@
  * accordance with the terms of the license agreement you entered into
  * with Uncharted Software Inc.
  */
-package software.uncharted.graphing.clustering.utilities
-
+package software.uncharted.graphing.utilities
 
 import org.apache.log4j.{Level, Logger}
-import org.scalatest.{BeforeAndAfter, FunSuite}
-import org.scalatest.Matchers._
-
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx.{Edge, Graph}
+import org.scalatest.Matchers._
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
-import software.uncharted.graphing.clustering.reference.{Graph => ReferenceGraph, Community}
+import software.uncharted.graphing.clustering.reference.{Community, Graph => ReferenceGraph}
 import software.uncharted.spark.ExtendedRDDOperationsTestSuite
 
 
@@ -29,34 +27,14 @@ import software.uncharted.spark.ExtendedRDDOperationsTestSuite
  */
 class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
   import GraphOperations._
+  import TestUtilities._
   val epsilon = 1E-6
 
-  private def getCanonicalGraph = {
-    // Try the test graph from https://sites.google.com/site/findcommunities/, in which the original Louvain algorithm is
-    // published.
-    val nodes = sc.parallelize(0L to 15L).map(n => (n, n))
-    val edges = sc.parallelize(List[Edge[Double]](
-      new Edge(0L, 2L, 1.0), new Edge(0L, 3L, 1.0), new Edge(0L, 4L, 1.0), new Edge(0L, 5L, 1.0),
-      new Edge(1L, 2L, 1.0), new Edge(1L, 4L, 1.0), new Edge(1L, 7L, 1.0),
-      new Edge(2L, 4L, 1.0), new Edge(2L, 5L, 1.0), new Edge(2L, 6L, 1.0),
-      new Edge(3L, 7L, 1.0),
-      new Edge(4L, 10L, 1.0),
-      new Edge(5L, 7L, 1.0), new Edge(5L, 11L, 1.0),
-      new Edge(6L, 7L, 1.0), new Edge(6L, 11L, 1.0),
-      new Edge(8L, 9L, 1.0), new Edge(8L, 10L, 1.0), new Edge(8L, 11L, 1.0), new Edge(8L, 14L, 1.0), new Edge(8L, 15L, 1.0),
-      new Edge(9L, 12L, 1.0), new Edge(9L, 14L, 1.0),
-      new Edge(10L, 11L, 1.0), new Edge(10L, 12L, 1.0), new Edge(10L, 13L, 1.0), new Edge(10L, 14L, 1.0),
-      new Edge(11L, 13L, 1.0)
-    ))
-    Graph(nodes, edges)
-  }
 
-  before(
-    Logger.getRootLogger.setLevel(Level.WARN)
-  )
+  before(turnOffLogSpew)
 
   test("Test individual modularity calculation with cannonical graph") {
-    val canonicalGraph = getCanonicalGraph
+    val canonicalGraph = standardBGLLGraph(sc, d => d)
     val canonicalModularity: Double = canonicalGraph.calculateIndividualModularity(d => d)
     canonicalModularity should be ((-1.0 / 14.0) +- epsilon)
   }
@@ -74,7 +52,7 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test modularity calculation with canonical graph and 1-node communities") {
-    val canonicalGraph = getCanonicalGraph
+    val canonicalGraph = standardBGLLGraph(sc, d => d)
 
     // Each vertex in its own community (the default)
     val individualModularity: Double = canonicalGraph.calculateModularity(d => d)
@@ -82,7 +60,7 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test modularity calculation with canonical graph and 2-node communities") {
-    val canonicalGraph = getCanonicalGraph
+    val canonicalGraph = standardBGLLGraph(sc, d => d)
 
     // Vertices grouped pairwise (0 and 1, 2 and 3, etc)
     val pairModularity = canonicalGraph.calculateModularity(d => d, (vid, data) => vid / 2)
@@ -91,7 +69,7 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test modularity calculation with canonical graph and nodes 1 and 2 conjoined") {
-    val canonicalGraph = getCanonicalGraph
+    val canonicalGraph = standardBGLLGraph(sc, d => d)
 
     // Vertices all in their own community, except vertex 2, which is in community 1
     val modularity = canonicalGraph.calculateModularity(d => d, (vid, data) => if (2L == vid) 1L else vid)
@@ -129,7 +107,7 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
   }
 
   test("Test modularity vs. baseline calculation") {
-    val canonicalGraph = getCanonicalGraph
+    val canonicalGraph = standardBGLLGraph(sc, d => d)
 
     // Convert to reference form
     val refGraph = ReferenceGraph(canonicalGraph)
@@ -248,5 +226,19 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
     assert(List(1.0, 1.0, 1.0) === implicitEdges((2, 3)))
     assert(List(1.0, 1.0, 1.0) === implicitEdges((4, 5)))
     assert(List(1.0, 1.0) === implicitEdges((6, 7)))
+  }
+
+  ignore("Test renumbering of graphs") {
+    val oldNodes = sc.parallelize(List((5L, 5L), (9L, 9L), (2L, 2L), (-5L, -5L), (12L, 12L), (0L, 0L)), 2)
+    val oldEdges = sc.parallelize(List(new Edge(5L, 9L, 1.0), new Edge(5L, 2L, 2.0), new Edge(12L, -5L, 4.1), new Edge(2L, 12L, 1.4)))
+    val oldNumbered = Graph(oldNodes, oldEdges)
+    val newNumbered = oldNumbered.renumber()
+    val nodes = newNumbered.vertices.collect()
+    val edges = newNumbered.edges.collect.map(edge => ((edge.srcId, edge.dstId), edge.attr)).toMap
+    assert(List((0L, 5L), (1L, 9L), (2L, 2L), (3L, -5L), (4L, 12L), (5L, 0L)) === nodes)
+    assert(edges((0L, 1L)) === 1.0)
+    assert(edges((0L, 2L)) === 2.0)
+    assert(edges((4L, 3L)) === 4.1)
+    assert(edges((2L, 4L)) === 1.4)
   }
 }

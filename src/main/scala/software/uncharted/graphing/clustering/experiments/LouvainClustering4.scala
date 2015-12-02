@@ -14,7 +14,8 @@ package software.uncharted.graphing.clustering.experiments
 
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
-import software.uncharted.graphing.clustering.utilities.{EdgeCalculation, ClusterConsolidator}
+import software.uncharted.graphing.clustering.utilities.ClusterConsolidator
+import software.uncharted.graphing.utilities.EdgeCalculation
 
 import scala.reflect.ClassTag
 

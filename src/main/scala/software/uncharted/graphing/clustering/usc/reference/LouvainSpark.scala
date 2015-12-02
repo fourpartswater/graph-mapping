@@ -6,14 +6,17 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{Graph => SparkGraph, Edge, PartitionStrategy, PartitionID, VertexId}
 import org.apache.spark.rdd.RDD
+import software.uncharted.graphing.utilities.GraphOperations
 
 import scala.collection.mutable.Buffer
 import scala.collection.mutable.{Map => MutableMap}
 
 import software.uncharted.graphing.clustering.ClusteringStatistics
 import software.uncharted.spark.ExtendedRDDOpertations._
+import GraphOperations._
 
 import scala.reflect.ClassTag
+import scala.util.Try
 
 
 /**
@@ -26,14 +29,14 @@ object LouvainSpark {
     println("Usage: LouvainSpark <node file> <node prefix> <edge file> <edge prefix> <partitions>")
   }
 
-  def parseLine[TA] (separator: String, columnA: Int, conversionA: String => TA)(line: String): TA = {
+  def parseLine[TA] (separator: String, columnA: Int, conversionA: String => TA): String => TA = line => {
     val fields = line.split(separator)
     conversionA(fields(columnA))
   }
 
   def parseLine[TA, TB] (separator: String,
                          columnA: Int, conversionA: String => TA,
-                         columnB: Int, conversionB: String => TB)(line: String): (TA, TB) = {
+                         columnB: Int, conversionB: String => TB): String => (TA, TB) = line => {
     val fields = line.split(separator)
     (conversionA(fields(columnA)), conversionB(fields(columnB)))
   }
@@ -41,7 +44,7 @@ object LouvainSpark {
   def parseLine[TA, TB, TC] (separator: String,
                              columnA: Int, conversionA: String => TA,
                              columnB: Int, conversionB: String => TB,
-                             columnC: Int, conversionC: String => TC)(line: String): (TA, TB, TC) = {
+                             columnC: Int, conversionC: String => TC): String => (TA, TB, TC) = line => {
     val fields = line.split(separator)
     (conversionA(fields(columnA)), conversionB(fields(columnB)), conversionC(fields(columnC)))
   }
@@ -49,27 +52,37 @@ object LouvainSpark {
   def getData[T: ClassTag] (sc: SparkContext, source: String, prefixOpt: Option[String], parser: String => T): RDD[T] = {
     val rawSource = sc.textFile(source)
     val filteredSource = prefixOpt.map(prefix => rawSource.filter(_.startsWith(prefix))).getOrElse(rawSource)
-    filteredSource.map{line => parser(line)}
+    filteredSource.map{line => Try(parser(line))}.filter(_.isSuccess).map(_.get)
   }
 
   def main (args: Array[String]): Unit = {
     val argParser = new ArgumentParser(args)
 
-    val nodeFile = argParser.getString("nodeFile", "The data file from which to get nodes")
-    val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", Some("node"))
-    val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
-    val nodeIdCol = argParser.getInt("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
+    val (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions):
+    (String, Option[String], String, Int, String, Option[String], String, Int, Int, Option[Int], Int) =
+      try {
+        val nodeFile = argParser.getString("nodeFile", "The data file from which to get nodes")
+        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", Some("node"))
+        val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
+        val nodeIdCol = argParser.getInt("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
 
-    val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
-    val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", Some("edge"))
-    val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
-    val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
-    val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
-    val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge")
+        val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
+        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", Some("edge"))
+        val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
+        val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
+        val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
+        val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge")
 
-    val partitions = argParser.getInt("partitions", "The number of partitions into which to break the graph for first-round processing")
+        val partitions = argParser.getInt("partitions", "The number of partitions into which to break the graph for first-round processing")
+        (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions)
+      } catch {
+        case e: Exception => {
+          argParser.usage
+          return
+        }
+      }
 
-    val sc = new SparkContext(new SparkConf)
+    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
 
     val nodes: RDD[(Long, Long)] = getData(
       sc, nodeFile, nodePrefix,
@@ -80,14 +93,14 @@ object LouvainSpark {
       getData(
         sc, edgeFile, edgePrefix,
         parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong, weightCol, _.toFloat)
-      ).map{case (src, dst, weight) => new Edge(src, dst, weight)}
+      ).map { case (src, dst, weight) => new Edge(src, dst, weight) }
     ).getOrElse(
         getData(
           sc, edgeFile, edgePrefix,
           parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong)
-        ).map { case (src, dst) => new Edge(src, dst, 1.0f)}
+        ).map { case (src, dst) => new Edge(src, dst, 1.0f) }
       )
-    val sparkGraph = SparkGraph(nodes, edges)
+    val sparkGraph = SparkGraph(nodes, edges).explicitlyBidirectional(f => f).renumber()
     val uscGraph = sparkGraphToUSCGraphs(sparkGraph, Some((weight: Float) => weight), partitions)
     val (resultGraph, stats) = doClustering(-1, 0.15, false)(uscGraph)
     stats.foreach(println)
@@ -195,10 +208,10 @@ object LouvainSpark {
     graph
   }
 
-  def sparkGraphToUSCGraphs[VD, ED] (graph: SparkGraph[VD, ED],
-                                     getEdgeWeight: Option[ED => Float],
-                                     partitions: Int)
-                                    (implicit order: Ordering[(VertexId, VD)]): RDD[Graph] = {
+  def sparkGraphToUSCGraphs[VD: ClassTag, ED: ClassTag] (graph: SparkGraph[VD, ED],
+                                                         getEdgeWeight: Option[ED => Float],
+                                                         partitions: Int)
+                                                        (implicit order: Ordering[(VertexId, VD)]): RDD[Graph] = {
     val sc = graph.vertices.context
 
     // Order our vertices
@@ -246,7 +259,7 @@ object LouvainSpark {
         externalLinks(i) = (i, Buffer[(VertexId, Float)]())
       }
 
-      ei.foreach{edge =>
+      ei.foreach { edge =>
         val srcIdOric = edge.srcId
         val srcId = newIdByOld(srcIdOric)
         val dstIdOrig = edge.dstId
@@ -272,9 +285,9 @@ object LouvainSpark {
 
       // Put all external links into the form we need
       val remoteLinks =
-        externalLinks.flatMap{case (source, sinks) =>
-          sinks.map{case (vertexId, weight) =>
-            val partition = partitionBoundaries.value.find{case (partition, (min, max)) =>
+        externalLinks.flatMap { case (source, sinks) =>
+          sinks.map { case (vertexId, weight) =>
+            val partition = partitionBoundaries.value.find { case (partition, (min, max)) =>
               min <= vertexId && vertexId <= max
             }.get._1
             val indexInPartition = (vertexId - partitionBoundaries.value(partition)._1).toInt

@@ -1,7 +1,7 @@
 package software.uncharted.graphing.clustering.experiments
 
 import org.apache.spark.graphx._
-import software.uncharted.graphing.clustering.utilities.VertexCalculation
+import software.uncharted.graphing.utilities.VertexCalculation
 
 import scala.collection.mutable.{Map => MutableMap}
 import scala.reflect.ClassTag

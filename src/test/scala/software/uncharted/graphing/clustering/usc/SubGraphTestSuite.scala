@@ -13,6 +13,7 @@
 package software.uncharted.graphing.clustering.usc
 
 
+
 import org.apache.log4j.{Level, Logger}
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -23,16 +24,18 @@ import org.scalatest.Matchers._
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 
-import software.uncharted.graphing.clustering.utilities.GraphOperations
+import software.uncharted.graphing.utilities.GraphOperations
+import software.uncharted.graphing.utilities.TestUtilities
 
 
 
 class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
   import GraphOperations._
+  import TestUtilities._
   val epsilon = 1E-6
 
   override def beforeAll(): Unit = {
-    Logger.getRootLogger.setLevel(Level.WARN)
+    turnOffLogSpew
     super.beforeAll()
   }
 

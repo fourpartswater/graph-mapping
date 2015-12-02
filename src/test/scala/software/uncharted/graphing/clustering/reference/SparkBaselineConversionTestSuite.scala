@@ -13,29 +13,17 @@
 package software.uncharted.graphing.clustering.reference
 
 import org.apache.spark.SharedSparkContext
-import org.apache.spark.graphx.Edge
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
+import software.uncharted.graphing.utilities.TestUtilities._
+
 
 /**
  * Created by nkronenfeld on 11/3/2015.
  */
-class SparkBaselineConversionTestSuite extends FunSuite with SharedSparkContext {
+class SparkBaselineConversionTestSuite extends FunSuite with SharedSparkContext with BeforeAndAfter {
+  before(turnOffLogSpew)
   test("Test conversion from Spark graph to BGL graph") {
-    val nodes = sc.parallelize(0L to 15L).map(n => (n, n))
-    val edges = sc.parallelize(List[Edge[Double]](
-        new Edge(0L, 2L, 1.0), new Edge(0L, 3L, 1.0), new Edge(0L, 4L, 1.0), new Edge(0L, 5L, 1.0),
-        new Edge(1L, 2L, 1.0), new Edge(1L, 4L, 1.0), new Edge(1L, 7L, 1.0),
-        new Edge(2L, 4L, 1.0), new Edge(2L, 5L, 1.0), new Edge(2L, 6L, 1.0),
-        new Edge(3L, 7L, 1.0),
-        new Edge(4L, 10L, 1.0),
-        new Edge(5L, 7L, 1.0), new Edge(5L, 11L, 1.0),
-        new Edge(6L, 7L, 1.0), new Edge(6L, 11L, 1.0),
-        new Edge(8L, 9L, 1.0), new Edge(8L, 10L, 1.0), new Edge(8L, 11L, 1.0), new Edge(8L, 14L, 1.0), new Edge(8L, 15L, 1.0),
-        new Edge(9L, 12L, 1.0), new Edge(9L, 14L, 1.0),
-        new Edge(10L, 11L, 1.0), new Edge(10L, 12L, 1.0), new Edge(10L, 13L, 1.0), new Edge(10L, 14L, 1.0),
-        new Edge(11L, 13L, 1.0)
-      ))
-    val sparkGraph = org.apache.spark.graphx.Graph(nodes, edges)
+    val sparkGraph = standardBGLLGraph(sc, d => d)
     val bdlGraph = Graph(sparkGraph)
 
 

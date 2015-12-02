@@ -10,15 +10,13 @@
  * accordance with the terms of the license agreement you entered into
  * with Uncharted Software Inc.
  */
-package software.uncharted.graphing.clustering.utilities
+package software.uncharted.graphing.utilities
 
-
-
-import scala.reflect.ClassTag
-import scala.collection.mutable.{Map => MutableMap}
-
-import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
+import org.apache.spark.rdd.RDD
+
+import scala.collection.mutable.{Map => MutableMap}
+import scala.reflect.ClassTag
 
 
 
@@ -27,6 +25,26 @@ import org.apache.spark.graphx._
  */
 class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends Serializable {
   private def getVertexId[VD] (id: VertexId, data: VD): Long = id
+
+  /**
+   * Renumber a graph so that all node IDs are in order, according to their current partition order and order
+   * within partitions in the current node list
+   * @param startingPoint The ID of the first node in the graph
+   * @return An otherwise identical graph, with new node IDs
+   */
+  def renumber (startingPoint: Long = 0L): Graph[VD, ED] = {
+    val withNewIndices = Graph(graph.vertices.zipWithIndex().map { case ((oldId, data), index) =>
+      (oldId, (data, index + startingPoint))
+    }, graph.edges)
+
+    Graph(
+      withNewIndices.vertices.map { case (oldId, (data, newId)) => (newId, data) },
+      withNewIndices.triplets.map { triplet =>
+        new Edge(triplet.srcAttr._2, triplet.dstAttr._2, triplet.attr)
+      }
+    )
+  }
+
   /**
    * Calculate the modularity of the graph, assuming every node is in its own category
    *

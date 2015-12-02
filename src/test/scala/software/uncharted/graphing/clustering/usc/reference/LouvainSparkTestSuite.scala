@@ -7,8 +7,9 @@ import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx.{Graph => SparkGraph, Edge}
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
+import software.uncharted.graphing.utilities.GraphOperations
 
-import software.uncharted.graphing.clustering.utilities.GraphOperations._
+import GraphOperations._
 
 
 /**
