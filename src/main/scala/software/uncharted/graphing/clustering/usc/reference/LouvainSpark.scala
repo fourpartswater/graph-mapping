@@ -172,14 +172,21 @@ object LouvainSpark {
   }
 
   def reconstructGraph (i: Iterator[(GraphMessage, Option[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
+    println("a")
     val messages = Buffer[GraphMessage]()
+    println("b")
     var msgId = 0
+    println("c")
     i.foreach { case (message, msgStatsOption) =>
       println("Recording message " + msgId + " at " + new Date())
       messages += message
+      println("d")
       msgStatsOption.map(msgStats => stats += msgStats)
+      println("e")
       msgId = msgId + 1
+      println("f")
     }
+    println("g")
 
     var gap = 0
     var degreeGap = 0
