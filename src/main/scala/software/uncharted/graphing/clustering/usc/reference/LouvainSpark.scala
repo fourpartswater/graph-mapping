@@ -181,7 +181,9 @@ object LouvainSpark {
     var gap = 0
     var degreeGap = 0
 
+    println("Reconstructing graph")
     messages.foreach{gm =>
+      println("Re-basing partition "+gm.partition+" at "+new Date())
       if (gap > 0) {
         for (i <- 0 until gm.links.size) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
         gm.remoteMaps.map(remoteMaps =>
@@ -194,6 +196,7 @@ object LouvainSpark {
       gap = gap + gm.numNodes
       degreeGap = gm.degrees.last
     }
+    println("Done re-basing; merging local portions at "+new Date()+".")
 
     // Merge local portions
     val graph = new Graph(
@@ -202,6 +205,7 @@ object LouvainSpark {
       None
     )
 
+    println("Done merging local portions; merging remote portions at "+new Date()+".")
     // Merge remote portions
     val remoteLinks = MutableMap[Int, Buffer[(Int, Float)]]()
     messages.foreach{message =>
@@ -220,7 +224,9 @@ object LouvainSpark {
         remoteLinks(key._1) = linkBuffer
       }
     }
+    println("Done merging remote edges; adding them into graph at "+new Date()+".")
     graph.addFormerlyRemoteEdges(remoteLinks.map{case (source, partitionCommunities) => (source, partitionCommunities.toSeq)}.toMap)
+    println("Done merging graphs at "+new Date()+".")
 
     graph
   }
