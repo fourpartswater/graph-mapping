@@ -1,22 +1,26 @@
 package software.uncharted.graphing.clustering.usc.reference
 
 
-import com.oculusinfo.tilegen.util.ArgumentParser
+
+import java.util.Date
+
+import scala.collection.mutable.Buffer
+import scala.collection.mutable.{Map => MutableMap}
+import scala.reflect.ClassTag
+import scala.util.Try
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{Graph => SparkGraph, Edge, PartitionStrategy, PartitionID, VertexId}
 import org.apache.spark.rdd.RDD
-import software.uncharted.graphing.utilities.GraphOperations
 
-import scala.collection.mutable.Buffer
-import scala.collection.mutable.{Map => MutableMap}
+import com.oculusinfo.tilegen.util.ArgumentParser
 
 import software.uncharted.graphing.clustering.ClusteringStatistics
 import software.uncharted.spark.ExtendedRDDOpertations._
+import software.uncharted.graphing.utilities.GraphOperations
 import GraphOperations._
 
-import scala.reflect.ClassTag
-import scala.util.Try
 
 
 /**
@@ -126,7 +130,9 @@ object LouvainSpark {
     val (graph, stats) = firstPass.coalesce(1).mapPartitions{i =>
       val precision = 0.000001
       val stats = Buffer[ClusteringStatistics]()
+      println("Beginning consolidation at "+new Date())
       val g = reconstructGraph(i, stats)
+      println("Consolidation done at "+new Date()+", beginning consolidated clusering runs")
       var g2 = g
       var c  = new Community(g, -1, precision)
 
@@ -137,18 +143,22 @@ object LouvainSpark {
       var level = 2
 
       do {
+        println("Running one_level on level "+level+" at "+new Date())
         improvement = c.one_level()
         new_modularity = c.modularity
         level = level + 1
+        println("Consolidating clustered nodes on level "+level+" at "+new Date())
         g2 = c.partition2graph_binary
         c.clusteringStatistics.map(cs =>
           stats += cs.addLevelAndPartition(level, -1)
         )
 
+        println("Constructing Community object for consolidated nodes on level "+level+" at "+new Date())
         c = new Community(g2, -1, precision)
         modularity = new_modularity
       } while (improvement || level < 4)
 
+      println("Done consolidated clustering at "+new Date())
       Iterator((g2, stats.toArray))
     }.collect.head
     (graph, stats)
