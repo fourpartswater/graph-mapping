@@ -70,13 +70,13 @@ class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLink
   /** @return the weighted degree of the node */
   def weighted_degree (node: Int): Double = {
     assert(0 <= node && node < nb_nodes)
-    neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
+    neighbors(node).foldLeft(0.0)(_ + _._2.toDouble)
   }
 
   def weighted_degree_remote (node: Int): Double = {
     assert(0 <= node && node < nb_nodes)
     if (!containRemote) 0.0 else {
-      remote_neighbors(node).map(_.map(_._2.toDouble).fold(0.0)(_ + _)).getOrElse(0.0)
+      remote_neighbors(node).map(_.foldLeft(0.0)(_ + _._2.toDouble)).getOrElse(0.0)
     }
   }
 
