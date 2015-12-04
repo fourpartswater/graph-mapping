@@ -151,7 +151,7 @@ object LouvainSpark {
       val s2 = c2.clusteringStatistics.map(cs => cs.addLevelAndPartition(2, partition))
       logStat("second pass", "complete")
 
-      Iterator((new GraphMessage(partition, g3, c2), stats))
+      Iterator((new GraphMessage(partition, g3, c2), s1 ++ s2))
     }
 
     val (graph, stats) = firstPass.repartition(1).mapPartitions{i =>
@@ -190,7 +190,7 @@ object LouvainSpark {
           stats += levelStats
         }
 
-        logstat("consolidation", "done", level)
+        logStat("consolidation", "done", level)
         c = new Community(g2, -1, precision)
         logStat("nodes", g2.nb_nodes.toString, level)
         logStat("links", g2.nb_links.toString, level)
@@ -204,12 +204,12 @@ object LouvainSpark {
     (graph, stats)
   }
 
-  def reconstructGraph (i: Iterator[(GraphMessage, Option[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
+  def reconstructGraph (i: Iterator[(GraphMessage, Iterable[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
     val messages = Buffer[GraphMessage]()
     var msgId = 0
-    i.foreach { case (message, msgStatsOption) =>
+    i.foreach { case (message, msgStatsSeq) =>
       messages += message
-      msgStatsOption.map(msgStats => stats += msgStats)
+      msgStatsSeq.foreach(msgStats => stats += msgStats)
       msgId = msgId + 1
     }
 
