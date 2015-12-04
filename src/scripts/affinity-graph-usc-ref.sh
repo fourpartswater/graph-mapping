@@ -7,9 +7,9 @@ export EXECUTORS=4
 export MAIN_JAR=../lib/xdata-graph.jar
 export SOURCE=hdfs://uscc0-master0/xdata/data/affinity_graph/amazon_parsed_nocategory_edgeweights.txt
 
-spark-submit
+spark-submit \
     --master ${MASTER} \
-    --num-exeuctors ${EXECUTORS} \
+    --num-executors ${EXECUTORS} \
     --executor-memory ${MEM} \
     --executor-cores ${CORES} \
     --class software.uncharted.graphing.clustering.usc.reference.LouvainSpark \
