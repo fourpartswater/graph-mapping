@@ -9,6 +9,8 @@ import scala.collection.mutable.{Map => MutableMap}
 import scala.reflect.ClassTag
 import scala.util.Try
 
+import org.apache.log4j.{Level, Logger}
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{Graph => SparkGraph, Edge, PartitionStrategy, PartitionID, VertexId}
@@ -60,6 +62,7 @@ object LouvainSpark {
   }
 
   def main (args: Array[String]): Unit = {
+    Logger.getRootLogger.setLevel(Level.WARN)
     val argParser = new ArgumentParser(args)
 
     val (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions):
@@ -113,6 +116,7 @@ object LouvainSpark {
       println("\tnodes: " + graph.nb_nodes)
       println("\tlinks: " + graph.nb_links)
       println("\tRemote links: " + graph.remoteLinks.map(_.size).getOrElse(0))
+      println("\tTimestamp: "+new Date())
     }
     val (resultGraph, stats) = doClustering(-1, 0.15, false)(uscGraph)
     stats.foreach(println)
@@ -125,40 +129,46 @@ object LouvainSpark {
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)(input: RDD[Graph]) = {
     println("Starting first pass on "+input.partitions.size+" partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
-      println("Beginning first pass on partition "+partition+" at "+new Date())
-      val graph = index.next()
-      println("Got graph at "+new Date())
-      println("\tNodes: "+graph.nb_nodes)
-      println("\tLinks: "+graph.nb_links)
-      val c = new Community(graph, numPasses, minModularityIncrease)
-      println("\tModularity: "+c.modularity)
-      println("Got community at "+new Date())
-      c.one_level(randomize)
-      println("One level complete at "+new Date())
-      val endGraph = c.partition2graph_binary
-      println("Consolidate first level at "+new Date())
-      println("\tNodes: "+endGraph.nb_nodes)
-      println("\tLinks: "+endGraph.nb_links)
-      println("\tModularity: "+c.modularity)
+      def logStat (stat: String, value: String) =
+	      println("\tpartition "+partition+": "+stat+": "+value+"\t\t"+new Date())
 
-      val stats = c.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
-      println("Got stats ("+new Date()+"): \n"+stats)
-      Iterator((new GraphMessage(partition, endGraph, c), stats))
+      logStat("first pass", "start")
+      val g1 = index.next()
+      logStat("first pass", "graph")
+      val c1 = new Community(g1, numPasses, minModularityIncrease)
+      logStat("nodes 1", g1.nb_nodes.toString)
+      logStat("links 1", g1.nb_links.toString)
+      logStat("modul 1", c1.modularity.toString)
+      c1.one_level(randomize)
+      val g2 = c1.partition2graph_binary
+      val s1 = c1.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
+      logStat("first pass", "complete")
+      val c2 = new Community(g2, numPasses, minModularityIncrease)
+      logStat("nodes 2", g2.nb_nodes.toString)
+      logStat("links 2", g2.nb_links.toString)
+      logStat("modul 2", c2.modularity.toString)
+      val g3 = c2.partition2graph_binary
+      val s2 = c2.clusteringStatistics.map(cs => cs.addLevelAndPartition(2, partition))
+      logStat("second pass", "complete")
+
+      Iterator((new GraphMessage(partition, g3, c2), stats))
     }
 
-    val (graph, stats) = firstPass.coalesce(1).mapPartitions{i =>
+    val (graph, stats) = firstPass.repartition(1).mapPartitions{i =>
+      def logStat (stat: String, value: String, level: Int) =
+	      println("\tlevel "+level+": "+stat+": "+value+"\t\t"+new Date())
+
       val precision = 0.000001
       val stats = Buffer[ClusteringStatistics]()
-      println("Beginning consolidation at "+new Date())
+      logStat("consolidation", "start", 0)
       val g = reconstructGraph(i, stats)
-      println("Consolidation done at "+new Date()+", beginning consolidated clusering runs")
+      logStat("consolidation", "reconstruction", 0)
 
       var g2 = g
       var c  = new Community(g, -1, precision)
-      println("Initial statistics: ")
-      println("\tNodes: "+g.nb_nodes)
-      println("\tLinks: "+g.nb_links)
-      println("\tModularity: "+c.modularity)
+      logStat("nodes", g.nb_nodes.toString, 0)
+      logStat("links", g.nb_links.toString, 0)
+      logStat("modul", c.modularity.toString, 0)
 
       // First pass is done; do the rest of the clustering
       var modularity = c.modularity
@@ -167,52 +177,46 @@ object LouvainSpark {
       var level = 2
 
       do {
-        println("Running one_level on level "+level+" at "+new Date())
+        logStat("consolidation", "start", level)
         improvement = c.one_level()
         new_modularity = c.modularity
         level = level + 1
-        println("Consolidating clustered nodes on level "+level+" at "+new Date())
+        logStat("consolidation", "clustered", level)
         g2 = c.partition2graph_binary
+        logStat("consolidation", "consolidated", level)
         c.clusteringStatistics.map { cs =>
           val levelStats = cs.addLevelAndPartition(level, -1)
           println("\tLevel stats: "+levelStats)
           stats += levelStats
         }
 
-        println("Constructing Community object for consolidated nodes on level "+level+" at "+new Date())
+        logstat("consolidation", "done", level)
         c = new Community(g2, -1, precision)
+        logStat("nodes", g2.nb_nodes.toString, level)
+        logStat("links", g2.nb_links.toString, level)
+        logStat("modul", c.modularity.toString, level)
         modularity = new_modularity
       } while (improvement || level < 4)
 
-      println("Done consolidated clustering at "+new Date())
+      logStat("consolidation", "all complete", 0)
       Iterator((g2, stats.toArray))
     }.collect.head
     (graph, stats)
   }
 
   def reconstructGraph (i: Iterator[(GraphMessage, Option[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
-    println("a")
     val messages = Buffer[GraphMessage]()
-    println("b")
     var msgId = 0
-    println("c")
     i.foreach { case (message, msgStatsOption) =>
-      println("Recording message " + msgId + " at " + new Date())
       messages += message
-      println("d")
       msgStatsOption.map(msgStats => stats += msgStats)
-      println("e")
       msgId = msgId + 1
-      println("f")
     }
-    println("g")
 
     var gap = 0
     var degreeGap = 0
 
-    println("Reconstructing graph")
     messages.foreach{gm =>
-      println("Re-basing partition "+gm.partition+" at "+new Date())
       if (gap > 0) {
         for (i <- 0 until gm.links.size) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
         gm.remoteMaps.map(remoteMaps =>
@@ -225,7 +229,6 @@ object LouvainSpark {
       gap = gap + gm.numNodes
       degreeGap = gm.degrees.last
     }
-    println("Done re-basing; merging local portions at "+new Date()+".")
 
     // Merge local portions
     val graph = new Graph(
@@ -234,15 +237,24 @@ object LouvainSpark {
       None
     )
 
-    println("Done merging local portions; merging remote portions at "+new Date()+".")
     // Merge remote portions
     val remoteLinks = MutableMap[Int, Buffer[(Int, Float)]]()
     messages.foreach{message =>
       val m = MutableMap[(Int, Int), Float]()
       message.remoteMaps.foreach{remoteMaps =>
         remoteMaps.foreach { remoteMap =>
-          val key = (remoteMap.source, messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink))
-          m(key) = m.get(key).getOrElse(0.0f) + 1.0f
+	        try {
+		        val key = (remoteMap.source, messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink))
+		        m(key) = m.get(key).getOrElse(0.0f) + 1.0f
+	        } catch {
+		        case e: Exception => {
+			        println("Error merging remote map")
+			        println("\t"+remoteMap)
+			        println("\t"+messages.size)
+			        if (messages.size > remoteMap.sinkPart)
+				        println("\t"+messages(remoteMap.sinkPart).nodeToCommunity.size)
+		        }
+	        }
         }
       }
 
@@ -253,9 +265,7 @@ object LouvainSpark {
         remoteLinks(key._1) = linkBuffer
       }
     }
-    println("Done merging remote edges; adding them into graph at "+new Date()+".")
     graph.addFormerlyRemoteEdges(remoteLinks.map{case (source, partitionCommunities) => (source, partitionCommunities.toSeq)}.toMap)
-    println("Done merging graphs at "+new Date()+".")
 
     graph
   }
