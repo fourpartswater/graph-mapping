@@ -86,7 +86,7 @@ object LouvainSpark {
         }
       }
 
-    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
+    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering").setMaster("local"))
 
     val nodes: RDD[(Long, Long)] = getData(
       sc, nodeFile, nodePrefix,
@@ -123,18 +123,23 @@ object LouvainSpark {
    * @param input An RDD of graph objects, one per partition
    */
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)(input: RDD[Graph]) = {
+    println("Starting first pass on "+input.partitions.size+" partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
       println("Beginning first pass on partition "+partition+" at "+new Date())
       val graph = index.next()
       println("Got graph at "+new Date())
+      println("\tNodes: "+graph.nb_nodes)
+      println("\tLinks: "+graph.nb_links)
       val c = new Community(graph, numPasses, minModularityIncrease)
+      println("\tModularity: "+c.modularity)
       println("Got community at "+new Date())
-      val startModularity = c.modularity
       c.one_level(randomize)
-      val endModularity = c.modularity
-      println("Did one level (modularity went from "+startModularity+" to "+endModularity+") at "+new Date())
+      println("One level complete at "+new Date())
       val endGraph = c.partition2graph_binary
       println("Consolidate first level at "+new Date())
+      println("\tNodes: "+endGraph.nb_nodes)
+      println("\tLinks: "+endGraph.nb_links)
+      println("\tModularity: "+c.modularity)
 
       val stats = c.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
       println("Got stats ("+new Date()+"): \n"+stats)
