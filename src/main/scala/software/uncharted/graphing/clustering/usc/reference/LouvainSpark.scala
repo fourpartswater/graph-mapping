@@ -86,7 +86,7 @@ object LouvainSpark {
         }
       }
 
-    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering").setMaster("local"))
+    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
 
     val nodes: RDD[(Long, Long)] = getData(
       sc, nodeFile, nodePrefix,
