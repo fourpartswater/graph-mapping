@@ -23,71 +23,8 @@ import scala.util.Random
  *                   tot => totalWeight
  */
 class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
-  println("constructiong community")
   private var size = g.nb_nodes
-  println("Size = "+size)
-  private val nodeInfos = {
-    var tabulated = 0
-    var totalN = 0L
-    var totalN2 = 0L
-    var maxN = 0L
-    var totalT = 0L
-    var totalT2 = 0L
-    var maxT = 0L
-    val startTime = System.currentTimeMillis()
-    var lastTime = startTime
-    val infos = Array.tabulate(size)(i => {
-      val ni = new NodeInfo(i, g.nb_selfloops(i), g.weighted_degree(i))
-
-      tabulated = tabulated + 1
-      val n = g.nb_neighbors(i)
-      val time = System.currentTimeMillis()
-      val t = time - lastTime
-      lastTime = time
-
-      totalN = totalN + n
-      totalN2 = totalN2 + n*n
-      maxN = maxN max n
-
-      totalT = totalT + t
-      totalT2 = totalT2 + t*t
-      maxT = maxT max t
-
-      if (0 == (tabulated % 1000)) {
-        println("Tabulated "+tabulated+" node-infos")
-        println("\tElapsed time: "+((System.currentTimeMillis() - startTime) / 1000.0)+" seconds")
-        val meanN = totalN.toDouble / tabulated
-        val sigN = math.sqrt(totalN2.toDouble / tabulated - meanN * meanN)
-        val meanT = totalT.toDouble / tabulated
-        val sigT = math.sqrt(totalT2.toDouble / tabulated - meanT * meanT)
-        println("\tNeighbors:")
-        println("\t\tAverage: "+meanN)
-        println("\t\tStd Dev: "+sigN)
-        println("\t\tMaximum: "+maxN)
-        println("\tTime:")
-        println("\t\tAverage: "+meanT)
-        println("\t\tStd Dev: "+sigT)
-        println("\t\tMaximum: "+maxT)
-      }
-
-      ni
-    })
-    println("Done tabulating node-infos")
-    println("\tElapsed time: "+((System.currentTimeMillis() - startTime) / 1000.0)+" seconds")
-    val meanN = totalN.toDouble / tabulated
-    val sigN = math.sqrt(totalN2.toDouble / tabulated - meanN * meanN)
-    val meanT = totalT.toDouble / tabulated
-    val sigT = math.sqrt(totalT2.toDouble / tabulated - meanT * meanT)
-    println("\tNeighbors:")
-    println("\t\tAverage: "+meanN)
-    println("\t\tStd Dev: "+sigN)
-    println("\t\tMaximum: "+maxN)
-    println("\tTime:")
-    println("\t\tAverage: "+meanT)
-    println("\t\tStd Dev: "+sigT)
-    println("\t\tMaximum: "+maxT)
-    infos
-  }
+  private val nodeInfos = Array.tabulate(size)(i => new NodeInfo(i, g.nb_selfloops(i), g.weighted_degree(i)))
 
   // Used for calculation of new communities
   private val neigh_pos = Array.fill(size)(0)
