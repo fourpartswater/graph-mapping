@@ -23,7 +23,6 @@ class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLink
 
   /** @return an iterator over the ids of the neighbors of this node, and the weight of the link to said neighbor  */
   def neighbors (node: Int): Iterator[(Int, Float)] = {
-    val allLinks = links.toList
     val first = firstNeighbor(node)
     val num = nb_neighbors(node)
     val neighbors = links.iterator.drop(first).take(num).toList
