@@ -143,15 +143,8 @@ object LouvainSpark {
       val g2 = c1.partition2graph_binary
       val s1 = c1.clusteringStatistics.map(cs => cs.addLevelAndPartition(1, partition))
       logStat("first pass", "complete")
-      val c2 = new Community(g2, numPasses, minModularityIncrease)
-      logStat("nodes 2", g2.nb_nodes.toString)
-      logStat("links 2", g2.nb_links.toString)
-      logStat("modul 2", c2.modularity.toString)
-      val g3 = c2.partition2graph_binary
-      val s2 = c2.clusteringStatistics.map(cs => cs.addLevelAndPartition(2, partition))
-      logStat("second pass", "complete")
 
-      Iterator((new GraphMessage(partition, g3, c2), s1 ++ s2))
+      Iterator((new GraphMessage(partition, g2, c1), s1.toIterable))
     }
 
     val (graph, stats) = firstPass.repartition(1).mapPartitions{i =>
