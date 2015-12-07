@@ -38,10 +38,8 @@ import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
  * for all iterations but the first anyway.
  *
  * @param nodes The ID and original data in the complete graph of each node in our subgraph
- * @param degrees The cumulative internal degree of each node in our subgraph
- * @param links The internal links from each node in our subgraph
- * @param remoteDegrees The cumulative internal degree of each node in our subgraph
- * @param remoteLinks The external from each node in our subgraph
+ * @param links The internal links from each node in our subgraph, with one array of links per node
+ * @param remoteLinks The external from each node in our subgraph, with one array of links per node
  */
 class SubGraph[VD] (nodes: Array[(VertexId, VD)],
                     links: Array[Array[(Int, Float)]],

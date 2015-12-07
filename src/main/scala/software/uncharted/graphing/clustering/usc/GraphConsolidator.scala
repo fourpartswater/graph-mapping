@@ -41,18 +41,29 @@ object GraphConsolidator {
       val numLocalLinks = localNodeLinks.size
       val remoteNodeLinks = remoteLinks(i)
       val numRemoteLinks = remoteNodeLinks.size
-      val allNodeLinks = new Array[(Int, Float)](localNodeLinks.size + remoteNodeLinks.size)
-      for (j <- 0 until numLocalLinks) {
-        allNodeLinks(j) = localNodeLinks(j)
-      }
+
+      // Consolidate remote links - several links may go to what is now the same node, and we want to combine those.
+      val consolidatedRemoteNodeLinks = MutableMap[Int, Float]()
       for (j <- 0 until numRemoteLinks) {
         val (origNodeId, weight) = remoteNodeLinks(j)
         // Map from original node ID to the node ID of the community into which it has moved
-        val newNodeId  = linkMapping(origNodeId)
+        val newNodeId = linkMapping(origNodeId)
         // Map from the community node ID to the local index of that community
         val newNodeIndex = renumbering(newNodeId)
 
-        allNodeLinks(j + numLocalLinks) = (newNodeIndex, weight)
+        consolidatedRemoteNodeLinks(newNodeIndex) = consolidatedRemoteNodeLinks.get(newNodeIndex).getOrElse(0.0f) + weight
+      }
+      val numConsolidatedRemoteLinks = consolidatedRemoteNodeLinks.size
+
+      // Put the two lists together into one list of all (now local) links
+      val allNodeLinks = new Array[(Int, Float)](numLocalLinks + numConsolidatedRemoteLinks)
+      for (j <- 0 until numLocalLinks) {
+        allNodeLinks(j) = localNodeLinks(j)
+      }
+      var j = numLocalLinks
+      consolidatedRemoteNodeLinks.foreach { link =>
+        allNodeLinks(j) = link
+        j = j + 1
       }
 
       // Set local links to combined list

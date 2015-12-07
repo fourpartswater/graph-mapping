@@ -23,7 +23,7 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
 import org.apache.spark.SharedSparkContext
-import org.apache.spark.graphx.{Edge, Graph}
+import org.apache.spark.graphx.{VertexId, Edge, Graph}
 
 import software.uncharted.graphing.utilities.GraphOperations
 import software.uncharted.graphing.utilities.TestUtilities
@@ -232,5 +232,91 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
     assert(4 === ref2.nb_nodes)
     assert(8 === ref2.nb_links)
     assert(8.0 === ref2.total_weight)
+  }
+
+  test("Test round-trip graph breakup and consolidation with no node mapping") {
+    val inSubGraphs: RDD[SubGraph[Int]] = constructSampleSubgraphs(3)
+    val subGraphs: Map[Int, SubGraph[Int]] = collectPartitions(inSubGraphs).mapValues(_.head)
+    val totalNodes = subGraphs.map(_._2.numNodes).reduce(_ + _)
+    val consolidationIterator: Iterator[(SubGraph[Int], Map[VertexId, VertexId])] = subGraphs.toList.sortBy(_._1).map(_._2).map{subGraph: SubGraph[Int] =>
+      (
+        subGraph,
+        subGraph.toFullGraphNodes.map(_._1).map(id => id -> id).toMap
+        )
+    }.iterator
+    val consolidated = GraphConsolidator(totalNodes)(consolidationIterator)
+    val consolidatedIndices = (0 until consolidated.numNodes).map(n => (consolidated.nodeData(n)._1, n)).toMap
+
+    // Original graph edges are:
+    //    mkEdge(0, 0), mkEdge(0, 1), mkEdge(0, 4),
+    //    mkEdge(1, 2), mkEdge(1, 9),
+    //    mkEdge(2, 3), mkEdge(2, 6), mkEdge(2, 10),
+    //    mkEdge(4, 6), mkEdge(4, 7), mkEdge(4, 8), mkEdge(4, 11),
+    //    mkEdge(5, 7), mkEdge(5, 10),
+    //    mkEdge(6, 9),
+    //    mkEdge(7, 8),
+    //    mkEdge(8, 11),
+    //    mkEdge(9, 10), mkEdge(9, 11),
+    //    mkEdge(10, 11)
+
+    def getNeighbors (n: Int) =
+      consolidated.internalNeighbors(consolidatedIndices(n.toLong)).toSet
+
+    assert(Set((0, 2.0f), (1, 1.0f), (4, 1.0f))                        === getNeighbors(0))
+    assert(Set((0, 1.0f), (2, 1.0f), (9, 1.0f))                        === getNeighbors(1))
+    assert(Set((1, 1.0f), (3, 1.0f), (6, 1.0f), (10, 1.0f))            === getNeighbors(2))
+    assert(Set((2, 1.0f))                                              === getNeighbors(3))
+    assert(Set((0, 1.0f), (6, 1.0f), (7, 1.0f), (8, 1.0f), (11, 1.0f)) === getNeighbors(4))
+    assert(Set((7, 1.0f), (10, 1.0f))                                  === getNeighbors(5))
+    assert(Set((2, 1.0f), (4, 1.0f), (9, 1.0f))                        === getNeighbors(6))
+    assert(Set((4, 1.0f), (5, 1.0f), (8, 1.0f))                        === getNeighbors(7))
+    assert(Set((4, 1.0f), (7, 1.0f), (11, 1.0f))                       === getNeighbors(8))
+    assert(Set((1, 1.0f), (6, 1.0f), (10, 1.0f), (11, 1.0f))           === getNeighbors(9))
+    assert(Set((2, 1.0f), (5, 1.0f), (9, 1.0f), (11, 1.0f))            === getNeighbors(10))
+    assert(Set((4, 1.0f), (8, 1.0f), (9, 1.0f), (10, 1.0f))            === getNeighbors(11))
+  }
+
+  test("Test graph consolidation with node mapping") {
+    val subGraph1 = new SubGraph[Int](
+      Array((0L, 0), (3L, 3), (4L, 4)),
+      Array(
+        Array((0, 3.0f), (2, 2.0f)),
+        Array((1, 2.0f), (2, 1.0f)),
+        Array((0, 2.0f), (1, 1.0f), (2, 1.0f))
+      ),
+      Array(
+        Array((5L, 1.0f), (6L, 1.0f), (7L, 1.0f), (8L, 1.0f), (9L, 1.0f)),
+        Array((9L, 2.0f), (7L, 3.0f), (5L, 1.0f)),
+        Array((8L, 1.0f), (6L, 2.0f))
+      )
+    )
+    val map1 = Map(0L -> 0L, 1L -> 0L, 2L -> 3L, 3L -> 3L, 4L -> 4L)
+    val subGraph2 = new SubGraph[Int](
+      Array((5L, 5), (7L, 7), (9L, 9)),
+      Array(
+        Array((0, 1.0f), (1, 1.0f), (2, 1.0f)),
+        Array((0, 1.0f), (1, 2.0f)),
+        Array((0, 1.0f), (2, 3.0f))
+      ),
+      Array(
+        Array((0L, 1.0f), (1L, 1.0f), (3L, 1.0f), (4L, 2.0f)),
+        Array((0L, 1.0f), (1L, 1.0f), (2L, 1.0f), (3L, 2.0f), (4L, 1.0f)),
+        Array((0L, 1.0f), (2L, 1.0f), (3L, 1.0f))
+      )
+    )
+    val map2 = Map(5L -> 5L, 6L -> 5L, 7L -> 7L, 8L -> 7L, 9L -> 9L)
+
+    val consolidated = GraphConsolidator(6)(Iterator((subGraph1, map1), (subGraph2, map2)))
+
+    def getNeighbors (n: Int) =
+      consolidated.internalNeighbors(n).toList.sortBy(_._1)
+
+    assert(List((0, 3.0f), (2, 2.0f), (3, 2.0f), (4, 2.0f), (5, 1.0f))            === getNeighbors(0))
+    assert(List((1, 2.0f), (2, 1.0f), (3, 1.0f), (4, 3.0f), (5, 2.0f))            === getNeighbors(1))
+    assert(List((0, 2.0f), (1, 1.0f), (2, 1.0f), (3, 2.0f), (4, 1.0f))            === getNeighbors(2))
+    assert(List((0, 2.0f), (1, 1.0f), (2, 2.0f), (3, 1.0f), (4, 1.0f), (5, 1.0f)) === getNeighbors(3))
+    assert(List((0, 2.0f), (1, 3.0f), (2, 1.0f), (3, 1.0f), (4, 2.0f))            === getNeighbors(4))
+    assert(List((0, 1.0f), (1, 2.0f), (3, 1.0f), (5, 3.0f))                       === getNeighbors(5))
+    (0 to 5).foreach(n => assert(0 === consolidated.externalNeighbors(n).size))
   }
 }
