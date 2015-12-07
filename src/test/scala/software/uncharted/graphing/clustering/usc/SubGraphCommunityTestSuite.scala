@@ -37,15 +37,17 @@ class SubGraphCommunityTestSuite extends FunSuite {
 
     val subGraph = new SubGraph[Int](
       (0 to 15).map(n => (n.toLong, n)).toArray,
-      degrees.map(d => (d, 0)),
-      (links, Array[VertexId]())
+      degrees.map(d => d),
+      links.map(link => (link, 1.0f)),
+      degrees.map(d => 0),
+      Array[(VertexId, Float)]()
     )
     val subClusterer = new SubGraphCommunity[Int](subGraph, 1, 0.15)
     subClusterer.one_level(false)
     val subResult = subClusterer.getReducedSubgraph()
 
     assert(refResult.nb_nodes === subResult.numNodes)
-    assert(refResult.nb_links === subResult.numLinks._1)
+    assert(refResult.nb_links === subResult.numInternalLinks)
     for (n <- 0 until refResult.nb_nodes) {
       val refNeighbors = refResult.neighbors(n).toList
       val subNeighbors = subResult.internalNeighbors(n).toList

@@ -15,6 +15,7 @@ package software.uncharted.graphing.clustering.usc
 
 
 import org.apache.log4j.{Level, Logger}
+import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -39,7 +40,7 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
     super.beforeAll()
   }
 
-  private def constructSampleSubgraphs (n: Int, weightFcn: (Int, Int) => Float = (a, b) => 1.0f) = {
+  private def constructSampleSubgraphs (n: Int, weightFcn: (Int, Int) => Float = (a, b) => 1.0f): RDD[SubGraph[Int]] = {
     val nodes = sc.parallelize(0 until 12).map(n => (n.toLong, n))
     def mkEdge(src: Int, dst: Int) = new Edge(src.toLong, dst.toLong, weightFcn(src, dst))
     val edges = sc.parallelize(List(
@@ -57,7 +58,7 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
     val base = Graph(nodes, edges)
 
     val bidirectional = base.explicitlyBidirectional(d => 2.0f*d)
-    SubGraph.graphToSubGraphs(bidirectional, Some((d: Float) => d.toFloat), n)
+    SubGraph.graphToSubGraphs(bidirectional, (f: Float) => f, n)
   }
 
   test("Test sub-graph construction") {
@@ -71,18 +72,24 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
 
     val subGraph0 = subGraphs(0)(0)
     assert(4 === subGraph0.numNodes)
-    assert((7, 4, 11) === subGraph0.numLinks)
-    assert((8.0, 4.0, 12.0) === subGraph0.totalWeight)
+    assert(7 === subGraph0.numInternalLinks)
+    assert(4 === subGraph0.numExternalLinks)
+    assert(8.0 === subGraph0.totalInternalWeight)
+    assert(4.0 === subGraph0.totalExternalWeight)
 
     val subGraph1 = subGraphs(1)(0)
     assert(4 === subGraph1.numNodes)
-    assert((6, 7, 13) === subGraph1.numLinks)
-    assert((6.0, 7.0, 13.0) === subGraph1.totalWeight)
+    assert(6 === subGraph1.numInternalLinks)
+    assert(7 === subGraph1.numExternalLinks)
+    assert(6.0 === subGraph1.totalInternalWeight)
+    assert(7.0 === subGraph1.totalExternalWeight)
 
     val subGraph2 = subGraphs(2)(0)
     assert(4 === subGraph2.numNodes)
-    assert((8, 7, 15) === subGraph2.numLinks)
-    assert((8.0, 7.0, 15.0) === subGraph2.totalWeight)
+    assert(8 === subGraph2.numInternalLinks)
+    assert(7 === subGraph2.numExternalLinks)
+    assert(8.0 === subGraph2.totalInternalWeight)
+    assert(7.0 === subGraph2.totalExternalWeight)
   }
 
   test("Test full graph reconstitution") {
@@ -138,62 +145,50 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
     // Node 0
     subGraphs(0).weightedInternalDegree(0) should be (3.05 +- epsilon)
     subGraphs(0).weightedExternalDegree(0) should be (1.20 +- epsilon)
-    subGraphs(0).weightedDegree(0) should be (4.25 +- epsilon)
 
     // Node 1
     subGraphs(0).weightedInternalDegree(1) should be (2.20 +- epsilon)
     subGraphs(0).weightedExternalDegree(1) should be (1.50 +- epsilon)
-    subGraphs(0).weightedDegree(1) should be (3.70 +- epsilon)
 
     // Node 2
     subGraphs(0).weightedInternalDegree(2) should be (2.40 +- epsilon)
     subGraphs(0).weightedExternalDegree(2) should be (3.00 +- epsilon)
-    subGraphs(0).weightedDegree(2) should be (5.40 +- epsilon)
 
     // Node 3
     subGraphs(0).weightedInternalDegree(3) should be (1.25 +- epsilon)
     subGraphs(0).weightedExternalDegree(3) should be (0.00 +- epsilon)
-    subGraphs(0).weightedDegree(3) should be (1.25 +- epsilon)
 
     // Node 4
     subGraphs(1).weightedInternalDegree(0) should be (3.05 +- epsilon)
     subGraphs(1).weightedExternalDegree(0) should be (4.55 +- epsilon)
-    subGraphs(1).weightedDegree(0) should be (7.60 +- epsilon)
 
     // Node 5
     subGraphs(1).weightedInternalDegree(1) should be (1.60 +- epsilon)
     subGraphs(1).weightedExternalDegree(1) should be (1.75 +- epsilon)
-    subGraphs(1).weightedDegree(1) should be (3.35 +- epsilon)
 
     // Node 6
     subGraphs(1).weightedInternalDegree(2) should be (1.50 +- epsilon)
     subGraphs(1).weightedExternalDegree(2) should be (3.15 +- epsilon)
-    subGraphs(1).weightedDegree(2) should be (4.65 +- epsilon)
 
     // Node 7
     subGraphs(1).weightedInternalDegree(3) should be (3.15 +- epsilon)
     subGraphs(1).weightedExternalDegree(3) should be (1.75 +- epsilon)
-    subGraphs(1).weightedDegree(3) should be (4.90 +- epsilon)
 
     // Node 8
     subGraphs(2).weightedInternalDegree(0) should be (1.95 +- epsilon)
     subGraphs(2).weightedExternalDegree(0) should be (3.35 +- epsilon)
-    subGraphs(2).weightedDegree(0) should be (5.30 +- epsilon)
 
     // Node 9
     subGraphs(2).weightedInternalDegree(1) should be (3.95 +- epsilon)
     subGraphs(2).weightedExternalDegree(1) should be (3.25 +- epsilon)
-    subGraphs(2).weightedDegree(1) should be (7.20 +- epsilon)
 
     // Node 10
     subGraphs(2).weightedInternalDegree(2) should be (4.00 +- epsilon)
     subGraphs(2).weightedExternalDegree(2) should be (3.35 +- epsilon)
-    subGraphs(2).weightedDegree(2) should be (7.35 +- epsilon)
 
     // Node 11
     subGraphs(2).weightedInternalDegree(3) should be (6.00 +- epsilon)
     subGraphs(2).weightedExternalDegree(3) should be (1.75 +- epsilon)
-    subGraphs(2).weightedDegree(3) should be (7.75 +- epsilon)
   }
 
   test("Test self-loop calculation") {
