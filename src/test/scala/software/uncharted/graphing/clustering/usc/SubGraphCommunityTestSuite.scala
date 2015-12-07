@@ -35,12 +35,15 @@ class SubGraphCommunityTestSuite extends FunSuite {
     refClusterer.one_level(false)
     val refResult = refClusterer.partition2graph_binary
 
+    val subGraphLinks: Array[Array[(Int, Float)]] = (0 to 15).map{n =>
+      val start = if (0 == n) 0 else degrees(n - 1)
+      val end = degrees(n)
+      links.drop(start).take(end-start).map(link => (link, 1.0f)).toArray
+    }.toArray
     val subGraph = new SubGraph[Int](
       (0 to 15).map(n => (n.toLong, n)).toArray,
-      degrees.map(d => d),
-      links.map(link => (link, 1.0f)),
-      degrees.map(d => 0),
-      Array[(VertexId, Float)]()
+      subGraphLinks,
+      (0 to 15).map(n => Array[(VertexId, Float)]()).toArray
     )
     val subClusterer = new SubGraphCommunity[Int](subGraph, 1, 0.15)
     subClusterer.one_level(false)

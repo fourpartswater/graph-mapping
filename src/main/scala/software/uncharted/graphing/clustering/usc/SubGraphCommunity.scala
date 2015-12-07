@@ -247,42 +247,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       }
     }
 
-    val internalDegrees = new Array[Int](newSize)
-    val numInternalLinks = internalLinks.iterator.map(_.size).reduce(_ + _)
-    val allInternalLinks = new Array[(Int, Float)](numInternalLinks)
-    var ci = 0
 
-    val externalDegrees = new Array[Int](newSize)
-    val numExternalLinks = externalLinks.iterator.map(_.size).reduce(_ + _)
-    val allExternalLinks = new Array[(VertexId, Float)](numExternalLinks)
-    var ce = 0
-
-    for (node <- 0 until newSize) {
-      val nodeInternalLinks = internalLinks(node)
-      val nodeInternalDegree = nodeInternalLinks.size
-      nodeInternalLinks.foreach { case (link, weight) =>
-        allInternalLinks(ci) = (link, weight)
-        ci = ci + 1
-      }
-      internalDegrees(node) =
-        if (0 == node) nodeInternalDegree
-        else internalDegrees(node - 1) + nodeInternalDegree
-
-      val nodeExternalLinks = externalLinks(node)
-      val nodeExternalDegree = nodeExternalLinks.size
-      nodeExternalLinks.foreach { case (link, weight) =>
-        allExternalLinks(ce) = (link, weight)
-        ce = ce + 1
-      }
-      externalDegrees(node) =
-        if (0 == node) nodeExternalDegree
-        else externalDegrees(node - 1) + nodeExternalDegree
-    }
-
-    new SubGraph(
-      nodeInfos,
-      internalDegrees, allInternalLinks,
-      externalDegrees, allExternalLinks
-    )
+    new SubGraph(nodeInfos, internalLinks.map(_.toArray), externalLinks.map(_.toArray))
   }
 }

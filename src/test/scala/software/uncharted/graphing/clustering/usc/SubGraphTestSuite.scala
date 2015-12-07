@@ -63,7 +63,7 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
 
   test("Test sub-graph construction") {
     val inSubGraphs = constructSampleSubgraphs(3)
-    val subGraphs = inSubGraphs.mapPartitionsWithIndex{case (p, i) => Iterator((p, i.toList))}.collect.toMap
+    val subGraphs = collectPartitions(inSubGraphs)
 
     assert(3 === subGraphs.size)
     assert(1 === subGraphs(0).size)
@@ -139,7 +139,7 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
 
   test("Test degree calculation") {
     val subGraphsRDD = constructSampleSubgraphs(3, (s, d) => 1.0f + (s+d)/20.0f)
-    val subGraphs = subGraphsRDD.mapPartitionsWithIndex{case (p, i) => Iterator((p, i.toList.head))}.collect.toMap
+    val subGraphs = collectPartitions(subGraphsRDD).mapValues(_.head)
 
 
     // Node 0
@@ -193,7 +193,7 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
 
   test("Test self-loop calculation") {
     val subGraphsRDD = constructSampleSubgraphs(3, (s, d) => 1.0f + (s+d)/20.0f)
-    val subGraphs = subGraphsRDD.mapPartitionsWithIndex{case (p, i) => Iterator((p, i.toList.head))}.collect.toMap
+    val subGraphs = collectPartitions(subGraphsRDD).mapValues(_.head)
 
     subGraphs(0).weightedSelfLoopDegree(0) should be (2.0 +- epsilon)
     subGraphs(0).weightedSelfLoopDegree(1) should be (0.0 +- epsilon)
@@ -213,21 +213,21 @@ class SubGraphTestSuite extends FunSuite with  SharedSparkContext {
 
   test("Test conversion to reference implementation") {
     val inSubGraphs = constructSampleSubgraphs(3)
-    val subGraphs = inSubGraphs.mapPartitionsWithIndex { case (p, i) => Iterator((p, i.toList)) }.collect.toMap
+    val subGraphs = collectPartitions(inSubGraphs).mapValues(_.head)
 
-    val subGraph0 = subGraphs(0)(0)
+    val subGraph0 = subGraphs(0)
     val ref0 = subGraph0.toReferenceImplementation
     assert(4 === ref0.nb_nodes)
     assert(7 === ref0.nb_links)
     assert(8.0 === ref0.total_weight)
 
-    val subGraph1 = subGraphs(1)(0)
+    val subGraph1 = subGraphs(1)
     val ref1 = subGraph1.toReferenceImplementation
     assert(4 === ref1.nb_nodes)
     assert(6 === ref1.nb_links)
     assert(6.0 === ref1.total_weight)
 
-    val subGraph2 = subGraphs(2)(0)
+    val subGraph2 = subGraphs(2)
     val ref2 = subGraph2.toReferenceImplementation
     assert(4 === ref2.nb_nodes)
     assert(8 === ref2.nb_links)

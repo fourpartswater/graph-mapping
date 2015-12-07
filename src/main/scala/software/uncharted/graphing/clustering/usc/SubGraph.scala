@@ -44,67 +44,53 @@ import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
  * @param remoteLinks The external from each node in our subgraph
  */
 class SubGraph[VD] (nodes: Array[(VertexId, VD)],
-                    degrees: Array[Int],
-                    links: Array[(Int, Float)],
-                    remoteDegrees: Array[Int],
-                    remoteLinks: Array[(VertexId, Float)])
+                    links: Array[Array[(Int, Float)]],
+                    remoteLinks: Array[Array[(VertexId, Float)]])
  extends Serializable {
-  assert(nodes.size == degrees.size)
-  assert(nodes.size == remoteDegrees.size)
-  assert(links.size == degrees(degrees.length - 1))
-  assert(remoteLinks.size == remoteDegrees(remoteDegrees.length - 1))
+  assert(nodes.size == links.size)
+  assert(nodes.size == remoteLinks.size)
 
   // Number of nodes in our subgraph
-  val numNodes = degrees.size
+  val numNodes = nodes.size
 
   /** Get the original data for the given node */
   def nodeData (node: Int): (VertexId, VD) = nodes(node)
 
   // A quick function to mutate to our reference implementation for testing
   private[usc] def toReferenceImplementation: BGLLGraph = {
-    new BGLLGraph(degrees, links.map(_._1), Some(links.map(_._2)))
+    val degrees: Array[Int] = links.map(_.size)
+    for (i <- 1 until degrees.size) degrees(i) = degrees(i) + degrees(i - 1)
+    new BGLLGraph(degrees, links.flatMap(_.map(_._1)), Some(links.flatMap(_.map(_._2))))
   }
 
 
-  val numInternalLinks = links.size
+  val numInternalLinks = links.foldLeft(0)(_ + _.size)
 
-  def numInternalNeighbors (node: Int): Int =
-    if (0 == node) {
-      degrees(0)
-    } else {
-      degrees(node) - degrees(node - 1)
-    }
+  def numInternalNeighbors (node: Int): Int = links(node).size
 
-  def internalNeighbors (node: Int): Iterator[(Int, Float)] =
-    new InternalNeighborIterator(node)
+  def internalNeighbors (node: Int): Iterator[(Int, Float)] = links(node).toIterator
 
   def weightedInternalDegree (node: Int): Double =
     internalNeighbors(node).foldLeft(0.0)(_ + _._2.toDouble)
 
   lazy val totalInternalWeight = calculateTotalInternalWeight
   private def calculateTotalInternalWeight =
-    links.foldLeft(0.0)(_ + _._2.toDouble)
+    links.foldLeft(0.0)(_ + _.foldLeft(0.0)(_ + _._2.toDouble))
 
 
 
-  val numExternalLinks = remoteLinks.size
+  val numExternalLinks = remoteLinks.foldLeft(0)(_ + _.size)
 
-  def numExternalNeighbors (node: Int): Int =
-    if (0 == node) {
-      remoteDegrees(0)
-    } else {
-      remoteDegrees(node) - remoteDegrees(node - 1)
-    }
+  def numExternalNeighbors (node: Int): Int = remoteLinks(node).size
 
-  def externalNeighbors (node: Int): Iterator[(Long, Float)] =
-    new ExternalNeighborIterator(node)
+  def externalNeighbors (node: Int): Iterator[(Long, Float)] = remoteLinks(node).toIterator
 
   def weightedExternalDegree (node: Int): Double = {
     externalNeighbors(node).foldLeft(0.0)(_ + _._2.toDouble)
   }
   lazy val totalExternalWeight = calculateTotalExternalWeight
   private def calculateTotalExternalWeight =
-    remoteLinks.foldLeft(0.0)(_ + _._2.toDouble)
+    remoteLinks.foldLeft(0.0)(_ + _.foldLeft(0.0)(_ + _._2.toDouble))
 
 
 
@@ -138,30 +124,30 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 
 
 
-  private class InternalNeighborIterator (node: Int) extends Iterator[(Int, Float)] {
-    var index: Int = if (0 == node) 0 else degrees(node-1)
-    val end: Int = degrees(node)
-
-    override def hasNext: Boolean = index < end
-
-    override def next(): (Int, Float) = {
-      val next = links(index)
-      index = index + 1
-      next
-    }
-  }
-  private class ExternalNeighborIterator (node: Int) extends Iterator[(VertexId, Float)] {
-    var index: Int = if (0 == node) 0 else remoteDegrees(node-1)
-    var end: Int = remoteDegrees(node)
-
-    override def hasNext: Boolean = index < end
-
-    override def next(): (VertexId, Float) = {
-      val next = remoteLinks(index)
-      index = index + 1
-      next
-    }
-  }
+//  private class InternalNeighborIterator (node: Int) extends Iterator[(Int, Float)] {
+//    var index: Int = if (0 == node) 0 else degrees(node-1)
+//    val end: Int = degrees(node)
+//
+//    override def hasNext: Boolean = index < end
+//
+//    override def next(): (Int, Float) = {
+//      val next = links(index)
+//      index = index + 1
+//      next
+//    }
+//  }
+//  private class ExternalNeighborIterator (node: Int) extends Iterator[(VertexId, Float)] {
+//    var index: Int = if (0 == node) 0 else remoteDegrees(node-1)
+//    var end: Int = remoteDegrees(node)
+//
+//    override def hasNext: Boolean = index < end
+//
+//    override def next(): (VertexId, Float) = {
+//      val next = remoteLinks(index)
+//      index = index + 1
+//      next
+//    }
+//  }
 }
 
 
@@ -227,33 +213,7 @@ object SubGraph {
         }
       }
 
-      // Get our cumulative degree arrays
-      val internalDegrees: Array[Int] = new Array[Int](numNodes)
-      val externalDegrees: Array[Int] = new Array[Int](numNodes)
-      var totalInternalDegree = 0
-      var totalExternalDegree = 0
-      for (i <- 0 until numNodes) {
-        totalInternalDegree = totalInternalDegree + internalLinks(i).size
-        totalExternalDegree = totalExternalDegree + externalLinks(i).size
-        internalDegrees(i) = totalInternalDegree
-        externalDegrees(i) = totalExternalDegree
-      }
-      val allInternalLinks: Array[(Int, Float)] = new Array[(Int, Float)](totalInternalDegree)
-      var in = 0
-      val allExternalLinks: Array[(VertexId, Float)] = new Array[(VertexId, Float)](totalExternalDegree)
-      var en = 0
-      for (i <- 0 until numNodes) {
-        internalLinks(i).map { internalLink =>
-          allInternalLinks(in) = internalLink
-          in = in + 1
-        }
-        externalLinks(i).map { externalLink =>
-          allExternalLinks(en) = externalLink
-          en = en + 1
-        }
-      }
-
-      Iterator(new SubGraph(nodes, internalDegrees, allInternalLinks, externalDegrees, allExternalLinks))
+      Iterator(new SubGraph(nodes, internalLinks.map(_.toArray), externalLinks.map(_.toArray)))
     }
   }
 }
