@@ -1,7 +1,7 @@
 /**
- * Copyright © 2014-2015 Uncharted Software Inc. All rights reserved.
+ * Copyright Â© 2014-2015 Uncharted Software Inc. All rights reserved.
  *
- * Property of Uncharted™, formerly Oculus Info Inc.
+ * Property of Unchartedâ„¢, formerly Oculus Info Inc.
  * http://uncharted.software/
  *
  * This software is the confidential and proprietary information of
@@ -14,6 +14,7 @@ package software.uncharted.graphing.clustering.usc
 
 
 import org.apache.spark.graphx.VertexId
+import software.uncharted.graphing.clustering.ClusteringStatistics
 
 import scala.collection.mutable.{Buffer, Map => MutableMap}
 import scala.util.Random
@@ -37,6 +38,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
 
+  var clusteringStatistics: Option[ClusteringStatistics] = None
 
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
     tot(comm) = tot(comm) - sg.weightedInternalDegree(node)
@@ -96,11 +98,16 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
   }
 
   def one_level (randomize: Boolean = true): Boolean = {
+    val startTime = System.currentTimeMillis()
+    val startModularity = modularity
+    val startNodes = sg.numNodes
+    val startLinks = sg.numInternalLinks + sg.numExternalLinks
+
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
-    var new_mod = modularity
-    var cur_mod = new_mod
+    var new_mod = startModularity
+    var cur_mod = startModularity
 
     // Randomize the order of vertex inspection
     val random_order = (0 until size).toArray
@@ -114,6 +121,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       }
     }
 
+    var iterations = 0
     // repeat while
     //   there is an improvement of modularity
     //   or there is an improvement of modularity greater than a given epsilon
@@ -166,7 +174,20 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       if (nb_moves > 0)
         improvement = true;
 
+      iterations = iterations + 1
     } while (nb_moves > 0 && new_mod - cur_mod > minModularity)
+
+    val endTime = System.currentTimeMillis()
+    val endNodes = 0
+    val endLinks = 0
+    val endModularity = new_mod
+
+    clusteringStatistics = Some(ClusteringStatistics(
+      -1, -1, iterations,
+      startModularity, startNodes, startLinks,
+      endModularity, endNodes, endLinks,
+      endTime - startTime
+    ))
 
     improvement
   }
@@ -260,6 +281,18 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     }
 
 
-    new SubGraph(nodeInfos, internalLinks.map(_.toArray), externalLinks.map(_.toArray))
+    val result = new SubGraph(nodeInfos, internalLinks.map(_.toArray), externalLinks.map(_.toArray))
+
+    // Add nodes and links to clustering statistics, if there are any
+    clusteringStatistics = clusteringStatistics.map(cs =>
+      ClusteringStatistics(
+        cs.level, cs.partition, cs.iterations,
+        cs.startModularity, cs.startNodes, cs.startLinks,
+        cs.endModularity, result.numNodes, result.numInternalLinks + result.numExternalLinks,
+        cs.timeToCluster
+      )
+    )
+
+    result
   }
 }
