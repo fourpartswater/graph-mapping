@@ -73,15 +73,15 @@ object USCLouvainRunner {
     val argParser = new ArgumentParser(args)
 
     val (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions):
-    (String, Option[String], String, Int, String, Option[String], String, Int, Int, Option[Int], Int) =
+    (Option[String], Option[String], String, Option[Int], String, Option[String], String, Int, Int, Option[Int], Int) =
       try {
-        val nodeFile = argParser.getString("nodeFile", "The data file from which to get nodes")
-        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", Some("node"))
+        val nodeFile = argParser.getStringOption("nodeFile", "The data file from which to get nodes")
+        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.")
         val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
-        val nodeIdCol = argParser.getInt("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
+        val nodeIdCol = argParser.getIntOption("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
 
         val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
-        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", Some("edge"))
+        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.")
         val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
         val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
         val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
@@ -98,23 +98,29 @@ object USCLouvainRunner {
 
     val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
 
-    val nodes: RDD[(Long, Long)] = getData(
-      sc, nodeFile, nodePrefix,
-      parseLine(nodeSeparator, nodeIdCol, _.toLong)
-    ).map(n => (n, n))
-
-    val edges: RDD[Edge[Float]] = weightColOpt.map(weightCol =>
+    val edges: RDD[Edge[Float]] = weightColOpt.map { weightCol =>
       getData(
         sc, edgeFile, edgePrefix,
         parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong, weightCol, _.toFloat)
       ).map { case (src, dst, weight) => new Edge(src, dst, weight) }
-    ).getOrElse(
-        getData(
-          sc, edgeFile, edgePrefix,
-          parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong)
-        ).map { case (src, dst) => new Edge(src, dst, 1.0f) }
-      )
-    val sparkGraph = SparkGraph(nodes, edges).explicitlyBidirectional(f => f).renumber()
+    }.getOrElse {
+      getData(
+        sc, edgeFile, edgePrefix,
+        parseLine(edgeSeparator, edgeSrcCol, _.toLong, edgeDstCol, _.toLong)
+      ).map { case (src, dst) => new Edge(src, dst, 1.0f) }
+    }
+
+    val sparkGraph: SparkGraph[Long, Float] =
+      if (nodeFile.isDefined && nodeIdCol.isDefined) {
+        val nodes: RDD[(Long, Long)] = getData(
+          sc, nodeFile.get, nodePrefix,
+          parseLine(nodeSeparator, nodeIdCol.get, _.toLong)
+        ).map(n => (n, n))
+
+        SparkGraph(nodes, edges).explicitlyBidirectional(f => f).renumber()
+      } else {
+        SparkGraph.fromEdges(edges, -1)
+      }
 
 
     // Convert to a set of sub-graphs
