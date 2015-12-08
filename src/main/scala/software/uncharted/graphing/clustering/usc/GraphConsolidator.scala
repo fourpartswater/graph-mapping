@@ -58,12 +58,21 @@ object GraphConsolidator {
       val consolidatedRemoteNodeLinks = MutableMap[Int, Float]()
       for (j <- 0 until numRemoteLinks) {
         val (origNodeId, weight) = remoteNodeLinks(j)
-        // Map from original node ID to the node ID of the community into which it has moved
-        val newNodeId = linkMapping(origNodeId)
-        // Map from the community node ID to the local index of that community
-        val newNodeIndex = renumbering(newNodeId)
-
-        consolidatedRemoteNodeLinks(newNodeIndex) = consolidatedRemoteNodeLinks.get(newNodeIndex).getOrElse(0.0f) + weight
+        linkMapping.get(origNodeId) match {
+          case Some(newNodeId) => {
+            renumbering.get(newNodeId) match {
+              case Some(newNodeIndex) => {
+                consolidatedRemoteNodeLinks(newNodeIndex) = consolidatedRemoteNodeLinks.get(newNodeIndex).getOrElse(0.0f) + weight
+              }
+              case None => {
+                println("\nCouldn't translate "+origNodeId+", which has changed to "+newNodeId+": Not found in renumbering map")
+              }
+            }
+          }
+          case None => {
+            println("\nCouldn't find "+origNodeId+" in link mapping")
+          }
+        }
       }
       val numConsolidatedRemoteLinks = consolidatedRemoteNodeLinks.size
 
