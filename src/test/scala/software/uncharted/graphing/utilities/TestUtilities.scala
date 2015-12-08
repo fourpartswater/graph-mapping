@@ -1,7 +1,7 @@
 /**
- * Copyright © 2014-2015 Uncharted Software Inc. All rights reserved.
+ * Copyright Â© 2014-2015 Uncharted Software Inc. All rights reserved.
  *
- * Property of Uncharted™, formerly Oculus Info Inc.
+ * Property of Unchartedâ„¢, formerly Oculus Info Inc.
  * http://uncharted.software/
  *
  * This software is the confidential and proprietary information of
