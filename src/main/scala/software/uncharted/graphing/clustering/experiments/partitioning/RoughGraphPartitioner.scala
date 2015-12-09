@@ -75,7 +75,7 @@ object RoughGraphPartitioner {
     (partitionIndicators.toMap, partitionSizes.toMap)
   }
 
-  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int): Graph[(VD, Int), ED] = {
+  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int, weightFcn: ED => Float = (edgeAttr: ED) => 1.0f): Graph[(VD, Int), ED] = {
     val (partitionIndicators, partitionSizes) = getPartitionIndicators(graph, partitions)
     val maxPartition = partitionIndicators.map(_._2._1).reduce(_ max _)
     // A partition for nodes that aren't linked to any indicated node
@@ -85,21 +85,21 @@ object RoughGraphPartitioner {
     partitionSizes.toList.sortBy(_._1).foreach(x => println("\t"+x))
     println("Other partition: "+otherPartition)
 
-    val checkPartitionIndicators: EdgeContext[VD, ED, MutableMap[Int, Long]] => Unit = context => {
+    val checkPartitionIndicators: EdgeContext[VD, ED, MutableMap[Int, Float]] => Unit = context => {
       partitionIndicators.get(context.srcId).foreach { case (partition, degree) =>
-        context.sendToDst(MutableMap(partition -> degree))
+        context.sendToDst(MutableMap(partition -> degree * weightFcn(context.attr)))
       }
       partitionIndicators.get(context.dstId).foreach { case (partition, degree) =>
-        context.sendToSrc(MutableMap(partition -> degree))
+        context.sendToSrc(MutableMap(partition -> degree * weightFcn(context.attr)))
       }
     }
-    val mergePartitionIndicators: (MutableMap[Int, Long], MutableMap[Int, Long]) => MutableMap[Int, Long] = (a, b) => {
+    val mergePartitionIndicators: (MutableMap[Int, Float], MutableMap[Int, Float]) => MutableMap[Int, Float] = (a, b) => {
       val mergedMap = a
-      b.foreach{case (k, v) => mergedMap(k) = mergedMap.get(k).getOrElse(0L) + v}
+      b.foreach{case (k, v) => mergedMap(k) = mergedMap.get(k).getOrElse(0.0f) + v}
       mergedMap
     }
 
-    val annotate: (VertexId, VD, Option[MutableMap[Int, Long]]) => (VD, Int) = (node, data, partitionsOpt) => {
+    val annotate: (VertexId, VD, Option[MutableMap[Int, Float]]) => (VD, Int) = (node, data, partitionsOpt) => {
       partitionsOpt.map { partitions =>
         val proportionalPartitions = partitions.map { case (partition, count) => (partition, count.toDouble / partitionSizes(partition)) }
         val (bestPartition, bestProportionalPartition) = proportionalPartitions.reduce((a, b) =>
