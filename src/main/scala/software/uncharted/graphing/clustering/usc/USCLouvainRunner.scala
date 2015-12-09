@@ -119,7 +119,7 @@ object USCLouvainRunner {
 
         SparkGraph(nodes, edges).explicitlyBidirectional(f => f).renumber()
       } else {
-        SparkGraph.fromEdges(edges, -1)
+        SparkGraph.fromEdges(edges, -1).mapVertices{case (id, data) => id}
       }
 
 
