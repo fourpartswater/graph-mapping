@@ -93,7 +93,7 @@ object RoughGraphPartitioner {
    *                  links to progenitor nodes for that partition is taken into account.
    * @return A graph with the partition for each noded added to the node data, and the number of partitions
    */
-  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int, weightFcn: ED => Float = (edgeAttr: ED) => 1.0f): Graph[(VD, Int), ED] = {
+  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int, weightFcn: ED => Float = (edgeAttr: ED) => 1.0f): (Graph[(VD, Int), ED], Int) = {
     val (partitionIndicators, partitionSizes) = getPartitionIndicators(graph, partitions)
     val maxPartition = partitionIndicators.map(_._2._1).reduce(_ max _)
     // A partition for nodes that aren't linked to any indicated node
