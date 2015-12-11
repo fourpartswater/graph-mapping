@@ -10,3 +10,4 @@ target
 .gradle
 build
 test-output
+affinity-graph.txt
