@@ -10,6 +10,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 
+import scala.reflect.ClassTag
 
 
 /**
@@ -35,35 +36,44 @@ object RoughGraphPartitioner {
     vertices.map{case (id, (data, degree)) => (degree, 1)}.reduceByKey(_ + _).collect.sortBy(-_._1)
   }
 
-  // Given a graph, find those most connected nodes that can be used as partition indicators
-  def getPartitionIndicators[VD, ED] (graph: Graph[VD, ED], partitions: Int): (Map[VertexId, (Int, Long)], Map[Int, Long]) = {
+  /**
+   * Given a graph, find those most connected nodes that can be used as partition indicators
+   * @param randomness the expected randomness in the graph. A completely random graph should get a 1.0, a totally
+   *                   designed graph should get a -1.0.
+   */
+  def getPartitionIndicators[VD, ED] (graph: Graph[VD, ED], partitions: Int, randomness: Double): (Map[VertexId, (Int, Long)], Map[Int, Long]) = {
     val linkCount = graph.edges.count
     val graphWithDegree = annotateGraphWithDegree(graph)
     val vertices = graphWithDegree.vertices
     vertices.cache
 
     val nodeCount = vertices.count
-    val proportion = 2.0
 
     val degreeDistribution: Seq[(Long, Int)] = getDegreeDistributionInternal(vertices)
+    val totalDegree = degreeDistribution.map{case (degree, count) => degree * count}.reduce(_ + _)
+    val degreePerNode = totalDegree.toDouble / nodeCount
+    val requiredTotalDegree = (totalDegree / (2.0 - randomness))  * ((partitions - 1.0) / partitions)
 
-    var totalLinks = 0L
+    var totalUsedDegree = 0L
     var minNeededDegree = Long.MaxValue
     var neededNodes = 0
     degreeDistribution.foreach{case(degree, count) =>
-      if (totalLinks < nodeCount * proportion) {
-        totalLinks = totalLinks + degree * count
+      if (totalUsedDegree < requiredTotalDegree) {
+        totalUsedDegree = totalUsedDegree + degree * count
         neededNodes = neededNodes + count
-        if (totalLinks >= nodeCount * proportion)
+        if (totalUsedDegree >= requiredTotalDegree)
           minNeededDegree = degree
       }
     }
 
+    println("Pulling "+neededNodes+" of "+nodeCount+" nodes")
+    println("  Total degree used: "+totalUsedDegree+" of "+totalDegree)
+    println("  Minimum needed degree: "+minNeededDegree)
     val keyVertices = vertices.filter(_._2._2 >= minNeededDegree).map{case (id, (data, degree)) => (id, degree)}.collect()
 
     vertices.unpersist(false)
 
-    val target = nodeCount * proportion / (partitions-1)
+    val target = requiredTotalDegree / (partitions-1)
     var soFar = 0L
     var partition = 0
     val partitionIndicators = MutableMap[VertexId, (Int, Long)]()
@@ -88,20 +98,26 @@ object RoughGraphPartitioner {
    * @param graph The graph to partition
    * @param partitions A rough number of partitions into which to divide the graph.  This is an approximate input;
    *                   the actual number of partitions may vary slightly.
+   * @param randomness The expected randomness in the graph.  A totally random graph should pass in 1.0, a totally
+   *                   non-random graph, -1.0.
    * @param weightFcn A function to get the weight of a link.  Default is to assume every link has weight 1.0.  The
    *                  weight is used when determining the best partition in which to place a node - the weight of
    *                  links to progenitor nodes for that partition is taken into account.
    * @return A graph with the partition for each noded added to the node data, and the number of partitions
    */
-  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int, weightFcn: ED => Float = (edgeAttr: ED) => 1.0f): (Graph[(VD, Int), ED], Int) = {
-    val (partitionIndicators, partitionSizes) = getPartitionIndicators(graph, partitions)
+  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int,
+                                          randomness: Double, weightFcn: ED => Float = (edgeAttr: ED) => 1.0f): (Graph[(VD, Int), ED], Int) = {
+    val (partitionIndicators, partitionSizes) = getPartitionIndicators(graph, partitions, randomness)
     val maxPartition = partitionIndicators.map(_._2._1).reduce(_ max _)
     // A partition for nodes that aren't linked to any indicated node
     val otherPartition = maxPartition + 1
 
     println("Partition sizes (in total degree of indicators):")
-    partitionSizes.toList.sortBy(_._1).foreach(x => println("\t"+x))
-    println("Other partition: "+otherPartition)
+    partitionSizes.toList.sortBy(_._1).foreach(x => println("\t" + x))
+    println("Other partition: " + otherPartition)
+
+    // Get the max weight in the graph
+    val maxWeight = graph.edges.map(edge => weightFcn(edge.attr)).reduce(_ max _)
 
     val checkPartitionIndicators: EdgeContext[VD, ED, MutableMap[Int, Float]] => Unit = context => {
       partitionIndicators.get(context.srcId).foreach { case (partition, degree) =>
@@ -113,18 +129,33 @@ object RoughGraphPartitioner {
     }
     val mergePartitionIndicators: (MutableMap[Int, Float], MutableMap[Int, Float]) => MutableMap[Int, Float] = (a, b) => {
       val mergedMap = a
-      b.foreach{case (k, v) => mergedMap(k) = mergedMap.get(k).getOrElse(0.0f) + v}
+      b.foreach { case (k, v) => mergedMap(k) = mergedMap.get(k).getOrElse(0.0f) + v }
       mergedMap
     }
 
     val annotate: (VertexId, VD, Option[MutableMap[Int, Float]]) => (VD, Int) = (node, data, partitionsOpt) => {
-      partitionsOpt.map { partitions =>
-        val proportionalPartitions = partitions.map { case (partition, count) => (partition, count.toDouble / partitionSizes(partition)) }
-        val (bestPartition, bestProportionalPartition) = proportionalPartitions.reduce((a, b) =>
+      val partitions = partitionsOpt.getOrElse(MutableMap[Int, Float]())
+
+      val proportionalPartitions = partitions.map { case (partition, count) => (partition, count.toDouble / partitionSizes(partition)) }
+      var (bestPartition, bestProportionalPartition) =
+        proportionalPartitions.fold((otherPartition, 0.0))((a, b) =>
           if (a._2 > b._2) a else b
         )
-        (data, bestPartition)
-      }.getOrElse(data, otherPartition)
+
+      if (partitionIndicators.contains(node)) {
+        // See if it should be in its own partition
+        val (selfPartition, selfDegree) = partitionIndicators(node)
+        val selfPartitionDegree = partitionSizes(selfPartition)
+        val partitionCount: Long = partitionSizes(partitionIndicators(node)._1)
+        val selfPartitionScore = selfDegree * maxWeight / selfPartitionDegree
+
+        if (selfPartitionScore > bestProportionalPartition) {
+          bestPartition = selfPartition
+          bestProportionalPartition = selfPartitionScore
+        }
+      }
+
+      (data, bestPartition)
     }
 
     (
@@ -176,18 +207,22 @@ object RoughGraphPartitioner {
    * partitions
    *
    * @param graph The graph to divide
-   * @param partitions The rough number of sub-graphs
+   * @param requestedPartitions The desired number of sub-graphs; this will be roughly fulfilled, but perhaps not
+   *                            exactly.
    * @param bidirectional True if links in the graph should be considered as bi-directional, false if they should
    *                      be considered unidirectional
+   * @param randomness The expected randomness in the graph.  A totally random graph should pass in 1.0, a totally
+   *                   non-random graph, -1.0.
    * @param fcn What to do with partitions.  This function takes an iterator over the nodes in a partition, and the
    *            links coming from those nodes.
    * @tparam T The output type
    * @return The output of fcn on each partition of the graph
    */
-  def iterateOverPartitions[VD, ED, T] (graph: Graph[VD, ED], partitions: Int, bidirectional: Boolean)
-                                       (fcn: (Iterator[(VertexId, VD)], Iterator[Edge[ED]]) => Iterator[T]): RDD[T] = {
-    val (annotatedGraph, partitions) = annotateGraphWithPartition(graph, partitions)
-    val partitioner = new KeyPartitioner(partitions)
+  def iterateOverPartitions[VD, ED, T: ClassTag] (graph: Graph[VD, ED], requestedPartitions: Int,
+                                                  bidirectional: Boolean, randomness: Double)
+                                                 (fcn: (Iterator[(VertexId, VD)], Iterator[Edge[ED]]) => Iterator[T]): RDD[T] = {
+    val (annotatedGraph, actualPartitions) = annotateGraphWithPartition[VD, ED](graph, requestedPartitions, randomness)
+    val partitioner = new KeyPartitioner(actualPartitions)
 
     val partitionedNodes = annotatedGraph.vertices.map { case (vertexId, (data, partition)) =>
       (partition, (vertexId, data))
