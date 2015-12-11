@@ -1,8 +1,16 @@
 package software.uncharted.graphing.clustering.experiments.partitioning
 
+
+import org.apache.spark.broadcast.Broadcast
+
 import scala.collection.mutable.Buffer
 import scala.collection.mutable.{Map => MutableMap}
+
 import org.apache.spark.graphx._
+import org.apache.spark.Partitioner
+import org.apache.spark.rdd.RDD
+
+
 
 /**
  * Created by nkronenfeld on 12/9/2015.
@@ -75,7 +83,14 @@ object RoughGraphPartitioner {
     (partitionIndicators.toMap, partitionSizes.toMap)
   }
 
-  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int): Graph[(VD, Int), ED] = {
+  /**
+   * Annotate the nodes of a graph with the partition into which they should fall
+   * @param graph The graph to partition
+   * @param partitions A rough number of partitions into which to divide the graph.  This is an approximate input;
+   *                   the actual number of partitions may vary slightly.
+   * @return A graph with the partition for each noded added to the node data, and the number of partitions
+   */
+  def annotateGraphWithPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int): (Graph[(VD, Int), ED], Int) = {
     val (partitionIndicators, partitionSizes) = getPartitionIndicators(graph, partitions)
     val maxPartition = partitionIndicators.map(_._2._1).reduce(_ max _)
     // A partition for nodes that aren't linked to any indicated node
@@ -109,7 +124,10 @@ object RoughGraphPartitioner {
       }.getOrElse(data, otherPartition)
     }
 
-    graph.outerJoinVertices(graph.aggregateMessages(checkPartitionIndicators, mergePartitionIndicators, TripletFields.None))(annotate)
+    (
+      graph.outerJoinVertices(graph.aggregateMessages(checkPartitionIndicators, mergePartitionIndicators, TripletFields.None))(annotate),
+      otherPartition + 1
+      )
   }
 
   def annotateGraphWithRandomPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int): Graph[(VD, Int), ED] = {
@@ -149,4 +167,48 @@ object RoughGraphPartitioner {
 
     partitionEdgeStats.map(_._1).reduce(_ max _)
   }
+
+  /**
+   * Take a graph, divide it up into partitions in a specified way, and allow the user to do something with those
+   * partitions
+   *
+   * @param graph The graph to divide
+   * @param partitions The rough number of sub-graphs
+   * @param bidirectional True if links in the graph should be considered as bi-directional, false if they should
+   *                      be considered unidirectional
+   * @param fcn What to do with partitions.  This function takes an iterator over the nodes in a partition, and the
+   *            links coming from those nodes.
+   * @tparam T The output type
+   * @return The output of fcn on each partition of the graph
+   */
+  def iterateOverPartitions[VD, ED, T] (graph: Graph[VD, ED], partitions: Int, bidirectional: Boolean)
+                                       (fcn: (Iterator[(VertexId, VD)], Iterator[Edge[ED]]) => Iterator[T]): RDD[T] = {
+    val (annotatedGraph, partitions) = annotateGraphWithPartition(graph, partitions)
+    val partitioner = new KeyPartitioner(partitions)
+
+    val partitionedNodes = annotatedGraph.vertices.map { case (vertexId, (data, partition)) =>
+      (partition, (vertexId, data))
+    }.partitionBy(partitioner)
+
+    val partitionedLinks = annotatedGraph.triplets.flatMap { triplet: EdgeTriplet[(VD, Int), ED] =>
+      if (bidirectional) {
+        List[(Int, Edge[ED])](
+          (triplet.srcAttr._2, new Edge[ED](triplet.srcId, triplet.dstId, triplet.attr)),
+          (triplet.dstAttr._2, new Edge[ED](triplet.dstId, triplet.srcId, triplet.attr))
+        )
+      } else {
+        List[(Int, Edge[ED])]((triplet.srcAttr._2, triplet))
+      }
+    }.partitionBy(partitioner)
+
+    partitionedNodes.zipPartitions(partitionedLinks, true) { case (inRaw, ieRaw) =>
+      fcn(inRaw.map(_._2), ieRaw.map(_._2))
+    }
+  }
+}
+
+class KeyPartitioner (partitions: Int) extends Partitioner {
+  override def numPartitions: PartitionID = partitions
+
+  override def getPartition(key: Any): PartitionID = key.asInstanceOf[Int]
 }

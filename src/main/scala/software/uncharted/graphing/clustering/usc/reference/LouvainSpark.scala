@@ -89,7 +89,7 @@ object LouvainSpark {
         }
       }
 
-    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
+    val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering").setMaster("local"))
 
 
     val edges: RDD[Edge[Float]] = weightColOpt.map { weightCol =>
@@ -115,6 +115,9 @@ object LouvainSpark {
       } else {
         SparkGraph.fromEdges(edges, -1)
       }
+
+    sparkGraph.vertices.collect.foreach(println)
+    sparkGraph.edges.collect.foreach(println)
 
     val uscGraph = sparkGraphToUSCGraphs(sparkGraph, Some((weight: Float) => weight), partitions)
     uscGraph.mapPartitionsWithIndex{case (partition, graphs) =>
