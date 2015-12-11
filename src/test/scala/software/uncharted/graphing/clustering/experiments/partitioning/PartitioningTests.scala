@@ -47,9 +47,9 @@ class PartitioningTests extends FunSuite with SharedSparkContext with BeforeAndA
     assert(List((1998, 1000)) === degreeDistribution)
   }
 
-  test("Test partitioning") {
+  test("Test partition annotation") {
     val graph = getRandomGraph(10000)
-    val graphWithPartition = RoughGraphPartitioner.annotateGraphWithPartition(graph, 10)
+    val (graphWithPartition, partitions) = RoughGraphPartitioner.annotateGraphWithPartition(graph, 10)
     println("Partition sizes (in nodes)")
     graphWithPartition.vertices.map{case (id, (data, partition)) => (partition, 1)}.reduceByKey(_ + _).collect.sortBy(_._1).foreach(println)
 
