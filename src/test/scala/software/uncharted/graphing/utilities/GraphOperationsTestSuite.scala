@@ -18,7 +18,7 @@ import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.Matchers._
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
-import software.uncharted.graphing.clustering.reference.{Community, Graph => ReferenceGraph}
+import software.uncharted.graphing.clustering.unithread.reference.{Community, Graph => ReferenceGraph}
 import software.uncharted.spark.ExtendedRDDOperationsTestSuite
 
 

@@ -5,16 +5,17 @@
  * we can't distribute it without permission - though as a translation, with some optimization for readability in
  * scala, it may be a gray area.
  */
-package software.uncharted.graphing.clustering.reference
+package software.uncharted.graphing.clustering.unithread
 
-import java.io.{DataInputStream, FileInputStream}
+import java.io.{DataInputStream, FileInputStream, PrintStream}
 
 import org.apache.spark.SparkContext
-import org.apache.spark.graphx.Edge
-import org.apache.spark.graphx.VertexId
-import org.apache.spark.graphx.{Graph => SparkGraph}
+import org.apache.spark.graphx.{Edge, Graph => SparkGraph, VertexId}
 
-import scala.collection.mutable.Buffer
+case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String]) {
+  def + (that: NodeInfo): NodeInfo =
+  NodeInfo(this.id, this.internalNodes + that.internalNodes, this.metaData)
+}
 
 /**
  * based on graph_binary.h and graph_binary.cpp from Blondel et al
@@ -23,15 +24,22 @@ import scala.collection.mutable.Buffer
  *                deg(0) = degrees[0]
  *                deg(k) = degrees[k]=degrees[k-1]
  * @param links A list of the links to other nodes
+ * @param nodeInfos Extra information about each node
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
  */
-class Graph (degrees: Array[Int], links: Array[Int], weightsOpt: Option[Array[Float]] = None) {
+class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo], weightsOpt: Option[Array[Float]] = None) {
   val nb_nodes = degrees.size
   val nb_links = links.size
+  // A place to cache node weights, so it doesn't have to be calculated multiple times.
+  private val weights = new Array[Option[Double]](nb_nodes)
   val total_weight =
     (for (i <- 0 until nb_nodes) yield weighted_degree(i)).fold(0.0)(_ + _)
 
 
+  def id (node: Int): Long = nodeInfos(node).id
+  def internalSize (node: Int): Int = nodeInfos(node).internalNodes
+  def metaData (node: Int): String = nodeInfos(node).metaData.getOrElse("")
+  def nodeInfo (node: Int): NodeInfo = nodeInfos(node)
 
   def nb_neighbors (node: Int): Int =
     if (0 == node) {
@@ -46,22 +54,29 @@ class Graph (degrees: Array[Int], links: Array[Int], weightsOpt: Option[Array[Fl
   def nb_selfloops (node: Int): Double =
     neighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
 
-  def weighted_degree (node: Int): Double =
-    weightsOpt.map(weights =>
-      neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
-    ).getOrElse(nb_neighbors(node))
-
-  def display: Unit =
-    (0 until nb_nodes).foreach { node =>
-      println(node+":"+neighbors(node).mkString(" "))
+  def weighted_degree (node: Int): Double = {
+    // Only calculated the degree of a node once
+    if (null == weights(node) || !weights(node).isDefined) {
+      weights(node) = Some(weightsOpt.map(weights =>
+        neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
+      ).getOrElse(nb_neighbors(node))
+      )
     }
+    weights(node).get
+  }
 
-  def display_reverse: Unit =
-    (0 until nb_nodes).foreach{ node =>
-      neighbors(node).foreach{ case (dst, weight) =>
-        println(dst+" "+node+" "+weight)
+  def display_nodes (out: PrintStream): Unit = {
+    (0 until nb_nodes).foreach { node =>
+      out.println("node\t"+id(node)+"\t"+internalSize(node)+"\t"+weighted_degree(node)+"\t"+metaData(node))
+    }
+  }
+  def display_links (out: PrintStream): Unit = {
+    (0 until nb_nodes).foreach { node =>
+      neighbors(node).foreach { case (dst, weight) =>
+        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round.toInt)
       }
     }
+  }
 
   class NeighborIterator (node: Int) extends Iterator[(Int, Float)] {
     var index= if (0 == node) 0 else degrees(node-1)
@@ -111,6 +126,11 @@ object Graph {
       cumulativeDegrees(i) = nb_links
     }
 
+    val nodeInfos = new Array[NodeInfo](nb_nodes)
+    for (i <- 0 until nb_nodes) {
+      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2.toString))
+    }
+
     val links = new Array[Int](nb_links)
     var linkNum = 0
     for (i <- 0 until nb_nodes) {
@@ -142,7 +162,7 @@ object Graph {
       weightsInner
     }
 
-    new Graph(cumulativeDegrees, links, weights)
+    new Graph(cumulativeDegrees, links, nodeInfos, weights)
   }
 
 
@@ -171,6 +191,8 @@ object Graph {
     }
     finput.close
 
-    new Graph(degrees, links, weights)
+    val nodeInfos = new Array[NodeInfo](nb_links)
+    for (i <- 0 until nb_links) nodeInfos(i) = NodeInfo(i, 1, None)
+    new Graph(degrees, links, nodeInfos, weights)
   }
 }

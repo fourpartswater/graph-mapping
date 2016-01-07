@@ -1,4 +1,4 @@
-package software.uncharted.graphing.clustering.reference
+package software.uncharted.graphing.clustering.unithread.reference
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.Matchers._

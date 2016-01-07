@@ -1,4 +1,4 @@
-package software.uncharted.graphing.clustering.reference
+package software.uncharted.graphing.clustering.unithread.reference
 
 import java.io._
 

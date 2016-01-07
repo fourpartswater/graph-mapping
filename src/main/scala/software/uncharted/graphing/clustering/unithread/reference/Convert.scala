@@ -1,4 +1,4 @@
-package software.uncharted.graphing.clustering.reference
+package software.uncharted.graphing.clustering.unithread.reference
 
 /**
  * Created by nkronenfeld on 11/10/15.

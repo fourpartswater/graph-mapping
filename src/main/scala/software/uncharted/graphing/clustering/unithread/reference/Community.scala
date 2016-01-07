@@ -5,13 +5,14 @@
  * we can't distribute it without permission - though as a translation, with some optimization for readability in
  * scala, it may be a gray area.
  */
-package software.uncharted.graphing.clustering.modifiedreference
+package software.uncharted.graphing.clustering.unithread.reference
 
-import java.io.{File, FileInputStream, FileOutputStream, InputStreamReader, BufferedReader, PrintStream}
+
+import java.io.{InputStreamReader, BufferedReader, FileInputStream}
 import java.util.Date
-
 import scala.collection.mutable.{Buffer, Map => MutableMap}
-import scala.util.{Try, Random}
+import scala.util.Random
+
 
 
 /**
@@ -31,8 +32,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
 
   val size = g.nb_nodes
-  val n2c = new Array[Int](size)
-  for (i <- 0 until size) n2c(i) = i
+  val n2c = (0 until size).toArray
   val tot = n2c.map(n => g.weighted_degree(n))
   val in = n2c.map(n => g.nb_selfloops(n))
   val neigh_weight = n2c.map(n => -1.0)
@@ -106,8 +106,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     var cur_mod = new_mod
 
     // Randomize the order of vertex inspection
-    val random_order = new Array[Int](size)
-    for (i <- 0 until size) random_order(i) = i
+    val random_order = (0 until size).toArray
     val randomizer = new Random()
     if (randomize) {
       for (i <- 0 until (size - 1)) {
@@ -176,9 +175,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
   }
 
   private def getRenumbering: (Array[Int], Int) = {
-    val renumber = new Array[Int](size)
-    for (i <- 0 until size) renumber(i) = -1
-
+    val renumber = (0 until size).map(n => -1).toArray
     for (node <- 0 until size)
       renumber(n2c(node)) += 1
 
@@ -227,17 +224,11 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     finput.close
   }
 
-  def display_partition (out: PrintStream) : Unit = {
+  def display_partition: Unit = {
     val (renumber, last) = getRenumbering
     for (i <- 0 until size) {
-      val id = Try(g.id(i))
-      val id2 = Try(g.id(n2c(i)))
-      val is = Try(g.internalSize(i))
-      val wd = Try(g.weighted_degree(i))
-      val md = Try(g.metaData(i))
-      out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i).round.toInt+"\t"+g.metaData(i))
+      println(i + " " + renumber(n2c(i)))
     }
-    g.display_links(out)
   }
 
   def partition2graph_binary: Graph = {
@@ -255,7 +246,6 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     val nb_nodes = comm_nodes.size
     val degrees = new Array[Int](nb_nodes)
     val links = Buffer[Int]()
-    val nodeInfos = new Array[NodeInfo](nb_nodes)
     val weights = Buffer[Float]()
 
     val comm_deg = comm_nodes.size
@@ -277,17 +267,64 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
           links += neighbor
           weights += weight
       }
-
-      nodeInfos(comm) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node))).reduce{(a, b) =>
-        if (a._2 > b._2) (a._1 + b._1, a._2) else (b._1 + a._1, b._2)
-      }._1
     }
 
-    new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))
+    new Graph(degrees, links.toArray, Some(weights.toArray))
   }
 }
 
 
+
+class CommunityHarness {
+  def run (graph: Graph,
+           passes: Int = -1,
+           precision: Double = 0.000001,
+           display_level: Int = -2,
+           verbose: Boolean = false,
+           randomize: Boolean = true) = {
+    val time_begin = System.currentTimeMillis()
+    if (verbose) {
+      println("Start time: "+new Date(time_begin))
+      println("Input:")
+      graph.display
+    }
+
+    var g = graph
+    var c = new Community(g, passes, precision)
+    var improvement = true
+    var mod = c.modularity
+    var new_mod = mod
+    var level = 0
+
+    do {
+      improvement = c.one_level(randomize)
+      new_mod = c.modularity
+      level += 1
+      if (level == display_level)
+        g.display
+      if (display_level == -1)
+        c.display_partition
+
+      g = c.partition2graph_binary
+      c = new Community(g, -1, precision)
+
+      if (verbose) {
+        println("  modularity increased from " + mod + " to " + new_mod)
+        g.display
+      }
+      mod = new_mod
+      if (verbose)
+        println("  end computation")
+    } while (improvement)
+
+    val time_end = System.currentTimeMillis()
+    if (verbose) {
+      println("End time: "+new Date(time_end))
+      println("Total duration: "+((time_end - time_begin)/1000.0)+" seconds")
+    }
+    println("Final modularity: "+new_mod)
+  }
+}
 
 object Community {
   var weighted = false
@@ -314,7 +351,7 @@ object Community {
     println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
     println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
     println("-h\tshow this usage message.")
-    println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
+	println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
     System.exit(0)
   }
 
@@ -370,7 +407,6 @@ object Community {
 
     val time_begin = System.currentTimeMillis()
     if (verbose) display_time("Begin")
-    val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
     var c = new Community(filename.get, filename_w, weighted, -1, precision)
     filename_part.foreach(part => c.init_partition(part))
@@ -391,22 +427,13 @@ object Community {
       val new_mod = c.modularity
 
       level = level + 1
-      if (level == display_level && null != g) {
-        g.display_nodes(Console.out)
-        g.display_links(Console.out)
-      }
+      if (level == display_level && null != g)
+        g.display
+
+      if (-1 == display_level)
+        c.display_partition
 
       g = c.partition2graph_binary
-
-      curDir.foreach { pwd =>
-        val levelDir = new File(pwd, "level_" + (level-1))
-        levelDir.mkdir()
-        val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
-        c.display_partition(out)
-        out.flush
-        out.close
-      }
-
       c = new Community(g, -1, precision)
 
       if (verbose)

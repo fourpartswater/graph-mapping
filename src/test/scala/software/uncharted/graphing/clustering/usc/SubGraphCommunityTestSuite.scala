@@ -15,8 +15,8 @@ package software.uncharted.graphing.clustering.usc
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx._
 import org.scalatest.FunSuite
-import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
-import software.uncharted.graphing.clustering.reference.Community
+import software.uncharted.graphing.clustering.unithread.reference.{Graph => BGLLGraph}
+import software.uncharted.graphing.clustering.unithread.reference.Community
 
 /**
  * Created by nkronenfeld on 11/20/2015.

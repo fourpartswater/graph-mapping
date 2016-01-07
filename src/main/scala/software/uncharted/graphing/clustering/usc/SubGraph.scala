@@ -21,7 +21,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
 import software.uncharted.spark.ExtendedRDDOpertations._
-import software.uncharted.graphing.clustering.reference.{Graph => BGLLGraph}
+import software.uncharted.graphing.clustering.unithread.reference.{Graph => BGLLGraph}
 
 
 
