@@ -30,10 +30,10 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String]) {
 class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo], weightsOpt: Option[Array[Float]] = None) {
   val nb_nodes = degrees.size
   val nb_links = links.size
+  // A place to cache node weights, so it doesn't have to be calculated multiple times.
+  private val weights = new Array[Option[Double]](nb_nodes)
   val total_weight =
     (for (i <- 0 until nb_nodes) yield weighted_degree(i)).fold(0.0)(_ + _)
-  // A plcae to cache node weights, so it doesn't have to be calculated multiple times.
-  private val weights = new Array[Option[Double]](nb_nodes)
 
 
   def id (node: Int): Long = nodeInfos(node).id
@@ -73,7 +73,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   def display_links (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
       neighbors(node).foreach { case (dst, weight) =>
-        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight)
+        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round.toInt)
       }
     }
   }

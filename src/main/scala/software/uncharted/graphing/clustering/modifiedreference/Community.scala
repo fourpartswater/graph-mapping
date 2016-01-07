@@ -235,7 +235,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
       val is = Try(g.internalSize(i))
       val wd = Try(g.weighted_degree(i))
       val md = Try(g.metaData(i))
-      out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i)+"\t"+g.metaData(i))
+      out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i).round.toInt+"\t"+g.metaData(i))
     }
     g.display_links(out)
   }
@@ -399,7 +399,7 @@ object Community {
       g = c.partition2graph_binary
 
       curDir.foreach { pwd =>
-        val levelDir = new File(pwd, "level_" + level)
+        val levelDir = new File(pwd, "level_" + (level-1))
         levelDir.mkdir()
         val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
         c.display_partition(out)
