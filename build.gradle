@@ -83,9 +83,9 @@ dependencies {
 	compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 	compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
-	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1"
-	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.1"
-	compile "com.oculusinfo:factory-utilities:0.7-SNAPSHOT-cdh5.4.1"
+	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7"
+	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7"
+	compile "com.oculusinfo:factory-utilities:0.7-SNAPSHOT-cdh5.4.7"
 
 	provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 
@@ -93,7 +93,7 @@ dependencies {
 	testCompile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1:tests"
 	testCompile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.1:tests"
 
-	assemblyJarDepends "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.1:assembly"
+	assemblyJarDepends "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:assembly"
 }
 
 // Creation of a distribution jar
