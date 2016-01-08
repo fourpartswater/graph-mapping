@@ -45,7 +45,7 @@ class PartitioningTests extends FunSuite with SharedSparkContext with BeforeAndA
   def getStarGraph (n: Int) = {
     val edges: Seq[Edge[Float]] = (for (i <- 1 until n) yield new Edge(0, i, 1.0f))
     val edgeRDD = sc.parallelize(edges)
-    Graph.fromEdges(edgeRDD, 01).mapVertices{case (id, data) => id}
+    Graph.fromEdges(edgeRDD, 1).mapVertices{case (id, data) => id}
   }
 
   test("Test degree distribution") {
