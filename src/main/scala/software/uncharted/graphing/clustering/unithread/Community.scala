@@ -24,8 +24,9 @@ import scala.util.{Random, Try}
  */
 class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
-  def this (filename: String,  filename_w: Option[String], weighted: Boolean, nbp: Int, minm: Double) =
-    this(Graph(filename, filename_w, weighted), nbp, minm)
+  def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
+            nbp: Int, minm: Double) =
+    this(Graph(filename, filename_w, filename_m), nbp, minm)
 
 
 
@@ -290,13 +291,13 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
 
 object Community {
-  var weighted = false
   var nb_pass = 0
   var precision = 0.000001
   var display_level = -2
   var k1 = 16
   var filename: Option[String] = None
   var filename_w: Option[String] = None
+  var filename_m: Option[String] = None
   var filename_part: Option[String] = None
   var verbose = false
   var randomize = true
@@ -307,6 +308,7 @@ object Community {
     println
     println("input_file: file containing the graph to decompose in communities.")
     println("-w file\tread the graph as a weighted one (weights are set to 1 otherwise).")
+    println("-m file\tread metadata for nodes (set to none otherwise).")
     println("-p file\tstart the computation with a given partition instead of the trivial partition.")
     println("\tfile must contain lines \"node community\".")
     println("-q eps\ta given pass stops when the modularity is increased by less than epsilon.")
@@ -327,8 +329,11 @@ object Community {
         args(i).substring(1).toLowerCase match {
           case "w" => {
             i = i + 1
-            weighted = true
             filename_w = Some(args(i))
+          }
+          case "m" => {
+            i = i + 1
+            filename_m = Some(args(i))
           }
           case "p" => {
             i = i + 1
@@ -372,7 +377,7 @@ object Community {
     if (verbose) display_time("Begin")
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
-    var c = new Community(filename.get, filename_w, weighted, -1, precision)
+    var c = new Community(filename.get, filename_w, filename_m, -1, precision)
     filename_part.foreach(part => c.init_partition(part))
 
     var g: Graph = null

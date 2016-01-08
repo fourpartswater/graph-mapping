@@ -166,7 +166,7 @@ object Graph {
   }
 
 
-  def apply (filename: String, filename_w: Option[String], weighted: Boolean): Graph = {
+  def apply (filename: String, filename_w: Option[String], filename_m: Option[String]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
     val nb_nodes = finput.readInt
 
@@ -180,19 +180,27 @@ object Graph {
     val links = new Array[Int](nb_links)
     for (i <- 0 until nb_links) links(i) = finput.readInt
 
-    val weights:Option[Array[Float]] = if (weighted) {
-      val finput_w = new DataInputStream(new FileInputStream(filename_w.get))
+    val weights:Option[Array[Float]] =
+      filename_w.map { file =>
+      val finput_w = new DataInputStream(new FileInputStream(file))
       val weightsInner = new Array[Float](nb_links)
       for (i <- 0 until nb_links) weightsInner(i) = finput_w.readFloat
       finput_w.close
-      Some(weightsInner)
-    } else {
-      None
+      weightsInner
     }
     finput.close
 
-    val nodeInfos = new Array[NodeInfo](nb_links)
-    for (i <- 0 until nb_links) nodeInfos(i) = NodeInfo(i, 1, None)
+    val nodeInfos = new Array[NodeInfo](nb_nodes)
+    if (filename_m.isDefined) {
+      filename_m.foreach { file =>
+        val finput_m = new DataInputStream(new FileInputStream(file))
+        for (i <- 0 until nb_nodes)
+          nodeInfos(i) = NodeInfo(i, 1, Some(finput_m.readUTF()))
+      }
+    } else {
+      for (i <- 0 until nb_links) nodeInfos(i) = NodeInfo(i, 1, None)
+    }
+
     new Graph(degrees, links, nodeInfos, weights)
   }
 }
