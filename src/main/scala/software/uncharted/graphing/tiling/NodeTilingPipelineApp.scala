@@ -43,7 +43,6 @@ object NodeTilingPipelineApp {
 
     try {
       val base = argParser.getString("base", "The base location of graph layout information")
-      val maxLevel = argParser.getInt("max", "The maximum hierarchical level number laid out")
       val levels = argParser.getIntSeq("levels",
         """The number of levels per hierarchy level.  These will be applied in reverse order -
           | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
