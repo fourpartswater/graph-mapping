@@ -69,4 +69,39 @@ class SubGraphCommunityTestSuite extends FunSuite {
       assert(refResult.neighbors(n).toList === subResult.internalNeighbors(n).toList)
     }
   }
+
+
+  test("Test multi-part community reduction and recombination") {
+    val part1 = new SubGraph[Int](
+      (0 to 5).map(n => (n.toLong, n)).toArray,
+      Array(
+        Array((1, 1.0f), (2, 1.0f)), Array((0, 1.0f), (2, 1.0f)), Array((0, 1.0f), (1, 1.0f)),
+        Array((4, 1.0f), (5, 1.0f)), Array((3, 1.0f), (5, 1.0f)), Array((3, 1.0f), (4, 1.0f))
+      ),
+      (0 to 5).map(n => Array(((n+6).toLong, 1.0f))).toArray
+    )
+    val c1 = new SubGraphCommunity(part1, -1, 0.15)
+    c1.one_level(false)
+    val result1 = (c1.getReducedSubgraph(), c1.getVertexMapping)
+
+    val part2 = new SubGraph[Int](
+      (6 to 11).map(n => (n.toLong, n)).toArray,
+      Array(
+        Array((1, 1.0f), (2, 1.0f)), Array((0, 1.0f), (2, 1.0f)), Array((0, 1.0f), (1, 1.0f)),
+        Array((4, 1.0f), (5, 1.0f)), Array((3, 1.0f), (5, 1.0f)), Array((3, 1.0f), (4, 1.0f))
+      ),
+      (0 to 5).map(n => Array((n.toLong, 1.0f))).toArray
+    )
+    val c2 = new SubGraphCommunity(part2, -1, 0.15)
+    c2.one_level(false)
+    val result2 = (c2.getReducedSubgraph(), c2.getVertexMapping)
+
+    val combined = GraphConsolidator(result1._1.numNodes + result2._1.numNodes)(Iterator(result1, result2))
+
+    assert(4 === combined.numNodes)
+    for (i <- 0 to 3) {
+      assert(6.0f === combined.weightedSelfLoopDegree(i))
+      assert(3.0f === combined.weightedInternalDegree(i))
+    }
+  }
 }
