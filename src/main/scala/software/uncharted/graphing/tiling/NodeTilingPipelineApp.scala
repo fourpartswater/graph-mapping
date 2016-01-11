@@ -89,7 +89,10 @@ object NodeTilingPipelineApp {
       }
       sc.stop
     } catch {
-      case e: Exception => argParser.usage
+      case e: Exception => {
+        e.printStackTrace()
+        argParser.usage
+      }
     }
   }
 }
