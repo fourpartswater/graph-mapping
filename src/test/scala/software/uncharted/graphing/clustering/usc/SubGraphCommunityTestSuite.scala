@@ -12,11 +12,20 @@
  */
 package software.uncharted.graphing.clustering.usc
 
-import org.apache.spark.SharedSparkContext
+
+
+import scala.collection.mutable.Buffer
+
 import org.apache.spark.graphx._
 import org.scalatest.FunSuite
+import software.uncharted.graphing.clustering.ClusteringStatistics
+
 import software.uncharted.graphing.clustering.unithread.reference.{Graph => BGLLGraph}
-import software.uncharted.graphing.clustering.unithread.reference.Community
+import software.uncharted.graphing.clustering.unithread.reference.{Community => BGLLCommunity}
+
+import software.uncharted.graphing.clustering.usc.reference.{Graph => USCGraph, Community => USCCommunity, LouvainSpark, GraphMessage, RemoteMap}
+
+
 
 /**
  * Created by nkronenfeld on 11/20/2015.
@@ -43,7 +52,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
       /* 15 */ 8
     )
     val refGraph = new BGLLGraph(degrees, links)
-    val refClusterer = new Community(refGraph, 1, 0.15)
+    val refClusterer = new BGLLCommunity(refGraph, 1, 0.15)
     refClusterer.one_level(false)
     val refResult = refClusterer.partition2graph_binary
 
@@ -102,6 +111,85 @@ class SubGraphCommunityTestSuite extends FunSuite {
     for (i <- 0 to 3) {
       assert(6.0f === combined.weightedSelfLoopDegree(i))
       assert(3.0f === combined.weightedInternalDegree(i))
+    }
+  }
+  test("Test multi-part community reduction and recombination (baseline)") {
+    val part1 = new USCGraph(
+      Seq(2, 4, 6, 8, 10, 12),
+      Seq(
+        (1, 1.0f), (2, 1.0f),
+        (0, 1.0f), (2, 1.0f),
+        (0, 1.0f), (1, 1.0f),
+        (4, 1.0f), (5, 1.0f),
+        (3, 1.0f), (5, 1.0f),
+        (3, 1.0f), (4, 1.0f)
+        ),
+      Some(Seq(
+        RemoteMap(0, 0, 1), RemoteMap(1, 1, 1), RemoteMap(2, 2, 1),
+        RemoteMap(3, 3, 1), RemoteMap(4, 4, 1), RemoteMap(5, 5, 1)
+      ))
+    )
+    val c1 = new USCCommunity(part1, -1, 0.15)
+    c1.one_level(false)
+    val result1 = new GraphMessage(0, c1.partition2graph_binary, c1)
+
+    val part2 = new USCGraph(
+      Seq(2, 4, 6, 8, 10, 12),
+      Seq(
+        (1, 1.0f), (2, 1.0f),
+        (0, 1.0f), (2, 1.0f),
+        (0, 1.0f), (1, 1.0f),
+        (4, 1.0f), (5, 1.0f),
+        (3, 1.0f), (5, 1.0f),
+        (3, 1.0f), (4, 1.0f)
+      ),
+      Some(Seq(
+        RemoteMap(0, 0, 0), RemoteMap(1, 1, 0), RemoteMap(2, 2, 0),
+        RemoteMap(3, 3, 0), RemoteMap(4, 4, 0), RemoteMap(5, 5, 0)
+      ))
+    )
+    val c2 = new USCCommunity(part2, -1, 0.15)
+    c2.one_level(false)
+    val result2 = new GraphMessage(1, c2.partition2graph_binary, c2)
+
+    val combined = LouvainSpark.reconstructGraph(
+      Iterator[(GraphMessage, Iterable[ClusteringStatistics])](
+        (result1, List[ClusteringStatistics]()),
+        (result2, List[ClusteringStatistics]())
+      ),
+      Buffer[ClusteringStatistics]()
+    )
+
+    assert(4 === combined.nb_nodes)
+    for (i <- 0 to 3) {
+      // Check local links
+      assert(6.0f === combined.weighted_degree(i))
+      assert(6.0f === combined.nb_selfloops(i))
+      val ln = combined.neighbors(i).toList
+      assert(1 === ln.size)
+      val ll = ln.head
+      assert(i === ll._1)
+      assert(6.0f === ll._2)
+
+      // Check formerly remote links
+      assert(3.0f === combined.weighted_degree_remote(i))
+      val rn = combined.remote_neighbors(i).get.toList
+      assert(1 === rn.size)
+      val rl = rn.head
+      assert(((i + 2) % 4) === rl._1)
+      assert(3.0f === rl._2)
+    }
+  }
+
+  def outputGraph (g: USCGraph, name: String): Unit = {
+    println
+    println
+    println("Number of nodes for graph "+name+": "+g.nb_nodes)
+    for (i <- 0 until g.nb_nodes) {
+      println
+      println("\t"+i+": Neighbors        : "+g.nb_neighbors(i)+g.neighbors(i).toList.mkString(" ([", ", ", "])"))
+      println("\t"+i+": Remote neighbors : "+g.nb_remote_neighbors(i)+g.remote_neighbors(i).map(_.toList.mkString(" ([", ", ", "])")).getOrElse(" ([])"))
+      println("\t"+i+": Weights (s, t, r): "+g.nb_selfloops(i)+", "+g.weighted_degree(i)+", "+g.weighted_degree_remote(i))
     }
   }
 }

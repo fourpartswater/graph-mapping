@@ -220,9 +220,6 @@ object LouvainSpark {
     messages.foreach{gm =>
       if (gap > 0) {
         for (i <- 0 until gm.links.size) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
-        gm.remoteMaps.map(remoteMaps =>
-          for (i <- 0 until remoteMaps.size) remoteMaps(i).source = remoteMaps(i).source + gap
-        )
         for (i <- 0 until gm.nodeToCommunity.size) gm.nodeToCommunity(i) = gm.nodeToCommunity(i) + gap
         for (i <- 0 until gm.degrees.size) gm.degrees(i) = gm.degrees(i) + degreeGap
       }
@@ -245,7 +242,15 @@ object LouvainSpark {
       message.remoteMaps.foreach{remoteMaps =>
         remoteMaps.foreach { remoteMap =>
 	        try {
-		        val key = (remoteMap.source, messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink))
+            val source = remoteMap.source
+            val sink = remoteMap.sink
+            val sourceCommunity = message.nodeToCommunity(remoteMap.sink)
+            val part = remoteMap.sinkPart
+            val sinkCommunity = messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink)
+		        val key = (
+              message.nodeToCommunity(remoteMap.source),
+              messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink)
+              )
 		        m(key) = m.get(key).getOrElse(0.0f) + 1.0f
 	        } catch {
 		        case e: Exception => {
@@ -262,10 +267,11 @@ object LouvainSpark {
       // set graph.numLinks to graph.numLinks + m.size
       m.foreach{case (key, w) =>
         val linkBuffer = remoteLinks.get(key._1).getOrElse(Buffer[(Int, Float)]())
-        linkBuffer += ((key._1, w))
+        linkBuffer += ((key._2, w))
         remoteLinks(key._1) = linkBuffer
       }
     }
+    println(remoteLinks)
     graph.addFormerlyRemoteEdges(remoteLinks.map{case (source, partitionCommunities) => (source, partitionCommunities.toSeq)}.toMap)
 
     graph
