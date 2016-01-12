@@ -68,7 +68,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
     )
     val subClusterer = new SubGraphCommunity[Int](subGraph, 1, 0.15)
     subClusterer.one_level(false)
-    val subResult = subClusterer.getReducedSubgraph()
+    val subResult = subClusterer.getReducedSubgraphWithVertexMap(false)._1
 
     assert(refResult.nb_nodes === subResult.numNodes)
     assert(refResult.nb_links === subResult.numInternalLinks)
@@ -81,6 +81,8 @@ class SubGraphCommunityTestSuite extends FunSuite {
 
 
   test("Test multi-part community reduction and recombination") {
+    def unOptionB[A, B] (input: (A, Option[B])): (A, B) = (input._1, input._2.get)
+
     val part1 = new SubGraph[Int](
       (0 to 5).map(n => (n.toLong, n)).toArray,
       Array(
@@ -91,7 +93,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
     )
     val c1 = new SubGraphCommunity(part1, -1, 0.15)
     c1.one_level(false)
-    val result1 = (c1.getReducedSubgraph(), c1.getVertexMapping)
+    val result1 = unOptionB(c1.getReducedSubgraphWithVertexMap(true))
 
     val part2 = new SubGraph[Int](
       (6 to 11).map(n => (n.toLong, n)).toArray,
@@ -103,14 +105,19 @@ class SubGraphCommunityTestSuite extends FunSuite {
     )
     val c2 = new SubGraphCommunity(part2, -1, 0.15)
     c2.one_level(false)
-    val result2 = (c2.getReducedSubgraph(), c2.getVertexMapping)
+    val result2 = unOptionB(c2.getReducedSubgraphWithVertexMap(true))
 
     val combined = GraphConsolidator(result1._1.numNodes + result2._1.numNodes)(Iterator(result1, result2))
 
     assert(4 === combined.numNodes)
     for (i <- 0 to 3) {
       assert(6.0f === combined.weightedSelfLoopDegree(i))
-      assert(3.0f === combined.weightedInternalDegree(i))
+      assert(9.0f === combined.weightedInternalDegree(i))
+      val neighbors = combined.internalNeighbors(i).toList.sortBy(_._1)
+      assert(2 === neighbors.size)
+      assert(neighbors.contains((i, 6.0f)))
+      val expectedNeighbor = (i + 2) % 4
+      assert(neighbors.contains((expectedNeighbor, 3.0f)))
     }
   }
   test("Test multi-part community reduction and recombination (baseline)") {

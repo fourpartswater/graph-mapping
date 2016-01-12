@@ -13,11 +13,14 @@
 package software.uncharted.graphing.clustering.usc
 
 
-import org.apache.spark.graphx.VertexId
-import software.uncharted.graphing.clustering.ClusteringStatistics
 
+import scala.collection.Map
 import scala.collection.mutable.{Buffer, Map => MutableMap}
 import scala.util.Random
+
+import org.apache.spark.graphx.VertexId
+
+import software.uncharted.graphing.clustering.ClusteringStatistics
 
 
 
@@ -209,26 +212,14 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
   }
 
   /**
-   * Get the mapping created by our clustering from old vertex IDs to new ones.
-   * @return
-   */
-  def getVertexMapping: Map[VertexId, VertexId] = {
-    Range(0, size).iterator.map { node =>
-      val newCommunity = n2c(node)
-      val oldVertexId = sg.nodeData(node)._1
-      val newVertexId = sg.nodeData(newCommunity)._1
-      (oldVertexId, newVertexId)
-    }.toMap
-  }
-
-  /**
    * Get the reduced subgraph according to the current state of clustering
    * @param mergeNodeData A function to merge the data from the nodes in the original graph from which our clustering
    *                      is derived. The default implementation is simply to take the data from the node with the
    *                      highest original degree.
    * @return
    */
-  def getReducedSubgraph (mergeNodeData: (VD, VD) => VD = (a, b) => a): SubGraph[VD] = {
+  def getReducedSubgraphWithVertexMap (getVertexMap: Boolean,
+                                       mergeNodeData: (VD, VD) => VD = (a, b) => a): (SubGraph[VD], Option[Map[VertexId, VertexId]]) = {
     val (renumbering, newSize) = getRenumbering
 
     // For each new community, we need:
@@ -251,7 +242,9 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       externalLinks(node) = MutableMap[VertexId, Float]()
     }
 
+    // Get the node data for each community
     for (node <- 0 until size) {
+      val newCommunityRaw = n2c(node)
       val newCommunity = renumbering(n2c(node))
       val weight = sg.weightedInternalDegree(node)
 
@@ -280,19 +273,33 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       }
     }
 
+    // Determine our vertex mapping
+    val vertexMap: Option[Map[VertexId, VertexId]] =
+      if (getVertexMap) {
+        val vm = MutableMap[VertexId, VertexId]()
+        for (node <- 0 until size) {
+          val newCommunityRaW = n2c(node)
+          val newCommunity = renumbering(n2c(node))
+          val newNode = nodeInfos(newCommunity)
+          vm(sg.nodeData(node)._1) = newNode._1
+        }
+        Some(vm)
+      } else {
+        None
+      }
 
-    val result = new SubGraph(nodeInfos, internalLinks.map(_.toArray), externalLinks.map(_.toArray))
+    val resultGraph = new SubGraph(nodeInfos, internalLinks.map(_.toArray), externalLinks.map(_.toArray))
 
     // Add nodes and links to clustering statistics, if there are any
     clusteringStatistics = clusteringStatistics.map(cs =>
       ClusteringStatistics(
         cs.level, cs.partition, cs.iterations,
         cs.startModularity, cs.startNodes, cs.startLinks,
-        cs.endModularity, result.numNodes, result.numInternalLinks + result.numExternalLinks,
+        cs.endModularity, resultGraph.numNodes, resultGraph.numInternalLinks + resultGraph.numExternalLinks,
         cs.timeToCluster
       )
     )
 
-    result
+    (resultGraph, vertexMap)
   }
 }

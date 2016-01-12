@@ -14,6 +14,7 @@ package software.uncharted.graphing.clustering.usc
 
 
 
+import scala.collection.Map
 import scala.collection.mutable.{Map => MutableMap}
 import org.apache.spark.graphx.VertexId
 
