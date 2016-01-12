@@ -242,11 +242,6 @@ object LouvainSpark {
       message.remoteMaps.foreach{remoteMaps =>
         remoteMaps.foreach { remoteMap =>
 	        try {
-            val source = remoteMap.source
-            val sink = remoteMap.sink
-            val sourceCommunity = message.nodeToCommunity(remoteMap.sink)
-            val part = remoteMap.sinkPart
-            val sinkCommunity = messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink)
 		        val key = (
               message.nodeToCommunity(remoteMap.source),
               messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink)
@@ -255,10 +250,6 @@ object LouvainSpark {
 	        } catch {
 		        case e: Exception => {
 			        println("Error merging remote map")
-			        println("\t"+remoteMap)
-			        println("\t"+messages.size)
-			        if (messages.size > remoteMap.sinkPart)
-				        println("\t"+messages(remoteMap.sinkPart).nodeToCommunity.size)
 		        }
 	        }
         }
@@ -271,7 +262,7 @@ object LouvainSpark {
         remoteLinks(key._1) = linkBuffer
       }
     }
-    println(remoteLinks)
+
     graph.addFormerlyRemoteEdges(remoteLinks.map{case (source, partitionCommunities) => (source, partitionCommunities.toSeq)}.toMap)
 
     graph
