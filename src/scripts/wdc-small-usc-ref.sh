@@ -1,11 +1,12 @@
 #!/bin/bash
 
 export MASTER=yarn-client
-export CORES=4
-export MEM=10g
-export EXECUTORS=4
+export CORES=1
+export MEM=28g
+export EXECUTORS=5
 export MAIN_JAR=../lib/xdata-graph.jar
-export SOURCE=hdfs://uscc0-master0/xdata/data/affinity_graph/amazon_parsed_nocategory_edgeweights.txt
+export SOURCE=hdfs://uscc0-master0/xdata/data/SummerCamp2014/wdc-payleveldomain/pld-arc
+
 
 spark-submit \
     --master ${MASTER} \
@@ -14,13 +15,10 @@ spark-submit \
     --executor-cores ${CORES} \
     --class software.uncharted.graphing.clustering.usc.reference.LouvainSpark \
     ${MAIN_JAR} \
-    -nodeFile ${SOURCE} \
-    -nodeIdCol 1 \
-    -nodePrefix node \
     -edgeFile ${SOURCE} \
-    -edgePrefix edge \
-    -edgeSrcCol 1 \
-    -edgeDstCol 2 \
-    -edgeWeightCol 8 \
+    -edgeSeparator "[ 	]+" \
+    -edgeSrcCol 0 \
+    -edgeDstCol 1 \
     -partitions 5
+
 

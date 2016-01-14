@@ -12,11 +12,11 @@ spark-submit \
     --num-executors ${EXECUTORS} \
     --executor-memory ${MEM} \
     --executor-cores ${CORES} \
-    --class software.uncharted.graphing.clustering.usc.reference.LouvainSpark \
+    --class software.uncharted.graphing.clustering.usc.USCLouvainRunner \
     ${MAIN_JAR} \
     -nodeFile ${SOURCE} \
-    -nodeIdCol 1 \
     -nodePrefix node \
+    -nodeIdCol 1 \
     -edgeFile ${SOURCE} \
     -edgePrefix edge \
     -edgeSrcCol 1 \
