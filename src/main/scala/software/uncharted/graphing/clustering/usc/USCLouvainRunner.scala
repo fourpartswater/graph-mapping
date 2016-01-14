@@ -124,7 +124,8 @@ object USCLouvainRunner {
 
 
     // Convert to a set of sub-graphs
-    val subGraphs = SubGraph.graphToSubGraphs(sparkGraph, (f: Float) => f, partitions)
+//    val subGraphs = SubGraph.graphToSubGraphs(sparkGraph, (f: Float) => f, partitions)
+    val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions)
 
     // Set up a clustering statistics accumulator
     val stats = sc.accumulableCollection(ListBuffer[ClusteringStatistics]())

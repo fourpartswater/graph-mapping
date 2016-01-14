@@ -13,8 +13,9 @@
 package software.uncharted.graphing.clustering.usc
 
 
+import software.uncharted.graphing.clustering.experiments.partitioning.RoughGraphPartitioner
 
-import scala.collection.mutable.{Buffer, Map => MutableMap}
+import scala.collection.mutable.{Buffer, Map => MutableMap, Set => MutableSet}
 
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx._
@@ -151,6 +152,79 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 
 
 object SubGraph {
+  def partitionGraphToSubgraphs[VD, ED] (graph: Graph[VD, ED],
+                                         getEdgeWeight: ED => Float,
+                                         partitions: Int,
+                                         bidirectional: Boolean = true,
+                                         randomness: Double = 0.5): RDD[SubGraph[VD]] = {
+    def nodesAndEdgesToSubGraph (iV: Iterator[(VertexId, VD)],
+                                 numNodes: Int,
+                                 iE: Iterator[Edge[ED]]): Iterator[SubGraph[VD]] = {
+      // Record our nodes
+      val nodes = new Array[(VertexId, VD)](numNodes)
+      val nodeIds = MutableMap[VertexId, Int]()
+      val knownNodes = MutableSet[VertexId]()
+      var i = 0
+      iV.foreach{nodeDataPair =>
+        nodes(i) = nodeDataPair
+        nodeIds(nodeDataPair._1) = i
+        knownNodes += nodeDataPair._1
+        i = i + 1
+      }
+
+      // Record our links, separating out internal and external links, and combining edges to the same destination
+      // while we are at it.
+      val internalLinksMap = new Array[MutableMap[VertexId, Float]](numNodes)
+      val externalLinksMap = new Array[MutableMap[VertexId, Float]](numNodes)
+      for (i <- 0 until numNodes) {
+        internalLinksMap(i) = MutableMap[VertexId, Float]()
+        externalLinksMap(i) = MutableMap[VertexId, Float]()
+      }
+
+      iE.foreach { case (edge) =>
+        val source = edge.srcId
+        val sourceId = nodeIds(source)
+        val destination = edge.dstId
+        val weight = getEdgeWeight(edge.attr)
+        if (knownNodes.contains(destination)) {
+          internalLinksMap(sourceId)(destination) = internalLinksMap(sourceId).get(destination).getOrElse(0.0f) + weight
+        } else {
+          externalLinksMap(sourceId)(destination) = externalLinksMap(sourceId).get(destination).getOrElse(0.0f) + weight
+        }
+      }
+
+      // Convert link buffers to arrays
+      var numILinks = 0
+      var numELinks = 0
+      val internalLinks = new Array[Array[(Int, Float)]](numNodes)
+      val externalLinks = new Array[Array[(VertexId, Float)]](numNodes)
+      for (i <- 0 until numNodes) {
+        val nodeILinks: MutableMap[VertexId, Float] = internalLinksMap(i)
+        val nodeILinksArray = new Array[(Int, Float)](nodeILinks.size)
+        var j = 0
+        nodeILinks.foreach { case (destination, weight) =>
+          nodeILinksArray(j) = (nodeIds(destination), weight)
+          j = j + 1
+          numILinks = numILinks + 1
+        }
+        internalLinks(i) = nodeILinksArray
+
+        val nodeELinks = externalLinksMap(i)
+        val nodeELinksArray = new Array[(VertexId, Float)](nodeELinks.size)
+        j = 0
+        nodeELinks.foreach { case (destination, weight) =>
+          nodeELinksArray(j) = (destination, weight)
+          j = j + 1
+          numELinks = numELinks + 1
+        }
+        externalLinks(i) = nodeELinksArray
+      }
+
+      Iterator(new SubGraph(nodes, internalLinks, externalLinks))
+    }
+    RoughGraphPartitioner.iterateOverPartitions(graph, partitions, bidirectional, randomness)(nodesAndEdgesToSubGraph)
+  }
+
   def graphToSubGraphs[VD, ED] (graph: Graph[VD, ED],
                                 getEdgeWeight: ED => Float,
                                 partitions: Int)
