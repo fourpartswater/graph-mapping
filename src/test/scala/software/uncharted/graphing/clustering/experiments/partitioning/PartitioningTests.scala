@@ -95,8 +95,8 @@ class PartitioningTests extends FunSuite with SharedSparkContext with BeforeAndA
     val vertices = graph.vertices.collect
     val edges = graph.edges.collect
 
-    val partitionFcn: (Iterator[(VertexId, (Long, String))], Iterator[Edge[Float]]) => Iterator[(Set[(VertexId, (Long, String))], Set[Edge[Float]])] =
-      (in, ie) => {
+    val partitionFcn: (Iterator[(VertexId, (Long, String))], Int, Iterator[Edge[Float]]) => Iterator[(Set[(VertexId, (Long, String))], Set[Edge[Float]])] =
+      (in, numNodes, ie) => {
       Iterator((in.toSet, ie.toSet))
     }
     val partitionedGraph = RoughGraphPartitioner.iterateOverPartitions(graph, 3, true, -1.0)(partitionFcn)

@@ -213,21 +213,27 @@ object RoughGraphPartitioner {
    *                      be considered unidirectional
    * @param randomness The expected randomness in the graph.  A totally random graph should pass in 1.0, a totally
    *                   non-random graph, -1.0.
-   * @param fcn What to do with partitions.  This function takes an iterator over the nodes in a partition, and the
-   *            links coming from those nodes.
+   * @param fcn What to do with partitions.  This function takes:
+    *            <ol>
+    *              <li> an iterator over the nodes in a partition</li>
+    *              <li> The number of nodes in this partition </li>
+    *              <li> An iterator over all links with these nodes as their source </li>
+    *            </ol>
    * @tparam T The output type
    * @return The output of fcn on each partition of the graph
    */
   def iterateOverPartitions[VD, ED, T: ClassTag] (graph: Graph[VD, ED], requestedPartitions: Int,
                                                   bidirectional: Boolean, randomness: Double)
-                                                 (fcn: (Iterator[(VertexId, VD)], Iterator[Edge[ED]]) => Iterator[T]): RDD[T] = {
+                                                 (fcn: (Iterator[(VertexId, VD)], Int, Iterator[Edge[ED]]) => Iterator[T]): RDD[T] = {
     val (annotatedGraph, actualPartitions) = annotateGraphWithPartition[VD, ED](graph, requestedPartitions, randomness)
     val partitioner = new KeyPartitioner(actualPartitions)
 
+    // Partition our nodes according to annotation
     val partitionedNodes = annotatedGraph.vertices.map { case (vertexId, (data, partition)) =>
       (partition, (vertexId, data))
     }.partitionBy(partitioner)
 
+    // Partition our links according to annotation
     val partitionedLinks = annotatedGraph.triplets.flatMap { triplet: EdgeTriplet[(VD, Int), ED] =>
       if (bidirectional) {
         List[(Int, Edge[ED])](
@@ -239,8 +245,13 @@ object RoughGraphPartitioner {
       }
     }.partitionBy(partitioner)
 
-    partitionedNodes.zipPartitions(partitionedLinks, true) { case (inRaw, ieRaw) =>
-      fcn(inRaw.map(_._2), ieRaw.map(_._2))
+    // Get the number of nodes per partition
+    val numNodes = partitionedNodes.mapPartitionsWithIndex { case (partition, iterator) =>
+      Iterator((partition, iterator.size))
+    }.partitionBy(partitioner)
+
+    partitionedNodes.zipPartitions(partitionedLinks, numNodes, true) { case (inRaw, ieRaw, countsRaw) =>
+      fcn(inRaw.map(_._2), countsRaw.next()._2, ieRaw.map(_._2))
     }
   }
 }
