@@ -15,7 +15,7 @@ package software.uncharted.graphing.clustering
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.{SparkConf, SparkContext}
 import software.uncharted.graphing.RandomGraph
-import software.uncharted.graphing.clustering.sotera.LouvainHarness
+import software.uncharted.graphing.clustering.sotera.LouvainHarness2
 
 /**
  * Created by nkronenfeld on 10/26/15.
@@ -42,7 +42,7 @@ object LouvainProfiling {
       g.vertices.count
       g.edges.count
     }
-    val LH = new LouvainHarness(0.15, 1)
+    val LH = new LouvainHarness2(0.15, 1)
     val results = time(() => LH.run(sc, g))
     println("Ran clustering on a random graph of 1000 nodes/10000 edges in "+(results._2/1000000000.0)+" seconds")
   }

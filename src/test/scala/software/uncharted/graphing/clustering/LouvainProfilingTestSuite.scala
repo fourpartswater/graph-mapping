@@ -17,7 +17,7 @@ import org.apache.spark.{SparkConf, SparkContext, SharedSparkContext}
 import org.scalatest.FunSuite
 import software.uncharted.graphing.RandomGraph
 import software.uncharted.graphing.clustering.experiments.PathClustering
-import software.uncharted.graphing.clustering.sotera.{LouvainHarness2, LouvainHarness}
+import software.uncharted.graphing.clustering.sotera.LouvainHarness2
 
 /**
  * Created by nkronenfeld on 10/26/15.
@@ -41,8 +41,7 @@ class LouvainProfilingTestSuite extends FunSuite with SharedSparkContext {
       g.edges.count
     }
 
-    val LH = new LouvainHarness(0.15, 1)
-    val LH2 = new LouvainHarness2(0.15, 1)
+    val LH = new LouvainHarness2(0.15, 1)
     val PC = new PathClustering
 
     val N = 1
