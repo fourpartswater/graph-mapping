@@ -20,7 +20,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String]) {
 /**
  * based on graph_binary.h and graph_binary.cpp from Blondel et al
  *
- * @param degrees A list of the cummulative degree of each node, in order:
+ * @param degrees A list of the cumulative degree of each node, in order:
  *                deg(0) = degrees[0]
  *                deg(k) = degrees[k]=degrees[k-1]
  * @param links A list of the links to other nodes
@@ -28,8 +28,8 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String]) {
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
  */
 class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo], weightsOpt: Option[Array[Float]] = None) {
-  val nb_nodes = degrees.size
-  val nb_links = links.size
+  val nb_nodes = degrees.length
+  val nb_links = links.length
   // A place to cache node weights, so it doesn't have to be calculated multiple times.
   private val weights = new Array[Option[Double]](nb_nodes)
   val total_weight =
@@ -56,7 +56,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
 
   def weighted_degree (node: Int): Double = {
     // Only calculated the degree of a node once
-    if (null == weights(node) || !weights(node).isDefined) {
+    if (null == weights(node) || weights(node).isEmpty) {
       weights(node) = Some(weightsOpt.map(weights =>
         neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
       ).getOrElse(nb_neighbors(node))
@@ -73,7 +73,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   def display_links (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
       neighbors(node).foreach { case (dst, weight) =>
-        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round.toInt)
+        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round)
       }
     }
   }
@@ -110,18 +110,18 @@ object Graph {
   def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED], getEdgeWeight: Option[ED => Float] = None): Graph = {
     val nodes: Array[(VertexId, VD)] = source.vertices.collect.sortBy(_._1)
     val edges = source.edges.collect.map(edge => (edge.srcId, edge.dstId, edge.attr))
-    val minNode = nodes.map(_._1).reduce(_ min _)
-    val maxNode = nodes.map(_._1).reduce(_ max _)
+    val minNode = nodes.map(_._1).min
+    val maxNode = nodes.map(_._1).max
     val nb_nodes = (maxNode - minNode + 1).toInt
 
-    // Note that, as in the original, a link betwee two nodes contributes its full weight (and degree) to both nodes,
+    // Note that, as in the original, a link between two nodes contributes its full weight (and degree) to both nodes,
     // whereas a self-link only contributes its weight to that one node once - hence seemingly being counted half as
     // much! (at least, that's what I read as going on)
     val cumulativeDegrees = new Array[Int](nb_nodes)
     var nb_links = 0
     for (i <- 0 until nb_nodes) {
       val node = minNode + i
-      val degrees = edges.filter(edge => node == edge._1 || node == edge._2).size
+      val degrees = edges.count(edge => node == edge._1 || node == edge._2)
       nb_links = nb_links + degrees
       cumulativeDegrees(i) = nb_links
     }
@@ -140,7 +140,7 @@ object Graph {
         if (node == edge._1) (edge._2 - minNode).toInt
         else (edge._1 - minNode).toInt
       }
-      directedEdges.map { destination =>
+      directedEdges.foreach { destination =>
         links(linkNum) = destination
         linkNum = linkNum + 1
       }
@@ -154,7 +154,7 @@ object Graph {
         val edgeWeights = edges.filter(edge => node == edge._1 || node == edge._2).map(edge =>
           edgeWeightFcn(edge._3)
         )
-        edgeWeights.map { edgeWeight =>
+        edgeWeights.foreach { edgeWeight =>
           weightsInner(linkNum) = edgeWeight
           linkNum = linkNum + 1
         }
@@ -176,7 +176,7 @@ object Graph {
     for (i <- 0 until nb_nodes) degrees(i) = finput.readLong.toInt
 
     // Read links (int per node)
-    val nb_links = degrees(nb_nodes-1).toInt
+    val nb_links = degrees(nb_nodes-1)
     val links = new Array[Int](nb_links)
     for (i <- 0 until nb_links) links(i) = finput.readInt
 
@@ -185,10 +185,10 @@ object Graph {
       val finput_w = new DataInputStream(new FileInputStream(file))
       val weightsInner = new Array[Float](nb_links)
       for (i <- 0 until nb_links) weightsInner(i) = finput_w.readFloat
-      finput_w.close
+      finput_w.close()
       weightsInner
     }
-    finput.close
+    finput.close()
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
     if (filename_m.isDefined) {

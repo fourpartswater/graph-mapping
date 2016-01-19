@@ -11,7 +11,7 @@ import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputSt
 import java.util.Date
 
 import scala.collection.mutable.{Buffer, Map => MutableMap}
-import scala.util.{Random, Try}
+import scala.util.Random
 
 
 /**
@@ -59,7 +59,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
     val m2 = g.total_weight
     val dnc = dnodecomm
 
-    (dnc - totc * degc / m2)
+    dnc - totc * degc / m2
   }
 
   def modularity: Double = {
@@ -162,14 +162,14 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
       var total_tot = 0.0
       var total_in = 0.0
-      for (i <- 0 until tot.size) {
+      for (i <- tot.indices) {
         total_tot += tot(i)
         total_in += in(i)
       }
 
       new_mod = modularity
       if (nb_moves > 0)
-        improvement = true;
+        improvement = true
 
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
@@ -225,24 +225,19 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
       line = finput.readLine()
     }
-    finput.close
+    finput.close()
   }
 
   def display_partition (out: PrintStream) : Unit = {
     val (renumber, last) = getRenumbering
     for (i <- 0 until size) {
-      val id = Try(g.id(i))
-      val id2 = Try(g.id(n2c(i)))
-      val is = Try(g.internalSize(i))
-      val wd = Try(g.weighted_degree(i))
-      val md = Try(g.metaData(i))
       out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i).round.toInt+"\t"+g.metaData(i))
     }
     g.display_links(out)
   }
 
   def partition2graph_binary: Graph = {
-    val (renumber, last) = getRenumbering
+    val (renumber, _) = getRenumbering
 
     // Compute communities
     val comm_nodes = Buffer[Buffer[Int]]()
@@ -270,7 +265,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
         for (i <- 0 until deg) {
           val (neigh, neigh_weight) = neighbors.next
           val neigh_comm = renumber(n2c(neigh))
-          m(neigh_comm) = m.get(neigh_comm).getOrElse(0.0f) + neigh_weight
+          m(neigh_comm) = m.getOrElse(neigh_comm, 0.0f) + neigh_weight
         }
       }
       degrees(comm) = if (0 == comm) m.size else degrees(comm-1) + m.size
@@ -321,39 +316,39 @@ object Community {
   }
 
   def parse_args (args: Array[String]) = {
-    if (args.size < 1) usage("community", "Bad arguments number")
+    if (args.length < 1) usage("community", "Bad arguments number")
 
-    var i = 0;
-    while (i < args.size) {
+    var i = 0
+    while (i < args.length) {
       if (args(i).startsWith("-")) {
         args(i).substring(1).toLowerCase match {
-          case "w" => {
+          case "w" =>
             i = i + 1
             filename_w = Some(args(i))
-          }
-          case "m" => {
+
+          case "m" =>
             i = i + 1
             filename_m = Some(args(i))
-          }
-          case "p" => {
+
+          case "p" =>
             i = i + 1
             filename_part = Some(args(i))
-          }
-          case "q" => {
+
+          case "q" =>
             i = i + 1
             precision = args(i).toDouble
-          }
-          case "l" => {
+
+          case "l" =>
             i = i + 1
             display_level = args(i).toInt
-          }
-          case "k" => {
+
+          case "k" =>
             i = i + 1
             k1 = args(i).toInt
-          }
-          case "v" => {
+
+          case "v" =>
             verbose = true
-          }
+
           case "n" => randomize = false
           case _ => usage("community", "Unknown option: "+args(i))
         }
@@ -408,8 +403,8 @@ object Community {
         levelDir.mkdir()
         val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
         c.display_partition(out)
-        out.flush
-        out.close
+        out.flush()
+        out.close()
       }
 
       c = new Community(g, -1, precision)

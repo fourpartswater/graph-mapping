@@ -12,7 +12,7 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
   var metaData: Option[Array[String]] = None
 
   def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String, id_column: Int, md_column: Int): Unit = {
-    metaData = Some(new Array[String](links.size))
+    metaData = Some(new Array[String](links.length))
     metaData.foreach{data =>
       var line = metadataInput.readLine()
       while (null != line) {
@@ -32,16 +32,16 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
 
   // Combine edges between the same nodes
   def clean (weighted: Boolean): GraphEdges = {
-    val newLinks = new Array[Buffer[(Int, Float)]](links.size)
+    val newLinks = new Array[Buffer[(Int, Float)]](links.length)
 
-    for (i <- 0 until links.size) {
+    for (i <- links.indices) {
       val m = MutableMap[Int, Float]()
 
-      for (j <- 0 until links(i).size) {
+      for (j <- links(i).indices) {
         val (dst, weight) = links(i)(j)
         m(dst) =
-          if (weighted) (m.get(dst).getOrElse(0.0f) + weight)
-          else (m.get(dst).getOrElse(weight))
+          if (weighted) m.getOrElse(dst, 0.0f) + weight
+          else m.getOrElse(dst, weight)
       }
 
       newLinks(i) = Buffer[(Int, Float)]()
@@ -52,22 +52,22 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
   }
 
   def renumber (weighted: Boolean): GraphEdges = {
-    val linked = new Array[Boolean](links.size)
-    val renum = new Array[Int](links.size)
-    for (i <- 0 until links.size) {
+    val linked = new Array[Boolean](links.length)
+    val renum = new Array[Int](links.length)
+    for (i <- links.indices) {
       linked(i) = false
       renum(i) = -1
     }
 
-    for (i <- 0 until links.size) {
+    for (i <- links.indices) {
       linked(i) = true
-      for (j <- 0 until links(i).size) {
+      for (j <- links(i).indices) {
         linked(links(i)(j)._1) = true
       }
     }
 
     var nb = 0
-    for (i <- 0 until links.size) {
+    for (i <- links.indices) {
       if (linked(i)) {
         renum(i) = nb
         nb = nb + 1
@@ -76,11 +76,11 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
 
     val newLinks = new Array[Buffer[(Int, Float)]](nb)
     for (i <- 0 until nb) newLinks(i) = Buffer[(Int, Float)]()
-    for (i <- 0 until links.size) {
+    for (i <- links.indices) {
       if (linked(i)) {
         val ir = renum(i)
         val nll = newLinks(ir)
-        for (j <- 0 until links(i).size) {
+        for (j <- links(i).indices) {
           val lle = links(i)(j)
           nll.append((renum(lle._1), lle._2))
         }
@@ -90,7 +90,7 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
     val newGE = new GraphEdges(newLinks)
     metaData.foreach{md =>
       val newMetaData = new Array[String](nb)
-      for (i <- 0 until links.size)
+      for (i <- links.indices)
         if (linked(i))
           newMetaData(renum(i)) = md(i)
       newGE.metaData = Some(newMetaData)
@@ -99,7 +99,7 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
   }
 
   def display (weighted: Boolean): Unit = {
-    for (i <- 0 until links.size; j <- 0 until links(i).size) {
+    for (i <- links.indices; j <- links(i).indices) {
       val (dest, weight) = links(i)(j)
       if (weighted) {
         println(i + " " + dest + " " + weight)
@@ -113,7 +113,7 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
                       weightStream: Option[DataOutputStream],
                       metadataStream: Option[DataOutputStream]): Unit = {
     // output number of nodes
-    val s = links.size
+    val s = links.length
     edgeStream.writeInt(s)
 
     // output cumulative degree sequence
@@ -125,14 +125,14 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
     }
 
     // output links
-    for (i <- 0 until s; j <- 0 until links(i).size) {
+    for (i <- 0 until s; j <- links(i).indices) {
       val dest = links(i)(j)._1
       edgeStream.writeInt(dest)
     }
 
     // Output weights to a separate file
     weightStream.foreach{stream =>
-      for (i <- 0 until s; j <- 0 until links(i).size) {
+      for (i <- 0 until s; j <- links(i).indices) {
         val weight = links(i)(j)._2
         stream.writeFloat(weight)
       }
@@ -185,10 +185,10 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
     initData
   }
   private def growTo (newSize: Int): Unit = {
-    if (data.size < newSize) {
+    if (data.length < newSize) {
       val newData = new Array[T](newSize)
-      for (i <- 0 until data.size) newData(i) = data(i)
-      for (i <- data.size until newSize) newData(i) = initialize()
+      for (i <- data.indices) newData(i) = data(i)
+      for (i <- data.length until newSize) newData(i) = initialize()
       size = newSize
       data = newData
     }

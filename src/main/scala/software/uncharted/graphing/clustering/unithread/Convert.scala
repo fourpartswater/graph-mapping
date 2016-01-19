@@ -53,72 +53,72 @@ object Convert {
   }
 
   def parse_args(args: Array[String]): Unit = {
-    var i = 0;
-    while (i < args.size) {
+    var i = 0
+    while (i < args.length) {
       if (args(i).startsWith("-")) {
         args(i).substring(1).toLowerCase match {
           // Edge parameters
-          case "ie" => {
+          case "ie" =>
             i = i + 1
             infile_edge = Some(args(i))
-          }
-          case "fe" => {
+
+          case "fe" =>
             i = i + 1
             edge_filter = Some(args(i))
-          }
-          case "ce" => {
+
+          case "ce" =>
             i = i + 1
             edge_separator = args(i)
-          }
-          case "s" => {
+
+          case "s" =>
             i = i + 1
             edge_source_column = args(i).toInt
-          }
-          case "d" => {
+
+          case "d" =>
             i = i + 1
             edge_destination_column = args(i).toInt
-          }
-          case "w" => {
+
+          case "w" =>
             i = i + 1
             edge_weight_column = Some(args(i).toInt)
-          }
+
 
           // Node parameters
-          case "in" => {
+          case "in" =>
             i = i + 1
             infile_node = Some(args(i))
-          }
-          case "fn" => {
+
+          case "fn" =>
             i = i + 1
             node_filter = Some(args(i))
-          }
-          case "cn" => {
+
+          case "cn" =>
             i = i + 1
             node_separator = args(i)
-          }
-          case "n" => {
+
+          case "n" =>
             i = i + 1
             node_id_column = args(i).toInt
-          }
-          case "m" => {
+
+          case "m" =>
             i = i + 1
             node_metadata_column = args(i).toInt
-          }
+
 
 
           // Output parameters
-          case "oe" => {
+          case "oe" =>
             i = i + 1
             outfile = Some(args(i))
-          }
-          case "ow" => {
+
+          case "ow" =>
             i = i + 1
             outfile_weight = Some(args(i))
-          }
-          case "om" => {
+
+          case "om" =>
             i = i + 1
             outfile_metadata = Some(args(i))
-          }
+
           case "r" => do_renumber = true
           case _ => usage("convert", "Unknown option: " + args(i))
         }
