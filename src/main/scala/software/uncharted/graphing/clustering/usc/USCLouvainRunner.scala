@@ -124,21 +124,43 @@ object USCLouvainRunner {
 
 
     // Convert to a set of sub-graphs
-//    val subGraphs = SubGraph.graphToSubGraphs(sparkGraph, (f: Float) => f, partitions)
-    val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions)
+    List(0.0, 0.25, 0.5, 0.75, 1.0).foreach { r =>
+      val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
+
+      // Set up a clustering statistics accumulator
+      val stats = sc.accumulableCollection(ListBuffer[ClusteringStatistics]())
+
+      println("Randomness: "+r)
+      subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
+        graphs.map(graph => (partition, graph))
+      }.foreach { case (partition, graph) =>
+        println("Partition " + partition + " constructed with: ")
+        println("\tnodes: " + graph.numNodes)
+        println("\tinternal links: " + graph.numInternalLinks)
+        println("\texternal links: " + graph.numExternalLinks)
+        println("\tTimestamp: " + new Date())
+      }
+    }
+
+    System.exit(0);
+
+    val r = 0.5
+    val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
 
     // Set up a clustering statistics accumulator
     val stats = sc.accumulableCollection(ListBuffer[ClusteringStatistics]())
 
-    subGraphs.mapPartitionsWithIndex{case (partition, graphs) =>
+    println("Randomness: "+r)
+    subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
       graphs.map(graph => (partition, graph))
     }.foreach { case (partition, graph) =>
       println("Partition " + partition + " constructed with: ")
       println("\tnodes: " + graph.numNodes)
       println("\tinternal links: " + graph.numInternalLinks)
       println("\texternal links: " + graph.numExternalLinks)
-      println("\tTimestamp: "+new Date())
+      println("\tTimestamp: " + new Date())
     }
+
     val resultGraph = doClustering(-1, 0.15, false)(subGraphs, stats)
 
     println("Resultant graph:")

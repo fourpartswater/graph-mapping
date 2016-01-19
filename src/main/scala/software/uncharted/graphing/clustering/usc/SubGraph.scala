@@ -13,7 +13,7 @@
 package software.uncharted.graphing.clustering.usc
 
 
-import software.uncharted.graphing.clustering.experiments.partitioning.RoughGraphPartitioner
+import software.uncharted.graphing.clustering.experiments.partitioning.labelpropagation.RoughGraphPartitioner
 
 import scala.collection.mutable.{Buffer, Map => MutableMap, Set => MutableSet}
 
