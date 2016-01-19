@@ -1,5 +1,4 @@
-package software.uncharted.graphing.clustering.experiments.partitioning
-
+package software.uncharted.graphing.clustering.experiments.partitioning.labelpropagation
 
 import org.apache.spark.broadcast.Broadcast
 

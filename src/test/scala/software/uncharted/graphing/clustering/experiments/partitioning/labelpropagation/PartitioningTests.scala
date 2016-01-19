@@ -1,4 +1,4 @@
-package software.uncharted.graphing.clustering.experiments.partitioning
+package software.uncharted.graphing.clustering.experiments.partitioning.labelpropagation
 
 import scala.collection.mutable.{Map => MutableMap}
 import org.apache.spark.SharedSparkContext
