@@ -15,7 +15,7 @@ package software.uncharted.graphing.tiling
 import java.io.FileInputStream
 import java.util.Properties
 
-import com.oculusinfo.tilegen.datasets.TilingTaskParameters
+import com.oculusinfo.tilegen.datasets.{LineDrawingType, TilingTaskParameters}
 import com.oculusinfo.tilegen.pipeline.{Bounds, PipelineStage, HBaseParameters}
 import com.oculusinfo.tilegen.util.{ArgumentParser, PropertiesWrapper, KeyValueArgumentSource}
 import org.apache.log4j.{Level, Logger}
@@ -59,6 +59,15 @@ object EdgeTilingPipelineApp {
       val y1Col = argParser.getString("y1", """The column to use for the Y value of the source of each edge (defaults to "y1")""", Some("y1"))
       val x2Col = argParser.getString("x2", """The column to use for the X value of the destination of each edge (defaults to "x2")""", Some("x2"))
       val y2Col = argParser.getString("y2", """The column to use for the Y value of the destination of each edge (defaults to "y2")""", Some("y2"))
+      val lineType = argParser.getStringOption("lineType", """The type of line to draw (leader, arc, or line)""").map(_.toLowerCase) match {
+        case Some("leader") => Some(LineDrawingType.LeaderLines)
+        case Some("arc") => Some(LineDrawingType.Arcs)
+        case Some("line") => Some(LineDrawingType.Lines)
+        case None => None
+        case Some(other) => throw new Exception("Illegal value for line type: "+other)
+      }
+      val minSegLen = argParser.getIntOption("minLength", """The minimum segment length to draw (used when lineType="line" or "arc")""")
+      val maxSegLen = argParser.getIntOption("maxLength", """When lineType="line" or "arc", the maximum segment length to draw.  When lineType="leader", the maximum leader length to draw""")
       val zkq = argParser.getString("zkq", "zookeeper quorum", Some("uscc0-master0.uncharted.software"))
       val zkp = argParser.getString("zkp", "zookeeper port", Some("2181"))
       val zkm = argParser.getString("xkm", "zookeeper master", Some("uscc0-master0.uncharted.software:60000"))
@@ -77,9 +86,8 @@ object EdgeTilingPipelineApp {
 
         val loadStage = PipelineStage("load level  " + g, loadCsvDataOp(base + "/level_" + g, getKVFile(edgeFileDescriptor))(_))
         val tilingStage = PipelineStage("Tiling level " + g,
-          segmentTilingOp(x1Col, y1Col, x2Col, y2Col, Some(bounds), tilingParameters, hbaseParameters)(_)
+          segmentTilingOp(x1Col, y1Col, x2Col, y2Col, Some(bounds), tilingParameters, hbaseParameters, lineType, minSegLen, maxSegLen, maxSegLen)(_)
         )
-
       }
 
 

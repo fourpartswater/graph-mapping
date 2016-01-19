@@ -28,13 +28,14 @@ object GraphOperations {
                       bounds: Option[Bounds],
                       tilingParams: TilingTaskParameters,
                       hbaseParameters: Option[HBaseParameters],
-                      operation: OperationType = COUNT,
-                      valueColSpec: Option[String] = None,
-                      valueColType: Option[String] = None,
                       lineType: Option[LineDrawingType] = Some(LineDrawingType.Lines),
                       minimumSegmentLength: Option[Int] = Some(4),
                       maximumSegmentLength: Option[Int] = Some(1024),
-                      maximumLeaderLength: Option[Int] = Some(1024))
+                      maximumLeaderLength: Option[Int] = Some(1024),
+                      operation: OperationType = COUNT,
+                      valueColSpec: Option[String] = None,
+                      valueColType: Option[String] = None
+                     )
                      (input: PipelineData) = {
     val tileIO = hbaseParameters match {
       case Some(p) => new HBaseTileIO(p.zookeeperQuorum, p.zookeeperPort, p.hbaseMaster)
@@ -66,10 +67,10 @@ object GraphOperations {
                                   operation: OperationType,
                                   valueColSpec: Option[String],
                                   valueColType: Option[String],
-                                  lineType: Option[LineDrawingType] = Some(LineDrawingType.Lines),
-                                  minimumSegmentLength: Option[Int] = Some(4),
-                                  maximumSegmentLength: Option[Int] = Some(1024),
-                                  maximumLeaderLength: Option[Int] = Some(1024),
+                                  lineType: Option[LineDrawingType],
+                                  minimumSegmentLength: Option[Int],
+                                  maximumSegmentLength: Option[Int],
+                                  maximumLeaderLength: Option[Int],
                                   taskParameters: TilingTaskParameters,
                                   tileIO: TileIO,
                                   projection: Map[String, String])
