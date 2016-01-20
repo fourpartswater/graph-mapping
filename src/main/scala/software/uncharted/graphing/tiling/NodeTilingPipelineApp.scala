@@ -81,7 +81,7 @@ object NodeTilingPipelineApp {
 
         val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
         val filterStage: Option[PipelineStage] = nodeTest.map { test =>
-          PipelineStage("Filter raw data for nodes", regexFilterOp(DEFAULT_LINE_COLUMN, test)(_))
+          PipelineStage("Filter raw data for nodes", regexFilterOp(test, DEFAULT_LINE_COLUMN)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
         val debugStage = PipelineStage("Count rows for level "+g, countRowsOp("Rows for level "+g)(_))

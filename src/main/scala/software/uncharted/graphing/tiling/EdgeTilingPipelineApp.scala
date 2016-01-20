@@ -96,7 +96,7 @@ object EdgeTilingPipelineApp {
 
         val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
         val filterStage: Option[PipelineStage] = edgeTest.map { test =>
-          PipelineStage("Filter raw data for edges", regexFilterOp(DEFAULT_LINE_COLUMN, test)(_))
+          PipelineStage("Filter raw data for edges", regexFilterOp(test, DEFAULT_LINE_COLUMN)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(edgeFileDescriptor))(_))
         val tilingStage = PipelineStage("Tiling level " + g,
