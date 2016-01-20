@@ -13,7 +13,7 @@
 package software.uncharted.graphing.tiling
 
 import java.io.FileInputStream
-import java.util.Properties
+import java.util.{Date, Properties}
 
 import com.oculusinfo.tilegen.datasets.{LineDrawingType, TilingTaskParameters}
 import com.oculusinfo.tilegen.pipeline._
@@ -89,10 +89,19 @@ object EdgeTilingPipelineApp {
       val bounds = Bounds(0.0, 0.0, 256.0 - epsilon, 256.0 - epsilon)
       val hbaseParameters = Some(HBaseParameters(zkq, zkp, zkm))
 
+      println("Overall start time: "+new Date())
       clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
         val tilingParameters = new TilingTaskParameters(
           tileSet, tileDesc.getOrElse(""), prefix,
           Seq((minT to maxT).toSeq), 256, 256, None, None)
+
+        println
+        println
+        println
+        println("Tiling hierarchy level " + g)
+        println("\tmin tile level: " + minT)
+        println("\tmax tile level: " + maxT)
+        println("\tstart time: " + new Date())
 
         val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
         val filterStage: Option[PipelineStage] = edgeTest.map { test =>
@@ -116,7 +125,9 @@ object EdgeTilingPipelineApp {
           .addChild(tilingStage)
 
         PipelineTree.execute(loadStage, sqlc)
+        println("\tend time: " + new Date())
       }
+      println("Overall end time: "+new Date())
 
       sc.stop
     } catch {

@@ -13,7 +13,7 @@
 package software.uncharted.graphing.tiling
 
 import java.io.FileInputStream
-import java.util.Properties
+import java.util.{Date, Properties}
 
 import com.oculusinfo.tilegen.datasets.TilingTaskParameters
 import com.oculusinfo.tilegen.pipeline.PipelineOperations._
@@ -66,6 +66,7 @@ object NodeTilingPipelineApp {
       // List of ((min tiling level, max tiling level), graph hierarchy level)
       val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
 
+      println("Overall start time: "+new Date())
       clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
         val tilingParameters = new TilingTaskParameters(
           tileSet, tileDesc.getOrElse(""), prefix,
@@ -78,13 +79,14 @@ object NodeTilingPipelineApp {
         println("Tiling hierarchy level " + g)
         println("\tmin tile level: " + minT)
         println("\tmax tile level: " + maxT)
+        println("\tstart time: " + new Date())
 
         val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
         val filterStage: Option[PipelineStage] = nodeTest.map { test =>
           PipelineStage("Filter raw data for nodes", regexFilterOp(test, DEFAULT_LINE_COLUMN)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
-        val debugStage = PipelineStage("Count rows for level "+g, countRowsOp("Rows for level "+g)(_))
+        val debugStage = PipelineStage("Count rows for level " + g, countRowsOp("Rows for level " + g)(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           crossplotHeatMapOp(
             xCol, yCol, tilingParameters, hbaseParameters,
@@ -99,7 +101,9 @@ object NodeTilingPipelineApp {
           .addChild(tilingStage)
 
         PipelineTree.execute(loadStage, sqlc)
+        println("\tend time: " + new Date())
       }
+      println("Overall end time: "+new Date())
       sc.stop
     } catch {
       case e: Exception => {
