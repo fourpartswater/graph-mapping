@@ -93,16 +93,10 @@ object NodeTilingPipelineApp {
             bounds = Some(Bounds(0.0, 0.0, 256 - epsilon, 256 - epsilon))
           )
         )
-        val a = PipelineStage("count raw rows", countRowsOp("raw row count: ")(_))
-        val b = PipelineStage("count filtered rows", countRowsOp("filterd row count: ")(_))
-        val c = PipelineStage("count CSVed rows", countRowsOp("CSV row count: ")(_))
 
         loadStage
-          .addChild(a)
           .addChild(filterStage)
-          .addChild(b)
           .addChild(CSVStage)
-          .addChild(c)
           .addChild(debugStage)
           .addChild(tilingStage)
 
