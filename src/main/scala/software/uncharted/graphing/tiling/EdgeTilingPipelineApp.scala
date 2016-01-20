@@ -16,7 +16,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import com.oculusinfo.tilegen.datasets.{LineDrawingType, TilingTaskParameters}
-import com.oculusinfo.tilegen.pipeline.{Bounds, PipelineStage, HBaseParameters}
+import com.oculusinfo.tilegen.pipeline.{PipelineTree, Bounds, PipelineStage, HBaseParameters}
 import com.oculusinfo.tilegen.util.{ArgumentParser, PropertiesWrapper, KeyValueArgumentSource}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
@@ -35,7 +35,7 @@ object EdgeTilingPipelineApp {
     new PropertiesWrapper(props)
   }
 
-  def main (args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
     // Reduce log clutter
     Logger.getRootLogger.setLevel(Level.WARN)
 
@@ -51,6 +51,7 @@ object EdgeTilingPipelineApp {
           | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
           | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
           | level 0 will be used for tiling levels 7 and 8.""".stripMargin)
+      val edgeTest = argParser.getStringOption("edgeTest", "A regular expression that lines must match to be considered edges")
       val edgeFileDescriptor = argParser.getString("edgeColumns", "A file containing parse information for the edge lines")
       val tileSet = argParser.getString("name", "The name of the edge tile set to produce")
       val tileDesc = argParser.getStringOption("desc", "A description of the edge tile set to produce")
@@ -64,7 +65,7 @@ object EdgeTilingPipelineApp {
         case Some("arc") => Some(LineDrawingType.Arcs)
         case Some("line") => Some(LineDrawingType.Lines)
         case None => None
-        case Some(other) => throw new Exception("Illegal value for line type: "+other)
+        case Some(other) => throw new Exception("Illegal value for line type: " + other)
       }
       val minSegLen = argParser.getIntOption("minLength", """The minimum segment length to draw (used when lineType="line" or "arc")""")
       val maxSegLen = argParser.getIntOption("maxLength", """When lineType="line" or "arc", the maximum segment length to draw.  When lineType="leader", the maximum leader length to draw""")
@@ -84,12 +85,24 @@ object EdgeTilingPipelineApp {
           tileSet, tileDesc.getOrElse(""), prefix,
           Seq((minT to maxT).toSeq), 256, 256, None, None)
 
-        val loadStage = PipelineStage("load level  " + g, loadCsvDataOp(base + "/level_" + g, getKVFile(edgeFileDescriptor))(_))
+        val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
+        val filterStage: Option[PipelineStage] = edgeTest.map { test =>
+          PipelineStage("Filter raw data for edges", regexFilterOp(DEFAULT_LINE_COLUMN, test)(_))
+        }
+        val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(edgeFileDescriptor))(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           segmentTilingOp(x1Col, y1Col, x2Col, y2Col, Some(bounds), tilingParameters, hbaseParameters, lineType, minSegLen, maxSegLen, maxSegLen)(_)
         )
-      }
+        val debugStage = PipelineStage("Count rows", countRowsOp("Rows for level "+g)(_))
 
+        loadStage
+          .addChild(filterStage)
+          .addChild(CSVStage)
+          .addChild(debugStage)
+          .addChild(tilingStage)
+
+        PipelineTree.execute(loadStage, sqlc)
+      }
 
       sc.stop
     } catch {
@@ -100,3 +113,4 @@ object EdgeTilingPipelineApp {
     }
   }
 }
+

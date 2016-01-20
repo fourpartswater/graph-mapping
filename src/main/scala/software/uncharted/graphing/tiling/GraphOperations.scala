@@ -1,13 +1,18 @@
 package software.uncharted.graphing.tiling
 
 import com.oculusinfo.binning.{BinIndex, TileIndex}
-import com.oculusinfo.tilegen.datasets.{StandardScalingFunctions, TilingTask, LineDrawingType, TilingTaskParameters}
-import com.oculusinfo.tilegen.pipeline.{Bounds, PipelineOperations, PipelineData, HBaseParameters}
+import com.oculusinfo.tilegen.datasets._
+import com.oculusinfo.tilegen.pipeline.OperationType.OperationType
+import com.oculusinfo.tilegen.pipeline._
 import com.oculusinfo.tilegen.pipeline.OperationType._
 import com.oculusinfo.tilegen.tiling.{StandardBinningFunctions, TileIO, LocalTileIO, HBaseTileIO}
+import com.oculusinfo.tilegen.util.KeyValueArgumentSource
+import org.apache.spark.sql.{Column, Row}
+import org.apache.spark.sql.types.StringType
 
 import scala.collection.mutable.{Map => MutableMap}
 import scala.reflect.ClassTag
+import scala.util.Try
 
 /**
   * Created by nkronenfeld on 2016-01-19.
@@ -16,10 +21,38 @@ object GraphOperations {
 
   import PipelineOperations._
 
+  val DEFAULT_LINE_COLUMN = "line"
+
   // Implicit for converting a scala map to a java properties object
   implicit def map2Properties(map: Map[String, String]): java.util.Properties = {
     (new java.util.Properties /: map) { case (props, (k, v)) => props.put(k, v); props }
   }
+
+  def loadRawDataOp(path: String, partitions: Option[Int] = None)(input: PipelineData): PipelineData = {
+    val sqlContext = input.sqlContext
+    val context = sqlContext.sparkContext
+    val rawData = partitions.map(p => context.textFile(path, p)).getOrElse(context.textFile(path))
+    val schema = SchemaTypeUtilities.structSchema(SchemaTypeUtilities.schemaField(DEFAULT_LINE_COLUMN, StringType))
+    val data = sqlContext.createDataFrame(rawData.map(line => Row(line)), schema)
+    PipelineData(sqlContext, data)
+  }
+
+  def rawToCSVOp(argumentSource: KeyValueArgumentSource, column: String = DEFAULT_LINE_COLUMN)(input: PipelineData): PipelineData = {
+    val context = input.sqlContext
+    val inputStrings = input.srdd.select(column).rdd.map(row => Try(row(0))).filter(_.isSuccess).map(_.get.toString)
+    val reader = new CSVReader(context, inputStrings, argumentSource)
+    PipelineData(reader.sqlc, reader.asDataFrame)
+  }
+
+  def countRowsOp(message: String = "Number of rows: ")(input: PipelineData): PipelineData = {
+    println("\n\n\n" + message + input.srdd.count + "\n\n\n")
+    input
+  }
+
+  //  def regexFilterOp (column:String, regex: String, exclude: Boolean = false)(input: PipelineData): PipelineData = {
+  //    val test = new Column(column).rlike(regex)
+  //    PipelineData(input.sqlContext, input.srdd.select(test))
+  //  }
 
   def segmentTilingOp(x1ColSpec: String,
                       y1ColSpec: String,
@@ -143,4 +176,12 @@ object GraphOperations {
 
     PipelineData(input.sqlContext, input.srdd, Option(tableName))
   }
+
+  implicit def allowOptionalChildren(stage: PipelineStage): OptionalChildrenExtension =
+    new OptionalChildrenExtension(stage)
+}
+
+class OptionalChildrenExtension (stage: PipelineStage) {
+  def addChild(childOpt: Option[PipelineStage]): PipelineStage =
+    childOpt.map(child => stage.addChild(child)).getOrElse(stage)
 }

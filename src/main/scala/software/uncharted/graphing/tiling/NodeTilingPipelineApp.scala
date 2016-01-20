@@ -24,6 +24,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 
 object NodeTilingPipelineApp {
+  import GraphOperations._
+
   private def getKVFile (fileName: String):KeyValueArgumentSource = {
     val props = new Properties()
     val propsFile = new FileInputStream(fileName)
@@ -48,6 +50,7 @@ object NodeTilingPipelineApp {
           | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
           | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
           | level 0 will be used for tiling levels 7 and 8.""".stripMargin)
+      val nodeTest = argParser.getStringOption("nodeTest", "A regular expression that lines must match to be considered nodes")
       val nodeFileDescriptor = argParser.getString("nodeColumns", "A file containing parse information for the node lines")
       val tileSet = argParser.getString("name", "The name of the node tile set to produce")
       val tileDesc = argParser.getStringOption("desc", "A description of the node tile set to produce")
@@ -75,7 +78,13 @@ object NodeTilingPipelineApp {
         println("Tiling hierarchy level " + g)
         println("\tmin tile level: " + minT)
         println("\tmax tile level: " + maxT)
-        val loadStage = PipelineStage("load level  " + g, loadCsvDataOp(base + "/level_" + g, getKVFile(nodeFileDescriptor))(_))
+
+        val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
+        val filterStage: Option[PipelineStage] = nodeTest.map { test =>
+          PipelineStage("Filter raw data for nodes", regexFilterOp(DEFAULT_LINE_COLUMN, test)(_))
+        }
+        val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
+        val debugStage = PipelineStage("Count rows", countRowsOp("Rows for level "+g)(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           crossplotHeatMapOp(
             xCol, yCol, tilingParameters, hbaseParameters,
@@ -83,7 +92,11 @@ object NodeTilingPipelineApp {
           )
         )
 
-        loadStage.addChild(tilingStage)
+        loadStage
+          .addChild(filterStage)
+          .addChild(CSVStage)
+          .addChild(debugStage)
+          .addChild(tilingStage)
 
         PipelineTree.execute(loadStage, sqlc)
       }
