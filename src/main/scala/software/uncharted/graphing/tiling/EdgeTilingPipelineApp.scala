@@ -16,7 +16,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import com.oculusinfo.tilegen.datasets.{LineDrawingType, TilingTaskParameters}
-import com.oculusinfo.tilegen.pipeline.{PipelineTree, Bounds, PipelineStage, HBaseParameters}
+import com.oculusinfo.tilegen.pipeline._
 import com.oculusinfo.tilegen.util.{ArgumentParser, PropertiesWrapper, KeyValueArgumentSource}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
@@ -60,6 +60,15 @@ object EdgeTilingPipelineApp {
       val y1Col = argParser.getString("y1", """The column to use for the Y value of the source of each edge (defaults to "y1")""", Some("y1"))
       val x2Col = argParser.getString("x2", """The column to use for the X value of the destination of each edge (defaults to "x2")""", Some("x2"))
       val y2Col = argParser.getString("y2", """The column to use for the Y value of the destination of each edge (defaults to "y2")""", Some("y2"))
+      val valueCol = argParser.getStringOption("value", """"The column to use for the value of the edges.""")
+      val valueType = argParser.getStringOption("valueType", """The numeric type of edge values.""")
+      val valueOp = argParser.getStringOption("valueOperation", """The operation to use when aggregating edge values""").map(_.toLowerCase) match {
+        case Some("sum") => OperationType.SUM
+        case Some("min") => OperationType.MIN
+        case Some("max") => OperationType.MAX
+        case Some("mean") => OperationType.MEAN
+        case Some("count") | _ => OperationType.COUNT
+      }
       val lineType = argParser.getStringOption("lineType", """The type of line to draw (leader, arc, or line)""").map(_.toLowerCase) match {
         case Some("leader") => Some(LineDrawingType.LeaderLines)
         case Some("arc") => Some(LineDrawingType.Arcs)
@@ -91,9 +100,14 @@ object EdgeTilingPipelineApp {
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(edgeFileDescriptor))(_))
         val tilingStage = PipelineStage("Tiling level " + g,
-          segmentTilingOp(x1Col, y1Col, x2Col, y2Col, Some(bounds), tilingParameters, hbaseParameters, lineType, minSegLen, maxSegLen, maxSegLen)(_)
+          segmentTilingOp(
+            x1Col, y1Col, x2Col, y2Col,
+            Some(bounds), tilingParameters, hbaseParameters,
+            lineType, minSegLen, maxSegLen, maxSegLen,
+            valueOp, valueCol, valueType
+          )(_)
         )
-        val debugStage = PipelineStage("Count rows", countRowsOp("Rows for level "+g)(_))
+        val debugStage = PipelineStage("Count rows for level "+g, countRowsOp("Rows for level "+g)(_))
 
         loadStage
           .addChild(filterStage)

@@ -84,7 +84,7 @@ object NodeTilingPipelineApp {
           PipelineStage("Filter raw data for nodes", regexFilterOp(DEFAULT_LINE_COLUMN, test)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
-        val debugStage = PipelineStage("Count rows", countRowsOp("Rows for level "+g)(_))
+        val debugStage = PipelineStage("Count rows for level "+g, countRowsOp("Rows for level "+g)(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           crossplotHeatMapOp(
             xCol, yCol, tilingParameters, hbaseParameters,
