@@ -4,12 +4,15 @@ package software.uncharted.graphing.tiling
 import java.util.{List => JavaList}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.{Buffer => MutableBuffer}
 
 import org.json.{JSONArray, JSONObject}
 
 import com.oculusinfo.tilegen.tiling.analytics.{AnalysisDescriptionTileWrapper, TileAnalytic}
+
+import scala.util.Try
 
 
 class GraphMaxRecordAnalytic extends TileAnalytic[List[GraphAnalyticsRecord]] {
@@ -118,7 +121,7 @@ case class GraphEdgeDestination(id: Long,
 
   override def toString: String = {
     val (x, y) = coordinates
-    s"""{"dstId": $id, "dstCoords": [$x, $y], "weight": $weight}"""
+    s"""{"dstID": $id, "dstCoords": [$x, $y], "weight": $weight}"""
   }
 }
 
@@ -171,36 +174,13 @@ object GraphCommunity extends GraphRecordConstructionUtilities {
     parser.eatToken("]")
     parser.eatTokens(",", """"parentRadius"""", ":")
     val parentRadius = parser.nextDouble()
-    parser.eatTokens(",", """"statsList"""", ":", "[")
-    parser.eatWhitespace()
-
-    val statsList = MutableBuffer[Double]()
-    while (']' != parser.peek) {
-      statsList += parser.nextDouble()
-      parser.eatToken(",")
-      parser.eatWhitespace()
-    }
-    parser.eatToken("]")
-
-    parser.eatTokens(",", """"interEdges"""", ":", "[")
-    parser.eatWhitespace()
-    val interEdges = MutableBuffer[GraphEdgeDestination]()
-    while (']' != parser.peek) {
-      interEdges += GraphEdgeDestination.fromString(parser)
-      parser.eatToken(",")
-      parser.eatWhitespace()
-    }
-    parser.eatToken("]")
-
-    parser.eatTokens(",", """"intraEdges"""", ":", "[")
-    parser.eatWhitespace()
-    val intraEdges = MutableBuffer[GraphEdgeDestination]()
-    while (']' != parser.peek) {
-      intraEdges += GraphEdgeDestination.fromString(parser)
-      parser.eatToken(",")
-      parser.eatWhitespace()
-    }
-    parser.eatToken("]")
+    parser.eatTokens(",", """"statsList"""", ":")
+    val statsList = parser.nextList[Double]("[", ",", "]", p => p.nextDouble())
+    parser.eatTokens(",", """"interEdges"""", ":")
+    val interEdges = parser.nextList[GraphEdgeDestination]("[", ",", "]", p => GraphEdgeDestination.fromString(p))
+    parser.eatTokens(",", """"intraEdges"""", ":")
+    val intraEdges = parser.nextList[GraphEdgeDestination]("[", ",", "]", p => GraphEdgeDestination.fromString(p))
+    parser.eatToken("}")
 
     apply(
       hierLevel, id, (x, y), radius, degree, nodes, metadata, isPrimary,
@@ -334,9 +314,9 @@ class GraphCommunity(val hierarchyLevel: Int,
     result.append( s""""numNodes": $nodes, """)
     result.append( """"metadata": """).append(escapeString(metadata)).append(", ")
     result.append( s""""isPrimaryNode": $isPrimary, """)
-    result.append( s""""parentId": $parentId, """)
+    result.append( s""""parentID": $parentId, """)
     result.append( """"parentCoords": [""").append(parentCoordinates._1).append(", ").append(parentCoordinates._2).append("], ")
-    result.append( s""""parentRadius": $parentRadius""")
+    result.append( s""""parentRadius": $parentRadius, """)
     result.append(communityStats.mkString( """"statsList": [""", ", ", "], "))
     result.append(interEdges.mkString( """"interEdges": [""", ", ", "], "))
     result.append(intraEdges.mkString( """"intraEdges": [""", ", ", "]"))
@@ -353,8 +333,6 @@ object GraphAnalyticsRecord extends GraphRecordConstructionUtilities {
     new GraphAnalyticsRecord(numCommunities, toLimitedBuffer(MAX_COMMUNITIES)(communities))
 
   def fromString(value: String): GraphAnalyticsRecord = {
-    val communities = MutableBuffer[GraphCommunity]()
-
     val parser = new FromStringParser(value)
     parser.eatToken("{")
     parser.eatToken( """"numCommunities"""")
@@ -363,13 +341,8 @@ object GraphAnalyticsRecord extends GraphRecordConstructionUtilities {
     parser.eatToken(",")
     parser.eatToken( """"communities"""")
     parser.eatToken(":")
-    parser.eatToken("[")
-    parser.eatWhitespace()
-    while ('{' == parser.peek) {
-      communities += GraphCommunity.fromString(parser)
-      parser.eatToken(",")
-      parser.eatWhitespace()
-    }
+    val communities = parser.nextList[GraphCommunity]("[", ",", "]", p => GraphCommunity.fromString(p))
+    parser.eatToken("}")
 
     new GraphAnalyticsRecord(numCommunities, communities)
   }
@@ -434,6 +407,15 @@ class GraphAnalyticsRecord(var numCommunities: Int, val communities: MutableBuff
 
   override def toString: String =
     s"""{"numCommunities" : $numCommunities,""" + communities.mkString( """"communities": [""", ", ", "]}")
+
+  override def equals(other: Any): Boolean =
+    other match {
+      case that: GraphAnalyticsRecord =>
+        this.numCommunities == that.numCommunities &&
+        this.communities.length == that.communities.length &&
+          (0 until this.communities.length).map(n => this.communities(n) == that.communities(n)).fold(true)(_ && _)
+      case _ => false
+    }
 }
 
 
@@ -478,13 +460,36 @@ class FromStringParser(value: String) {
     tokens.foreach(eatToken(_))
   }
 
+  def testToken (test: String): Boolean = {
+    for (i <- 0 until test.length) {
+      val tc = test.charAt(i)
+      val vc = value.charAt(index + i)
+      if (tc != vc) return false
+    }
+    return true
+  }
+
+  def testTokenIgnoreCase (test: String): Boolean = {
+    for (i <- 0 until test.length) {
+      val c = test.charAt(i)
+      val (lc, uc) =
+        if ('a' <= c && c <= 'z') (c, c + 'A' - 'a')
+        else if ('A' <= c && c <= 'Z') (c + 'a' - 'A', c)
+        else (c, c)
+
+      val vc = value.charAt(index + i)
+      if (vc != lc && vc != uc) return false
+    }
+    return true
+  }
+
   def nextBoolean(skipWhitespace: Boolean = true): Boolean = {
     if (skipWhitespace) eatWhitespace()
 
-    if (value.startsWith("true", index)) {
+    if (testTokenIgnoreCase("true")) {
       index = index + 4
       true
-    } else if (value.startsWith("false", index)) {
+    } else if (testTokenIgnoreCase("false")) {
       index = index + 5
       false
     } else {
@@ -492,26 +497,49 @@ class FromStringParser(value: String) {
     }
   }
 
+  private def substring (start: Int, end: Int): String = {
+    if (end < 0) value.substring(start)
+    else value.substring(start, end)
+  }
+
   def nextInt(skipWhitespace: Boolean = true): Int = {
     if (skipWhitespace) eatWhitespace()
 
     val start = index
+
+    if ('-' == value.charAt(index) || '+' == value.charAt(index)) {
+      index = index + 1
+      eatWhitespace()
+    }
+
     index = value.indexWhere(notDigit, index)
-    value.substring(start, index).toInt
+    substring(start, index).toInt
   }
 
   def nextLong(skipWhitespace: Boolean = true): Long = {
     if (skipWhitespace) eatWhitespace()
 
     val start = index
+
+    if ('-' == value.charAt(index) || '+' == value.charAt(index)) {
+      index = index + 1
+      eatWhitespace()
+    }
+
     index = value.indexWhere(notDigit, index)
-    value.substring(start, index).toLong
+    substring(start, index).toLong
   }
 
   def nextDouble(skipWhitespace: Boolean = true): Double = {
     if (skipWhitespace) eatWhitespace()
 
     val start = index
+
+    if ('-' == value.charAt(index) || '+' == value.charAt(index)) {
+      index = index + 1
+      eatWhitespace()
+    }
+
     index = value.indexWhere(notDigit, index)
     if ('.' == value.charAt(index)) {
       index = index + 1
@@ -519,10 +547,16 @@ class FromStringParser(value: String) {
     }
     if ('E' == value.charAt(index) || 'e' == value.charAt(index)) {
       index = index + 1
+
+      if ('-' == value.charAt(index) || '+' == value.charAt(index)) {
+        index = index + 1
+        eatWhitespace()
+      }
+
       index = value.indexWhere(notDigit, index)
     }
 
-    value.substring(start, index).toDouble
+    substring(start, index).toDouble
   }
 
   def nextString(skipWhitespace: Boolean = true): String = {
@@ -539,8 +573,10 @@ class FromStringParser(value: String) {
         if (index > -1) {
           val lastNonSlash = value.lastIndexWhere((c: Char) => c != '\\', index - 1)
           val slashes = (index - 1) - lastNonSlash
+
+          index = index + 1
           if (0 == (slashes % 2)) {
-            return value.substring(start, index - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+            return substring(start, index - 1).replace("\\\"", "\"").replace("\\\\", "\\")
           }
         }
       }
@@ -548,5 +584,29 @@ class FromStringParser(value: String) {
       throw new IllegalArgumentException("Couldn't find the end of quoted string")
     }
   }
-}
 
+  def nextList[T] (startToken: String, separatorToken: String, endToken: String,
+                   getT: FromStringParser => T, skipWhitespace: Boolean = true): mutable.Buffer[T] = {
+    val result = mutable.Buffer[T]()
+
+    eatToken(startToken, skipWhitespace)
+    // Save start in case read of T fails
+    val startIndex = index
+    val first = Try(getT(this))
+    if (first.isFailure) {
+      index = startIndex
+    } else {
+      result += first.get
+
+      if (skipWhitespace) eatWhitespace()
+      while (testToken(separatorToken)) {
+        eatToken(separatorToken)
+        result += getT(this)
+        if (skipWhitespace) eatWhitespace()
+      }
+    }
+
+    eatToken(endToken, skipWhitespace)
+    result
+  }
+}
