@@ -23,6 +23,11 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 
+/**
+ * A pipeline application to create heatmap tiles of the nodes in a graph.
+ *
+ * Basically, this is a slightly modified heatmap tiler.
+ */
 object NodeTilingPipelineApp {
   import GraphOperations._
 

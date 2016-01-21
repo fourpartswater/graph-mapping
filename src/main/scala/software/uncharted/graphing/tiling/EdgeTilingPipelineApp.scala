@@ -12,6 +12,8 @@
   */
 package software.uncharted.graphing.tiling
 
+
+
 import java.io.FileInputStream
 import java.util.{Date, Properties}
 
@@ -23,6 +25,12 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 
 
+
+/**
+ * A pipeline application to create heatmap tiles of the edges in a graph.
+ *
+ * Basically, this is a slightly modified segment tiler.
+ */
 object EdgeTilingPipelineApp {
   import com.oculusinfo.tilegen.pipeline.PipelineOperations._
   import GraphOperations._
