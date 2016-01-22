@@ -13,7 +13,6 @@
 package software.uncharted.graphing.tiling
 
 
-
 import java.io.FileInputStream
 import java.util.{Date, Properties}
 
@@ -25,17 +24,17 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 
 
-
 /**
- * A pipeline application to create heatmap tiles of the edges in a graph.
- *
- * Basically, this is a slightly modified segment tiler.
- */
+  * A pipeline application to create heatmap tiles of the edges in a graph.
+  *
+  * Basically, this is a slightly modified segment tiler.
+  */
 object EdgeTilingPipelineApp {
+
   import com.oculusinfo.tilegen.pipeline.PipelineOperations._
   import GraphOperations._
 
-  private def getKVFile (fileName: String):KeyValueArgumentSource = {
+  private def getKVFile(fileName: String): KeyValueArgumentSource = {
     val props = new Properties()
     val propsFile = new FileInputStream(fileName)
     props.load(propsFile)
@@ -68,6 +67,12 @@ object EdgeTilingPipelineApp {
       val y1Col = argParser.getString("y1", """The column to use for the Y value of the source of each edge (defaults to "y1")""", Some("y1"))
       val x2Col = argParser.getString("x2", """The column to use for the X value of the destination of each edge (defaults to "x2")""", Some("x2"))
       val y2Col = argParser.getString("y2", """The column to use for the Y value of the destination of each edge (defaults to "y2")""", Some("y2"))
+      val edgeTypeCol = argParser.getString("edgeColumn", """The column from which to read the edge type.  The column's values should be 0 (intra-community edges) or 1 (inter-community edges).""")
+      val edgeType = argParser.getString("edgeType", "The type of edge to plot.  Case-insensitive, possible values are intra, inter, or all.  Default is all.", Some("all")).toLowerCase match {
+        case "inter" => (false, true)
+        case "intra" => (true, false)
+        case _ => (true, true)
+      }
       val valueCol = argParser.getStringOption("value", """"The column to use for the value of the edges.""")
       val valueType = argParser.getStringOption("valueType", """The numeric type of edge values.""")
       val valueOp = argParser.getStringOption("valueOperation", """The operation to use when aggregating edge values""").map(_.toLowerCase) match {
@@ -97,7 +102,7 @@ object EdgeTilingPipelineApp {
       val bounds = Bounds(0.0, 0.0, 256.0 - epsilon, 256.0 - epsilon)
       val hbaseParameters = Some(HBaseParameters(zkq, zkp, zkm))
 
-      println("Overall start time: "+new Date())
+      println("Overall start time: " + new Date())
       clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
         val tilingParameters = new TilingTaskParameters(
           tileSet, tileDesc.getOrElse(""), prefix,
@@ -112,10 +117,11 @@ object EdgeTilingPipelineApp {
         println("\tstart time: " + new Date())
 
         val loadStage: PipelineStage = PipelineStage("load level " + g, loadRawDataOp(base + "level_" + g)(_))
-        val filterStage: Option[PipelineStage] = edgeTest.map { test =>
+        val filterForEdgesStage = edgeTest.map { test =>
           PipelineStage("Filter raw data for edges", regexFilterOp(test, DEFAULT_LINE_COLUMN)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(edgeFileDescriptor))(_))
+        val filterForEdgeTypeStage = PipelineStage("Filter edges by edge type", filterByRowTypeOp(edgeType._1, edgeType._2, edgeTypeCol)(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           segmentTilingOp(
             x1Col, y1Col, x2Col, y2Col,
@@ -128,20 +134,24 @@ object EdgeTilingPipelineApp {
         val a = PipelineStage("count raw rows", countRowsOp("raw row count: ")(_))
         val b = PipelineStage("count filtered rows", countRowsOp("filtered row count: ")(_))
         val c = PipelineStage("count CSVed rows", countRowsOp("CSV row count: ")(_))
+        val d = PipelineStage("count typed rows", countRowsOp("typed row count: ")(_))
 
         loadStage
           .addChild(a)
-          .addChild(filterStage)
+          .addChild(filterForEdgesStage)
           .addChild(b)
           .addChild(CSVStage)
           .addChild(c)
+          .addChild(filterForEdgesStage)
+          .addChild(d)
+          .addChild(filterForEdgeTypeStage)
           .addChild(debugStage)
           .addChild(tilingStage)
 
         PipelineTree.execute(loadStage, sqlc)
         println("\tend time: " + new Date())
       }
-      println("Overall end time: "+new Date())
+      println("Overall end time: " + new Date())
 
       sc.stop
     } catch {

@@ -49,6 +49,19 @@ object GraphOperations {
     input
   }
 
+  def filterByRowTypeOp (intraCommunityEdges: Boolean, interCommunityEdges: Boolean, edgeTypeColumn: String)(input: PipelineData): PipelineData = {
+    if (intraCommunityEdges && interCommunityEdges) input
+    else if (intraCommunityEdges) {
+      val c = new Column(edgeTypeColumn)
+      PipelineData(input.sqlContext, input.srdd.select(c === 0))
+    } else if (interCommunityEdges) {
+      val c = new Column(edgeTypeColumn)
+      PipelineData(input.sqlContext, input.srdd.select(c === 1))
+    } else {
+      throw new IllegalArgumentException("At least one of inter-community edges and intra-community edges must be chosen")
+    }
+  }
+
   //  def regexFilterOp (column:String, regex: String, exclude: Boolean = false)(input: PipelineData): PipelineData = {
   //    val test = new Column(column).rlike(regex)
   //    PipelineData(input.sqlContext, input.srdd.select(test))
