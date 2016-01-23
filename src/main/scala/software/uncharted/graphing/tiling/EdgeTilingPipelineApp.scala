@@ -142,9 +142,8 @@ object EdgeTilingPipelineApp {
           .addChild(b)
           .addChild(CSVStage)
           .addChild(c)
-          .addChild(filterForEdgesStage)
-          .addChild(d)
           .addChild(filterForEdgeTypeStage)
+          .addChild(d)
           .addChild(debugStage)
           .addChild(tilingStage)
 
