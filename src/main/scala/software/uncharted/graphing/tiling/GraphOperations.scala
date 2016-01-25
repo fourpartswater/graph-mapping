@@ -81,10 +81,10 @@ object GraphOperations {
     if (intraCommunityEdges && interCommunityEdges) input
     else if (intraCommunityEdges) {
       val c = new Column(edgeTypeColumn)
-      PipelineData(input.sqlContext, input.srdd.select(c === 0))
+      PipelineData(input.sqlContext, input.srdd.filter(c === 0))
     } else if (interCommunityEdges) {
       val c = new Column(edgeTypeColumn)
-      PipelineData(input.sqlContext, input.srdd.select(c === 1))
+      PipelineData(input.sqlContext, input.srdd.filter(c === 1))
     } else {
       throw new IllegalArgumentException("At least one of inter-community edges and intra-community edges must be chosen")
     }
