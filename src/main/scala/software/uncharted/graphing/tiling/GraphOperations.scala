@@ -8,7 +8,7 @@ import com.oculusinfo.tilegen.pipeline.OperationType._
 import com.oculusinfo.tilegen.tiling.{StandardBinningFunctions, TileIO, LocalTileIO, HBaseTileIO}
 import com.oculusinfo.tilegen.util.KeyValueArgumentSource
 import org.apache.spark.sql.{Column, Row}
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.{StructType, StringType}
 
 import scala.collection.mutable.{Map => MutableMap}
 import scala.reflect.ClassTag
@@ -45,7 +45,35 @@ object GraphOperations {
   }
 
   def countRowsOp(message: String = "Number of rows: ")(input: PipelineData): PipelineData = {
-    println("\n\n\n" + message + input.srdd.count + "\n\n\n")
+    val count = input.srdd.count
+    val top10 = input.srdd.take(10)
+    val schema = input.srdd.schema
+
+    def printRow (s: StructType, r: Row): Unit = {
+      val fields = s.fields
+      for (i <- 0 until fields.length) {
+        print("{ ")
+        val field = fields(i)
+        print(field.name + ": ")
+        field.dataType match {
+          case st: StructType =>
+            printRow(st, r(i).asInstanceOf[Row])
+          case _ =>
+            print(r(i).toString)
+        }
+        print(", ")
+      }
+      print("}")
+    }
+
+    println("\n\n\n")
+    println(message + count)
+    println("Rows:")
+    top10.foreach { row =>
+      printRow(schema, row)
+      println
+    }
+    println("\n\n\n")
     input
   }
 
