@@ -51,8 +51,8 @@ object GraphOperations {
 
     def printRow (s: StructType, r: Row): Unit = {
       val fields = s.fields
+      print("{ ")
       for (i <- 0 until fields.length) {
-        print("{ ")
         val field = fields(i)
         print(field.name + ": ")
         field.dataType match {
