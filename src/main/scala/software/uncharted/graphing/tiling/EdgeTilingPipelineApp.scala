@@ -96,6 +96,8 @@ object EdgeTilingPipelineApp {
       val zkm = argParser.getString("xkm", "zookeeper master", Some("uscc0-master0.uncharted.software:60000"))
       val epsilon = 1E-16
 
+      HeatmapCountValueExtractorFactory.register
+      HeatmapFieldValueExtractorFactory.register
 
       // List of ((min tiling level, max tiling level), graph hierarchy level)
       val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse

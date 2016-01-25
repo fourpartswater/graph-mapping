@@ -15,7 +15,8 @@ package software.uncharted.graphing.tiling
 import java.io.FileInputStream
 import java.util.{Date, Properties}
 
-import com.oculusinfo.tilegen.datasets.TilingTaskParameters
+import com.oculusinfo.binning.io.serialization.DefaultTileSerializerFactoryProvider
+import com.oculusinfo.tilegen.datasets.{ValueExtractorFactory, TilingTaskParameters}
 import com.oculusinfo.tilegen.pipeline.PipelineOperations._
 import com.oculusinfo.tilegen.pipeline._
 import com.oculusinfo.tilegen.util.{PropertiesWrapper, KeyValueArgumentSource, ArgumentParser}
@@ -67,6 +68,8 @@ object NodeTilingPipelineApp {
       val zkm = argParser.getString("xkm", "zookeeper master", Some("uscc0-master0.uncharted.software:60000"))
       val epsilon = 1E-16
 
+      HeatmapCountValueExtractorFactory.register
+      HeatmapFieldValueExtractorFactory.register
 
       // List of ((min tiling level, max tiling level), graph hierarchy level)
       val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
@@ -93,7 +96,7 @@ object NodeTilingPipelineApp {
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
         val debugStage = PipelineStage("Count rows for level " + g + ": ", countRowsOp("Rows for level " + g + ": ")(_))
         val tilingStage = PipelineStage("Tiling level " + g,
-          crossplotHeatMapOp(
+          graphHeatMapOp(
             xCol, yCol, tilingParameters, hbaseParameters,
             bounds = Some(Bounds(0.0, 0.0, 256 - epsilon, 256 - epsilon))
           )

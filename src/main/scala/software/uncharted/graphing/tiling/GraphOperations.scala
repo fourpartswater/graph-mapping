@@ -90,10 +90,94 @@ object GraphOperations {
     }
   }
 
-  //  def regexFilterOp (column:String, regex: String, exclude: Boolean = false)(input: PipelineData): PipelineData = {
-  //    val test = new Column(column).rlike(regex)
-  //    PipelineData(input.sqlContext, input.srdd.select(test))
-  //  }
+  /**
+    * A basic heatmap tile generator that writes output to the local file system. Uses
+    * TilingTaskParameters to manage tiling task arguments; the arguments map
+    * will be passed through to that object, so all arguments required for its configuration should be set in the map.
+    *
+    * @param xColSpec Colspec denoting data x column
+    * @param yColSpec Colspec denoting data y column
+    * @param tilingParams Parameters to forward to the tiling task.
+    * @param operation Aggregating operation.	Defaults to type Count if unspecified.
+    * @param valueColSpec Colspec denoting the value column to use for the aggregating operation.	None
+    *										 if the default type of Count is used.
+    * @param valueColType Type to interpret colspec value as - float, double, int, long.	None if the default type
+	 count is used for the operation.
+    * @param bounds The bounds for the crossplot.	None indicates that bounds will be auto-generated based on input data.
+    * @param input Pipeline data to tile.
+    * @return Unmodified input data.
+    */
+  def graphHeatMapOp(xColSpec: String,
+                     yColSpec: String,
+                     tilingParams: TilingTaskParameters,
+                     hbaseParameters: Option[HBaseParameters],
+                     operation: OperationType = COUNT,
+                     valueColSpec: Option[String] = None,
+                     valueColType: Option[String] = None,
+                     bounds: Option[Bounds] = None)
+                    (input: PipelineData) = {
+    val tileIO = hbaseParameters match {
+      case Some(p) => new HBaseTileIO(p.zookeeperQuorum, p.zookeeperPort, p.hbaseMaster)
+      case None => new LocalTileIO("avro")
+    }
+
+
+    val properties = Map("oculus.binning.projection.type" -> "areaofinterest")
+    val boundsProps = bounds match {
+      case Some(b) => Map("oculus.binning.projection.autobounds" -> "false",
+        "oculus.binning.projection.minX" -> b.minX.toString,
+        "oculus.binning.projection.minY" -> b.minY.toString,
+        "oculus.binning.projection.maxX" -> b.maxX.toString,
+        "oculus.binning.projection.maxY" -> b.maxY.toString)
+      case None => Map("oculus.binning.projection.autobounds" -> "true")
+    }
+
+    graphHeatMapOpImpl(xColSpec, yColSpec, operation, valueColSpec, valueColType, tilingParams, tileIO,
+      properties ++ boundsProps)(input)
+  }
+
+  private def graphHeatMapOpImpl(xColSpec: String,
+                                 yColSpec: String,
+                                 operation: OperationType,
+                                 valueColSpec: Option[String],
+                                 valueColType: Option[String],
+                                 taskParameters: TilingTaskParameters,
+                                 tileIO: TileIO,
+                                 properties: Map[String, String])
+                                (input: PipelineData) = {
+    // Populate baseline args
+    val args = Map(
+      "oculus.binning.name" -> taskParameters.name,
+      "oculus.binning.description" -> taskParameters.description,
+      "oculus.binning.tileWidth" -> taskParameters.tileWidth.toString,
+      "oculus.binning.tileHeight" -> taskParameters.tileHeight.toString,
+      "oculus.binning.index.type" -> "cartesian",
+      "oculus.binning.index.field.0" -> xColSpec,
+      "oculus.binning.index.field.1" -> yColSpec)
+
+    val valueProps = operation match {
+      case SUM | MAX | MIN | MEAN =>
+        Map("oculus.binning.value.type" -> "newfield",
+          "oculus.binning.value.field" -> valueColSpec.get,
+          "oculus.binning.value.valueType" -> valueColType.get,
+          "oculus.binning.value.aggregation" -> operation.toString.toLowerCase,
+          "oculus.binning.value.serializer" -> s"[${valueColType.get}]-a")
+      case _ =>
+        Map("oculus.binning.value.type" -> "newcount",
+          "oculus.binning.value.valueType" -> "int",
+          "oculus.binning.value.serializer" -> "[int]-a")
+    }
+
+    // Parse bounds and level args
+    val levelsProps = createLevelsProps("oculus.binning", taskParameters.levels)
+
+    val tableName = PipelineOperations.getOrGenTableName(input, "heatmap_op")
+
+    val tilingTask = TilingTask(input.sqlContext, tableName, args ++ levelsProps ++ valueProps ++ properties)
+    tilingTask.doTiling(tileIO)
+
+    PipelineData(input.sqlContext, input.srdd, Option(tableName))
+  }
 
   def segmentTilingOp(x1ColSpec: String,
                       y1ColSpec: String,
@@ -163,13 +247,13 @@ object GraphOperations {
 
     val valueProps = operation match {
       case SUM | MAX | MIN | MEAN =>
-        Map("oculus.binning.value.type" -> "field",
+        Map("oculus.binning.value.type" -> "newfield",
           "oculus.binning.value.field" -> valueColSpec.get,
           "oculus.binning.value.valueType" -> valueColType.get,
           "oculus.binning.value.aggregation" -> operation.toString.toLowerCase,
           "oculus.binning.value.serializer" -> s"[${valueColType.get}]-a")
       case _ =>
-        Map("oculus.binning.value.type" -> "count",
+        Map("oculus.binning.value.type" -> "newcount",
           "oculus.binning.value.valueType" -> "int",
           "oculus.binning.value.serializer" -> "[int]-a")
     }
