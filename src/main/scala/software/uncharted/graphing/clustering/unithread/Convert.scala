@@ -129,9 +129,10 @@ object Convert {
 
   def main(args: Array[String]): Unit = {
     parse_args(args)
-    val edgeReader = new BufferedReader(new InputStreamReader(new FileInputStream(infile_edge.get)))
-    var g = GraphEdges(edgeReader, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
-    edgeReader.close()
+//    val edgeReader = new BufferedReader(new InputStreamReader(new FileInputStream(infile_edge.get)))
+//    var g = GraphEdges(edgeReader, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
+//    edgeReader.close()
+    var g = GraphEdges(infile_edge.get, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
 
     infile_node.foreach { nodeFile =>
       val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))

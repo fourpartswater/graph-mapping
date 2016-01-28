@@ -1,6 +1,7 @@
 package software.uncharted.graphing.clustering.unithread
 
 import java.io._
+import java.util.Date
 
 import scala.collection.mutable.{Buffer, Map => MutableMap}
 import scala.reflect.ClassTag
@@ -152,15 +153,52 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
 
 
 object GraphEdges {
-  def apply (edge_input: BufferedReader,
+  def apply (edgeInputFile: String,
              edge_filter: Option[String],
              edge_separator: String,
              source_column: Int,
              destination_column: Int,
              weight_column: Option[Int]): GraphEdges = {
+    // First read through the file once, counting edges
+    println("Counting nodes in graph")
+    val countReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
+    var maxNode = 0
+    var line = countReader.readLine()
+    var n = 0
+    while (null != line) {
+      val fields = line.split(edge_separator)
+      if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+        val source = fields(source_column).toInt
+        val destination = fields(destination_column).toInt
+        maxNode = maxNode max source max destination
+      }
+
+      line = countReader.readLine()
+      n += 1
+      if (0 == (n % 100000))
+        println("Counted " + n + " ("+new Date()+")")
+    }
+    countReader.close()
+    println("Reading graph with "+(maxNode+1)+" nodes")
+
+    // Now actually read the graph
+    val graphReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
+    val result = apply(graphReader, edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
+    graphReader.close()
+    result
+  }
+
+  def apply (edge_input: BufferedReader,
+             edge_filter: Option[String],
+             edge_separator: String,
+             source_column: Int,
+             destination_column: Int,
+             weight_column: Option[Int],
+             initialSize: Option[Int] = None): GraphEdges = {
     var nb_links = 0
-    val edges = new GrowableArray[Buffer[(Int, Float)]](0, () => Buffer[(Int, Float)]())
+    val edges = new GrowableArray[Buffer[(Int, Float)]](initialSize.getOrElse(0), () => Buffer[(Int, Float)]())
     var line = edge_input.readLine()
+    var n = 0
     while (null != line) {
       val fields = line.split(edge_separator)
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
@@ -173,6 +211,9 @@ object GraphEdges {
       }
 
       line = edge_input.readLine()
+      n += 1
+      if (0 == (n % 100000))
+        println("Read " + n + " ("+new Date()+")")
     }
     new GraphEdges(edges.data)
   }
@@ -186,6 +227,7 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
   }
   private def growTo (newSize: Int): Unit = {
     if (data.length < newSize) {
+      println("Growing from "+data.length+" to "+newSize)
       val newData = new Array[T](newSize)
       for (i <- data.indices) newData(i) = data(i)
       for (i <- data.length until newSize) newData(i) = initialize()
