@@ -46,7 +46,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
       degrees(0)
     } else {
       degrees(node) - degrees(node - 1)
-    }
+   201 }
 
   def neighbors (node: Int): Iterator[(Int, Float)] =
     new NeighborIterator(node)
@@ -198,7 +198,7 @@ object Graph {
           nodeInfos(i) = NodeInfo(i, 1, Some(finput_m.readUTF()))
       }
     } else {
-      for (i <- 0 until nb_links) nodeInfos(i) = NodeInfo(i, 1, None)
+      for (i <- 0 until nb_nodes) nodeInfos(i) = NodeInfo(i, 1, None)
     }
 
     new Graph(degrees, links, nodeInfos, weights)
