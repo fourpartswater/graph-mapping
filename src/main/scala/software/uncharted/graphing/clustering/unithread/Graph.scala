@@ -46,7 +46,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
       degrees(0)
     } else {
       degrees(node) - degrees(node - 1)
-   201 }
+    }
 
   def neighbors (node: Int): Iterator[(Int, Float)] =
     new NeighborIterator(node)
