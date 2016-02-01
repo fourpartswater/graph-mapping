@@ -10,6 +10,8 @@ package software.uncharted.graphing.clustering.unithread
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 import java.util.Date
 
+import software.uncharted.graphing.utilities.SimpleProfiling
+
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.util.Random
 
@@ -37,9 +39,12 @@ class CommunitySizeAlgorithm (val maximumSize: Int) extends AlgorithmModificatio
  *                if -1, compute as many pass as needed to increas modularity
  * @param min_modularity a new pass is computed if the last one has generated an increase greater than min_modularity
  *                       if 0, even a minor increase is enough to go for one more pass
- * @param algorithMod The modification to apply to the baseline clustering algorithm.
+ * @param algorithmMod The modification to apply to the baseline clustering algorithm.
  */
-class Community (val g: Graph, nb_pass: Int, min_modularity: Double, algorithMod: AlgorithmModification = new BaselineAlgorithm) {
+class Community (val g: Graph,
+                 nb_pass: Int,
+                 min_modularity: Double,
+                 algorithmMod: AlgorithmModification = new BaselineAlgorithm) {
 
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
             nbp: Int, minm: Double, algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
@@ -102,30 +107,32 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double, algorithMod
     neigh_pos(0) = n2c(node)
     neigh_weight(neigh_pos(0)) = 0
     neigh_last = 1
-    val neighbors = g.neighbors(node)
-    for (i <- 0 until degree) {
-      val (neighbor, neighbor_weight) = neighbors.next
-      val neighbor_community = n2c(neighbor)
 
-      val allowed = algorithMod match {
-        case nd: NodeDegreeAlgorithm =>
-          // Only allow joining with this neighbor if its degree is less than our limit.
-          g.nb_neighbors(neighbor) < nd.degreeLimit
+    val allowed: Int => Boolean = algorithmMod match {
+      case nd: NodeDegreeAlgorithm =>
+        // Only allow joining with this neighbor if its degree is less than our limit.
+        nn => g.nb_neighbors(nn) < nd.degreeLimit
+      case cs: CommunitySizeAlgorithm =>
+        // Only allow joining with this neighbor if its internal size is less than our limit
+        nn => g.nodeInfo(nn).internalNodes < cs.maximumSize
+      case _ =>
+        nn => true
+    }
 
-        case cs: CommunitySizeAlgorithm =>
-          // Only allow joining with this neighbor if its internal size is less than our limit
-          g.nodeInfo(neighbor).internalNodes < cs.maximumSize
-
-        case _ => true
-      }
-      if (allowed) {
-        if (neighbor != node) {
-          if (neigh_weight(neighbor_community) == -1.0) {
-            neigh_weight(neighbor_community) = 0.0
-            neigh_pos(neigh_last) = neighbor_community
-            neigh_last += 1
+    if (allowed(node)) {
+      val neighbors = g.neighbors(node)
+      for (i <- 0 until degree) {
+        val (neighbor, neighbor_weight) = neighbors.next
+        val neighbor_community = n2c(neighbor)
+        if (allowed(neighbor)) {
+          if (neighbor != node) {
+            if (neigh_weight(neighbor_community) == -1.0) {
+              neigh_weight(neighbor_community) = 0.0
+              neigh_pos(neigh_last) = neighbor_community
+              neigh_last += 1
+            }
+            neigh_weight(neighbor_community) += neighbor_weight
           }
-          neigh_weight(neighbor_community) += neighbor_weight
         }
       }
     }
@@ -162,6 +169,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double, algorithMod
 
       // for each node: remove the node from its community and insert it in the best community
       for (node_tmp <- 0 until size) {
+        if (0 == (node_tmp % 100000)) println(node_tmp+" ...")
         val node = random_order(node_tmp)
         val node_comm = n2c(node)
         val w_degree = g.weighted_degree(node)
@@ -431,24 +439,35 @@ object Community {
     if (verbose) display_time("Begin")
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
+    SimpleProfiling.register("init.community")
     var c = new Community(filename.get, filename_w, filename_m, -1, precision, algorithm)
+    SimpleProfiling.finish("init.community")
 
+    SimpleProfiling.register("init.partition")
     filename_part.foreach(part => c.init_partition(part))
+    SimpleProfiling.finish("init.partition")
 
     var g: Graph = null
     var improvement: Boolean = true
+    SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
+    SimpleProfiling.finish("init.modularity")
     var level: Int = 0
 
     do {
+      SimpleProfiling.register("iterative")
       if (verbose) {
         Console.err.println("level "+level+":")
         display_time("  start computation")
         Console.err.println("  network size: "+c.g.nb_nodes+" nodes, "+c.g.nb_links+" links, "+c.g.total_weight+" weight.")
       }
 
+      SimpleProfiling.register("iterative.one_level")
       improvement = c.one_level(randomize)
+      SimpleProfiling.finish("iterative.one_level")
+      SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
+      SimpleProfiling.finish("iterative.modularity")
 
       level = level + 1
       if (level == display_level && null != g) {
@@ -456,8 +475,11 @@ object Community {
         g.display_links(Console.out)
       }
 
+      SimpleProfiling.register("iterative.convert")
       g = c.partition2graph_binary
+      SimpleProfiling.finish("iterative.convert")
 
+      SimpleProfiling.register("iterative.write")
       curDir.foreach { pwd =>
         val levelDir = new File(pwd, "level_" + (level-1))
         levelDir.mkdir()
@@ -469,13 +491,16 @@ object Community {
         stats.flush()
         stats.close()
       }
+      SimpleProfiling.finish("iterative.write")
 
       val levelAlgorithm = algorithm match {
         case nd: NodeDegreeAlgorithm => new NodeDegreeAlgorithm(math.pow(nd.degreeLimit, level + 1).toLong)
         case cs: CommunitySizeAlgorithm => algorithm
         case _ => algorithm
       }
+      SimpleProfiling.register("iterative.communitize")
       c = new Community(g, -1, precision, levelAlgorithm)
+      SimpleProfiling.finish("iterative.communitize")
 
       if (verbose)
         Console.err.println("  modularity increased from " + mod + " to "+new_mod)
@@ -486,6 +511,10 @@ object Community {
 
       // do at least one more computation if partition is provided
       filename_part.foreach(part => if (1 == level) improvement = true)
+      println
+      println("After level "+level+": ")
+      SimpleProfiling.report(System.out)
+      SimpleProfiling.finish("iterative")
     } while (improvement)
     val time_end = System.currentTimeMillis()
     if (verbose) {
