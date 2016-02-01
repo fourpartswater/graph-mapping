@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MAIN_CLASS=software.uncharted.graphing.tiling.NodeTilingPipelineApp
+MAIN_CLASS=software.uncharted.graphing.tiling.EdgeTilingPipelineApp
 MAIN_JAR=../lib/xdata-graph.jar
 JOB_MASTER=yarn-client
 HDFS_LOC=hdfs://uscc0-master0.uncharted.software
@@ -17,6 +17,10 @@ spark-submit \
 	${MAIN_JAR} \
 	-base ${HDFS_LOC}/user/nkronenfeld/affinity-graph/ag-layout/ \
 	-levels 3,2,2,2,2,2 \
-	-nodeColumns affinity-graph-node-tiling.bd affinity-graph-node-tiling.bd \
-	-name affinity-graph-test-nodes \
-	-nodeTest "^node.*"
+	-edgeColumns affinity-graph-edge-tiling.bd affinity-graph-edge-tiling.bd \
+	-name affinity-graph-test-edges-intra \
+	-minLength 4 \
+	-maxLength 1024 \
+	-edgeTest "^edge.*" \
+	-edgeColumn edgeType \
+	-edgeType intra
