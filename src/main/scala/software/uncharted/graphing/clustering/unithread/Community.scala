@@ -55,8 +55,11 @@ class Community (val g: Graph,
 
   val size = g.nb_nodes
   val n2c = new Array[Int](size)
-  val community_size = n2c.map(n => (1, 1))
-  for (i <- 0 until size) n2c(i) = i
+  val community_size = new Array[Int](size)
+  for (i <- 0 until size) {
+    n2c(i) = i
+    community_size(i) = 1
+  }
   val tot = n2c.map(n => g.weighted_degree(n))
   val in = n2c.map(n => g.nb_selfloops(n))
   val neigh_weight = n2c.map(n => -1.0)
@@ -64,16 +67,20 @@ class Community (val g: Graph,
   var neigh_last: Int = 0
 
 
-  def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
+  def remove(node: Int, comm: Int, dnodecomm: Double): Int = {
     tot(comm) = tot(comm) - g.weighted_degree(node)
     in(comm) = in(comm) - (2 * dnodecomm + g.nb_selfloops(node))
     n2c(node) = -1
+    val cs = community_size(node)
+    community_size(node) = 0
+    cs
   }
 
-  def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
-    tot(comm) = tot(comm) + g.weighted_degree(node)
-    in(comm) = in(comm) + (2 * dnodecomm + g.nb_selfloops(node))
+  def insert(node: Int, comm: Int, dnodecomm: Double, representedNodes: Int): Unit = {
+    tot(comm) += + g.weighted_degree(node)
+    in(comm) += (2 * dnodecomm + g.nb_selfloops(node))
     n2c(node) = comm
+    community_size(node) += representedNodes
   }
 
   def modularity_gain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
@@ -114,7 +121,7 @@ class Community (val g: Graph,
         nn => g.nb_neighbors(nn) < nd.degreeLimit
       case cs: CommunitySizeAlgorithm =>
         // Only allow joining with this neighbor if its internal size is less than our limit
-        nn => g.nodeInfo(nn).internalNodes < cs.maximumSize
+        nn => community_size(n2c(node)) < cs.maximumSize
       case _ =>
         nn => true
     }
@@ -177,7 +184,7 @@ class Community (val g: Graph,
         // computation of all neighboring communities of current node
         neigh_comm(node)
         // remove node from its current community
-        remove(node, node_comm, neigh_weight(node_comm))
+        val currentCommunitySize = remove(node, node_comm, neigh_weight(node_comm))
 
         // compute the nearest community for node
         // default choice for future insertion is the former community
@@ -194,7 +201,7 @@ class Community (val g: Graph,
         }
 
         // insert node in the nearest community
-        insert(node, best_comm, best_nblinks)
+        insert(node, best_comm, best_nblinks, currentCommunitySize)
 
         if (best_comm != node_comm)
           nb_moves += 1
@@ -245,7 +252,7 @@ class Community (val g: Graph,
 
       val old_comm = n2c(node)
       neigh_comm(node)
-      remove(node, old_comm, neigh_weight(old_comm))
+      val currentCommunitySize = remove(node, old_comm, neigh_weight(old_comm))
 
       var i = 0
       var done = false
@@ -253,7 +260,7 @@ class Community (val g: Graph,
         val best_comm = neigh_pos(i)
         val best_nblinks = neigh_weight(best_comm)
         if (best_comm == comm) {
-          insert(node, best_comm, best_nblinks)
+          insert(node, best_comm, best_nblinks, currentCommunitySize)
           done = true
         } else {
           i = i + 1
@@ -261,7 +268,7 @@ class Community (val g: Graph,
       }
 
       if (!done)
-        insert(node, comm, 0)
+        insert(node, comm, 0, currentCommunitySize)
 
       line = finput.readLine()
     }
@@ -270,42 +277,39 @@ class Community (val g: Graph,
 
   def display_partition (out: PrintStream, stats: Option[PrintStream]) : Unit = {
     val (renumber, last) = getRenumbering
-    val sizeDistribution = stats.map(statsStream => MutableMap[Int, Int]())
 
     // write nodes to output file
     for (i <- 0 until size) {
       out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i).round.toInt+"\t"+g.metaData(i))
-      sizeDistribution.foreach(sd =>
-        sd(g.internalSize(i)) = sd.getOrElse(g.internalSize(i), 0) + 1
-      )
     }
     // write links to output file
     g.display_links(out)
 
     // write stats to stats file
-    sizeDistribution.foreach{sd =>
+    stats.map{statsStream =>
+
+      var nodes = 0.0
       var totalL0 = 0.0
       var totalL1 = 0.0
       var totalL2 = 0.0
-
-      val keys = sd.keys.toList.sorted
-      keys.foreach { key =>
-        stats.get.println(key + ": " + sd(key))
-        val size = key.toDouble
-        val count = sd(key).toDouble
-        totalL0 = totalL0 + count
-        totalL1 = totalL1 + count * size
-        totalL2 = totalL2 + count * size * size
+      community_size.foreach{n =>
+        nodes += 1.0
+        if (n > 0) {
+          totalL0 += 1
+          totalL1 += n
+          totalL2 += n * n
+        }
       }
+      val mean = totalL1 / totalL0
+      val stdDev = totalL2 / totalL0 - mean * mean
 
-      stats.get.println
-      stats.get.println("Total communities at this level: " + totalL0)
-      stats.get.println("Sum(community size) at this level: " + totalL1)
-      stats.get.println("Sum(community size ^ 2) at this level: " + totalL2)
-      val mean = totalL1.toDouble / totalL0.toDouble
-      stats.get.println("Mean community size at this level: " + mean)
-      val stdDev = totalL2.toDouble / totalL0.toDouble - mean * mean
-      stats.get.println("Standard deviation of community size at this level: " + stdDev)
+      statsStream.println()
+      statsStream.println("Total nodes at this level: "+nodes)
+      statsStream.println("Total communities at this level: " + totalL0)
+      statsStream.println("Sum(community size) at this level: " + totalL1)
+      statsStream.println("Sum(community size ^ 2) at this level: " + totalL2)
+      statsStream.println("Mean community size at this level: " + mean)
+      statsStream.println("Standard deviation of community size at this level: " + stdDev)
     }
   }
 
