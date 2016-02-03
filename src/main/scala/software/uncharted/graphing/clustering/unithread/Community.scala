@@ -284,16 +284,18 @@ class Community (val g: Graph,
 
     // write stats to stats file
     sizeDistribution.foreach{sd =>
-      var totalL0 = 0L
-      var totalL1 = 0L
-      var totalL2 = 0L
+      var totalL0 = 0.0
+      var totalL1 = 0.0
+      var totalL2 = 0.0
 
       val keys = sd.keys.toList.sorted
       keys.foreach { key =>
         stats.get.println(key + ": " + sd(key))
-        totalL0 = totalL0 + sd(key)
-        totalL1 = totalL1 + sd(key) * key
-        totalL2 = totalL2 + sd(key) * key * key
+        val size = key.toDouble
+        val count = sd(key).toDouble
+        totalL0 = totalL0 + count
+        totalL1 = totalL1 + count * size
+        totalL2 = totalL2 + count * size * size
       }
 
       stats.get.println
