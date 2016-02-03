@@ -284,10 +284,26 @@ class Community (val g: Graph,
 
     // write stats to stats file
     sizeDistribution.foreach{sd =>
+      var totalL0 = 0L
+      var totalL1 = 0L
+      var totalL2 = 0L
+
       val keys = sd.keys.toList.sorted
-      keys.foreach(key =>
-        stats.get.println(key+": "+sd(key))
-      )
+      keys.foreach { key =>
+        stats.get.println(key + ": " + sd(key))
+        totalL0 = totalL0 + sd(key)
+        totalL1 = totalL1 + sd(key) * key
+        totalL2 = totalL2 + sd(key) * key * key
+      }
+
+      stats.get.println
+      stats.get.println("Total communities at this level: " + totalL0)
+      stats.get.println("Sum(community size) at this level: " + totalL1)
+      stats.get.println("Sum(community size ^ 2) at this level: " + totalL2)
+      val mean = totalL1.toDouble / totalL0.toDouble
+      stats.get.println("Mean community size at this level: " + mean)
+      val stdDev = totalL2.toDouble / totalL0.toDouble - mean * mean
+      stats.get.println("Standard deviation of community size at this level: " + stdDev)
     }
   }
 
