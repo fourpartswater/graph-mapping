@@ -292,12 +292,16 @@ class Community (val g: Graph,
       var totalL0 = 0.0
       var totalL1 = 0.0
       var totalL2 = 0.0
+      var minCS = Int.MaxValue
+      var maxCS = Int.MinValue
       community_size.foreach{n =>
         nodes += 1.0
         if (n > 0) {
           totalL0 += 1
           totalL1 += n
           totalL2 += n * n
+          minCS = minCS min n
+          maxCS = maxCS max n
         }
       }
       val mean = totalL1 / totalL0
@@ -306,6 +310,8 @@ class Community (val g: Graph,
       statsStream.println()
       statsStream.println("Total nodes at this level: "+nodes)
       statsStream.println("Total communities at this level: " + totalL0)
+      statsStream.println("Minimum(community size) at this level: "+minCS)
+      statsStream.println("Maximum(community size) at this level: "+maxCS)
       statsStream.println("Sum(community size) at this level: " + totalL1)
       statsStream.println("Sum(community size ^ 2) at this level: " + totalL2)
       statsStream.println("Mean community size at this level: " + mean)
