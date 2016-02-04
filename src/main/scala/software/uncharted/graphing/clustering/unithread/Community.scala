@@ -67,20 +67,18 @@ class Community (val g: Graph,
   var neigh_last: Int = 0
 
 
-  def remove(node: Int, comm: Int, dnodecomm: Double): Int = {
-    tot(comm) = tot(comm) - g.weighted_degree(node)
-    in(comm) = in(comm) - (2 * dnodecomm + g.nb_selfloops(node))
+  def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
+    tot(comm) -= g.weighted_degree(node)
+    in(comm) -= (2 * dnodecomm + g.nb_selfloops(node))
+    community_size(comm) -= 1
     n2c(node) = -1
-    val cs = community_size(node)
-    community_size(node) = 0
-    cs
   }
 
-  def insert(node: Int, comm: Int, dnodecomm: Double, representedNodes: Int): Unit = {
-    tot(comm) += + g.weighted_degree(node)
+  def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
+    tot(comm) += g.weighted_degree(node)
     in(comm) += (2 * dnodecomm + g.nb_selfloops(node))
+    community_size(comm) += 1
     n2c(node) = comm
-    community_size(node) += representedNodes
   }
 
   def modularity_gain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
@@ -121,7 +119,10 @@ class Community (val g: Graph,
         nn => g.nb_neighbors(nn) < nd.degreeLimit
       case cs: CommunitySizeAlgorithm =>
         // Only allow joining with this neighbor if its internal size is less than our limit
-        nn => community_size(n2c(node)) < cs.maximumSize
+        nn => {
+          val ccs = community_size(n2c(nn))
+          ccs < cs.maximumSize
+        }
       case _ =>
         nn => true
     }
@@ -184,7 +185,7 @@ class Community (val g: Graph,
         // computation of all neighboring communities of current node
         neigh_comm(node)
         // remove node from its current community
-        val currentCommunitySize = remove(node, node_comm, neigh_weight(node_comm))
+        remove(node, node_comm, neigh_weight(node_comm))
 
         // compute the nearest community for node
         // default choice for future insertion is the former community
@@ -201,7 +202,7 @@ class Community (val g: Graph,
         }
 
         // insert node in the nearest community
-        insert(node, best_comm, best_nblinks, currentCommunitySize)
+        insert(node, best_comm, best_nblinks)
 
         if (best_comm != node_comm)
           nb_moves += 1
@@ -252,7 +253,7 @@ class Community (val g: Graph,
 
       val old_comm = n2c(node)
       neigh_comm(node)
-      val currentCommunitySize = remove(node, old_comm, neigh_weight(old_comm))
+      remove(node, old_comm, neigh_weight(old_comm))
 
       var i = 0
       var done = false
@@ -260,7 +261,7 @@ class Community (val g: Graph,
         val best_comm = neigh_pos(i)
         val best_nblinks = neigh_weight(best_comm)
         if (best_comm == comm) {
-          insert(node, best_comm, best_nblinks, currentCommunitySize)
+          insert(node, best_comm, best_nblinks)
           done = true
         } else {
           i = i + 1
@@ -268,7 +269,7 @@ class Community (val g: Graph,
       }
 
       if (!done)
-        insert(node, comm, 0, currentCommunitySize)
+        insert(node, comm, 0)
 
       line = finput.readLine()
     }
