@@ -276,7 +276,7 @@ class Community (val g: Graph,
     finput.close()
   }
 
-  def display_partition (out: PrintStream, stats: Option[PrintStream]) : Unit = {
+  def display_partition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
     val (renumber, last) = getRenumbering
 
     // write nodes to output file
@@ -290,49 +290,70 @@ class Community (val g: Graph,
     stats.map{statsStream =>
 
       var nodes = 0.0
-      var totalL0 = 0.0
-      var totalL1 = 0.0
-      var totalL2 = 0.0
       var minCS = Int.MaxValue
       var maxCS = Int.MinValue
-      var tL0 = 0.0
-      var tL1 = 0.0
-      var tL2 = 0.0
+      var allL0 = 0.0
+      var allL1 = 0.0
+      var allL2 = 0.0
+      var bigL0 = 0.0
+      var bigL1 = 0.0
+      var bigL2 = 0.0
+
+      val N = 2153454.0
+      val L = 6.0
+      val C = 165000.0
+      val idealCSize = math.pow(N / C, 1 / L)
+      var diffFromIdeal = 0.0
+
       community_size.foreach{n =>
         nodes += 1.0
         if (n > 0) {
           val d = n.toDouble
-          totalL0 += 1
-          totalL1 += d
-          totalL2 += d * d
+          allL0 += 1
+          allL1 += d
+          allL2 += d * d
           minCS = minCS min n
           maxCS = maxCS max n
+
+          val communityDiffFromIdeal = (n - idealCSize)
+          diffFromIdeal += communityDiffFromIdeal * communityDiffFromIdeal
         }
         if (n > 1) {
           val d = n.toDouble
-          tL0 += 1
-          tL1 += d
-          tL2 += d*d
+          bigL0 += 1
+          bigL1 += d
+          bigL2 += d*d
 	      }
       }
-      val mean = totalL1 / totalL0
-      val stdDev = totalL2 / totalL0 - mean * mean
+      val meanAll = allL1 / allL0
+      val stdDevAll = allL2 / allL0 - meanAll * meanAll
 
-      val meanLarge = tL1 / tL0
-      val stdDevLarge = tL2 / tL0 - meanLarge * meanLarge
+      val meanBig = bigL1 / bigL0
+      val stdDevBig = bigL2 / bigL0 - meanBig * meanBig
 
       statsStream.println()
-      statsStream.println("Total nodes at this level: "+nodes)
-      statsStream.println("Total communities at this level: " + totalL0)
-      statsStream.println("Minimum(community size) at this level: "+minCS)
-      statsStream.println("Maximum(community size) at this level: "+maxCS)
-      statsStream.println("Sum(community size) at this level: " + totalL1)
-      statsStream.println("Sum(community size ^ 2) at this level: " + totalL2)
-      statsStream.println("Mean community size at this level: " + mean)
-      statsStream.println("Standard deviation of community size at this level: " + stdDev)
-      statsStream.println("Number of communities larger than 1: "+tL0)
-      statsStream.println("Mean community size of communities > 1 at this level: " + meanLarge)
-      statsStream.println("Standard deviation of size in communities larger than 1 at this level: "+stdDevLarge)
+      statsStream.println("Level "+level+" stats:")
+      statsStream.println("\tTotal nodes: "+nodes)
+      statsStream.println("\tMinimum(community size): "+minCS)
+      statsStream.println("\tMaximum(community size): "+maxCS)
+      statsStream.println("\tAll communities:")
+      statsStream.println("\t\tN: " + allL0)
+      statsStream.println("\t\tSum(community size): " + allL1)
+      statsStream.println("\t\tSum(community size ^ 2): " + allL2)
+      statsStream.println("\t\tMean(community size): " + meanAll)
+      statsStream.println("\t\tSigma(community size): " + stdDevAll)
+      statsStream.println("\tCommunities larger than 1 node:")
+      statsStream.println("\t\tN: "+bigL0)
+      statsStream.println("\t\tSum(community size): " + bigL1)
+      statsStream.println("\t\tSum(community size ^ 2): " + bigL2)
+      statsStream.println("\t\tMean(community size): " + meanBig)
+      statsStream.println("\t\tsigma(communities size): "+stdDevBig)
+      statsStream.println()
+      statsStream.println()
+      statsStream.println()
+      statsStream.println("Ideal calculations (N="+N+", C="+C+", L="+L+")")
+      statsStream.println("Unweighted diff from ideal: "+diffFromIdeal)
+      statsStream.println("Weighted diff from ideal: "+(diffFromIdeal * math.pow(C/N, level/L)))
     }
   }
 
