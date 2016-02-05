@@ -551,7 +551,7 @@ object Community {
         levelDir.mkdir()
         val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
         val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
-        c.display_partition(out, Some(stats))
+        c.display_partition(level, out, Some(stats))
         out.flush()
         out.close()
         stats.flush()
