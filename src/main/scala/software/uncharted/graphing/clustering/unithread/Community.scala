@@ -295,18 +295,31 @@ class Community (val g: Graph,
       var totalL2 = 0.0
       var minCS = Int.MaxValue
       var maxCS = Int.MinValue
+      var tL0 = 0.0
+      var tL1 = 0.0
+      var tL2 = 0.0
       community_size.foreach{n =>
         nodes += 1.0
         if (n > 0) {
+          val d = n.toDouble
           totalL0 += 1
-          totalL1 += n
-          totalL2 += n * n
+          totalL1 += d
+          totalL2 += d * d
           minCS = minCS min n
           maxCS = maxCS max n
         }
+        if (n > 1) {
+          val d = n.toDouble
+          tL0 += 1
+          tL1 += d
+          tL2 += d*d
+	      }
       }
       val mean = totalL1 / totalL0
       val stdDev = totalL2 / totalL0 - mean * mean
+
+      val meanLarge = tL1 / tL0
+      val stdDevLarge = tL2 / tL0 - meanLarge * meanLarge
 
       statsStream.println()
       statsStream.println("Total nodes at this level: "+nodes)
@@ -317,6 +330,9 @@ class Community (val g: Graph,
       statsStream.println("Sum(community size ^ 2) at this level: " + totalL2)
       statsStream.println("Mean community size at this level: " + mean)
       statsStream.println("Standard deviation of community size at this level: " + stdDev)
+      statsStream.println("Number of communities larger than 1: "+tL0)
+      statsStream.println("Mean community size of communities > 1 at this level: " + meanLarge)
+      statsStream.println("Standard deviation of size in communities larger than 1 at this level: "+stdDevLarge)
     }
   }
 
