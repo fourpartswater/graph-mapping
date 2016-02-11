@@ -29,6 +29,9 @@ class BaselineAlgorithm extends AlgorithmModification
   * defined in a level-dependent manner */
 class NodeDegreeAlgorithm (val degreeLimit: Long) extends AlgorithmModification
 
+/** Same as NodeDegreeAlgorithm, but with limits set independently by level */
+class UnlinkedNodeDegreeAlgorithm (val degreeLimits: Long*) extends AlgorithmModification
+
 /** Only allow nodes to change community to communities still below a given size. */
 class CommunitySizeAlgorithm (val maximumSize: Int) extends AlgorithmModification
 
@@ -477,7 +480,12 @@ object Community {
 
           case "nd" =>
             i = i + 1
-            algorithm = new NodeDegreeAlgorithm(args(i).toInt)
+            val parameters = args(i)
+            if (parameters.contains(",")) {
+              algorithm = new UnlinkedNodeDegreeAlgorithm(parameters.split(",").map(_.toLong): _*)
+            } else {
+              algorithm = new NodeDegreeAlgorithm(args(i).toInt)
+            }
 
           case "cs" =>
             i = i + 1
@@ -501,12 +509,27 @@ object Community {
   def main (args: Array[String]): Unit = {
     parse_args(args)
 
+    def algorithmByLevel (level: Int) = {
+      algorithm match {
+        case und: UnlinkedNodeDegreeAlgorithm => {
+          if ((level + 1) > und.degreeLimits.length) new BaselineAlgorithm
+          else {
+            val maxDegree = und.degreeLimits.take(level + 1).product
+            new NodeDegreeAlgorithm(maxDegree)
+          }
+        }
+        case nd: NodeDegreeAlgorithm => new NodeDegreeAlgorithm(math.pow(nd.degreeLimit, level + 1).toLong)
+        case cs: CommunitySizeAlgorithm => algorithm
+        case _ => algorithm
+      }
+    }
+
     val time_begin = System.currentTimeMillis()
     if (verbose) display_time("Begin")
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
     SimpleProfiling.register("init.community")
-    var c = new Community(filename.get, filename_w, filename_m, -1, precision, algorithm)
+    var c = new Community(filename.get, filename_w, filename_m, -1, precision, algorithmByLevel(0))
     SimpleProfiling.finish("init.community")
 
     SimpleProfiling.register("init.partition")
@@ -559,11 +582,7 @@ object Community {
       }
       SimpleProfiling.finish("iterative.write")
 
-      val levelAlgorithm = algorithm match {
-        case nd: NodeDegreeAlgorithm => new NodeDegreeAlgorithm(math.pow(nd.degreeLimit, level + 1).toLong)
-        case cs: CommunitySizeAlgorithm => algorithm
-        case _ => algorithm
-      }
+      val levelAlgorithm = algorithmByLevel(level)
       SimpleProfiling.register("iterative.communitize")
       c = new Community(g, -1, precision, levelAlgorithm)
       SimpleProfiling.finish("iterative.communitize")
