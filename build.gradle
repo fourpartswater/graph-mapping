@@ -96,7 +96,7 @@ dependencies {
 
 	provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 
-	testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.1.1"
+	testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
 	testCompile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:tests"
 	testCompile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7:tests"
 
