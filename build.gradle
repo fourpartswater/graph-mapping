@@ -5,6 +5,7 @@ version = "0.1-SNAPSHOT"
 apply plugin: 'scala'
 apply plugin: 'maven'
 apply plugin: 'distribution'
+apply plugin: 'idea'
 
 // Gradle/intellij don't work properly together with 1.8
 sourceCompatibility = '1.7'
@@ -21,8 +22,8 @@ repositories {
 // shared version variables
 ext {
 	dependencyScalaVersion = "2.10"
-	scalaVersion = "2.10.3"
-	sparkVersion = "1.3.0-cdh5.4.7"
+	scalaVersion = "2.10.6"
+	sparkVersion = "1.5.2"
 }
 
 // appends scala test functionality to the baseline test task
@@ -77,11 +78,17 @@ artifacts {
 
 // Jars / projects this project depends on.
 dependencies {
+	compile "software.uncharted.salt:salt-core:1.0.0"
+	compile "software.uncharted.sparkpipe:sparkpipe-core:0.9.4"
+	compile project(":salt-sparkpipe-ops")
+
 	// Compile config - needed to build
 	compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
+	compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
+
 	compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
 	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7"
 	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7"

@@ -1,0 +1,2 @@
+include ':salt-sparkpipe-ops'
+project(':salt-sparkpipe-ops').projectDir = new File(settingsDir, '../salt-sparkpipe-ops')
