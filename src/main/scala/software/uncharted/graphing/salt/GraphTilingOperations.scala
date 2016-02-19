@@ -130,7 +130,7 @@ object GraphTilingOperations {
     * @tparam T The type of input data
     * @return A dataframe representing the same data
     */
-  def toDataframe[T <: Product : TypeTag](sqlc: SQLContext)(input: RDD[T]): DataFrame = {
+  def toDataFrame[T <: Product : TypeTag](sqlc: SQLContext)(input: RDD[T]): DataFrame = {
     sqlc.createDataFrame(input)
   }
 
@@ -199,18 +199,24 @@ object GraphTilingOperations {
     * @param xCol The column in which to find the X coordinate of the data
     * @param yCol The column in which to find the Y coordinate of the data
     * @param levels The levels to tile
+    * @param boundsOpt The data bounds (minX, maxX, minY, maxY), or None to auto-detect data bounds
+    * @param tileSize The size, in bins, of one output tile
     * @param input The input data
     * @return An RDD of tiles
     */
-  def cartesianTiling (xCol: String, yCol: String, levels: Seq[Int])(input: DataFrame): RDD[SeriesData[(Int, Int, Int), JavaDouble, Double]] = {
-    val columnBounds = getBounds(xCol, yCol)(input)
-    val squareBounds = (columnBounds._1, columnBounds._3, columnBounds._2, columnBounds._4)
+  def cartesianTiling (xCol: String, yCol: String, levels: Seq[Int],
+                       boundsOpt: Option[(Double, Double, Double, Double)] = None,
+                       tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
+    val bounds = boundsOpt.getOrElse {
+      val columnBounds = getBounds(xCol, yCol)(input)
+      (columnBounds._1, columnBounds._3, columnBounds._2, columnBounds._4)
+    }
     val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
-    val tileAggregation: Option[Aggregator[JavaDouble, Double, Double]] = None
+    val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
 
-    val result: RDD[SeriesData[(Int, Int, Int), JavaDouble, Double]] =
+    val result: RDD[SeriesData[(Int, Int, Int), Double, Double]] =
       CartesianOp(
-        xCol, yCol, squareBounds, levels, None, CountAggregator, tileAggregation
+        xCol, yCol, bounds, levels, None, CountAggregator, tileAggregation, tileSize
       )(
         new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
       )(input)
@@ -239,7 +245,6 @@ object GraphTilingOperations {
     * Create an HBase admin object with which to initialize tables
     *
     * @param hbaseConfiguration A configuration object specifying how to connect to HBase
-    *
     * @return An admin object with which to initialize tables
     */
   def getHBaseAdmin (hbaseConfiguration: Configuration) = {
@@ -289,10 +294,10 @@ object GraphTilingOperations {
     * @param hbaseConfiguration A fully loaded HBase configuration object
     * @param tileData An RDD of simple double-valued tiles.
     */
-  def saveTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), JavaDouble, Double]]) = {
+  def saveTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), Double, Double]]) = {
     // Convert tiles to hbase format
     val BytesPerDouble = 8
-    def toByteArray (data: Seq[JavaDouble]): Array[Byte] = {
+    def toByteArray (data: Seq[Double]): Array[Byte] = {
       val result = new Array[Byte](data.length * BytesPerDouble)
       var resultIndex = 0
       for (i <- data.indices) {

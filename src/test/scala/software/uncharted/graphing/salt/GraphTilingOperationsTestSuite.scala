@@ -3,6 +3,8 @@ package software.uncharted.graphing.salt
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 
 
@@ -24,4 +26,73 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
     assert(List("abc def ghi", "the def quick", "def ghi") === regexFilter(".*def.+")(data).collect.toList)
     assert(List("abc d e f ghi", "def ghi") === regexFilter(".+def.*", true)(data).collect.toList)
   }
+
+  test("optional operation") {
+    val transform1: Option[Int => Int] = Some((n: Int) => n*n)
+    assert(16 === optional(transform1)(4))
+
+    val transform2: Option[Int => Int] = None
+    assert(4 === optional(transform2)(4))
+  }
+
+  test("map as an operation") {
+    val data = sc.parallelize(1 to 4)
+    assert(List(1, 4, 9, 16) === map((n: Int) => n*n)(data).collect.toList)
+  }
+
+  test("toDataFrame from case class") {
+    val data = sc.parallelize(Seq(TestRow(1, 1.0, "one"), TestRow(2, 2.0, "two"), TestRow(3, 3.0, "three"), TestRow(4, 4.0, "four")))
+    val converted = toDataFrame(sqlc)(data)
+    assert(List(1, 2, 3, 4) === converted.select("a").rdd.map(_(0).asInstanceOf[Int]).collect.toList)
+    assert(List(1.0, 2.0, 3.0, 4.0) === converted.select("b").rdd.map(_(0).asInstanceOf[Double]).collect.toList)
+    assert(List("one", "two", "three", "four") === converted.select("c").rdd.map(_(0).asInstanceOf[String]).collect.toList)
+  }
+
+  test("toDataFrame from CSV with auto-schema") {
+    val data = sc.parallelize(Seq("1,1.0,one", "2,2.0,two", "3,3.0,three", "4,4.0,four"))
+    val converted = toDataFrame(sqlc, Map("inferSchema" -> "true"), None)(data)
+    assert(List(1, 2, 3, 4) === converted.select("C0").rdd.map(_(0).asInstanceOf[Int]).collect.toList)
+    assert(List(1.0, 2.0, 3.0, 4.0) === converted.select("C1").rdd.map(_(0).asInstanceOf[Double]).collect.toList)
+    assert(List("one", "two", "three", "four") === converted.select("C2").rdd.map(_(0).asInstanceOf[String]).collect.toList)
+  }
+
+  test("toDataFrame from CSV with explicit schema") {
+    val data = sc.parallelize(Seq("1,1.0,one", "2,2.0,two", "3,3.0,three", "4,4.0,four"))
+    val schema = StructType(Seq(StructField("a", IntegerType), StructField("b", DoubleType), StructField("c", StringType)))
+    val converted = toDataFrame(sqlc, Map[String, String](), Some(schema))(data)
+    assert(List(1, 2, 3, 4) === converted.select("a").rdd.map(_(0).asInstanceOf[Int]).collect.toList)
+    assert(List(1.0, 2.0, 3.0, 4.0) === converted.select("b").rdd.map(_(0).asInstanceOf[Double]).collect.toList)
+    assert(List("one", "two", "three", "four") === converted.select("c").rdd.map(_(0).asInstanceOf[String]).collect.toList)
+  }
+
+  test("getBounds") {
+    val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0, 0.0, 0.0, 0.0),
+      Coordinates(1.0, 4.0, 3.0, 5.0),
+      Coordinates(2.0, 2.0, 1.0, 0.0),
+      Coordinates(-1.0, -2.0, -3.0, -4.0)
+    )))
+
+    assert((-1.0, 2.0, -2.0, 4.0) === getBounds("w", "x")(data))
+    assert((-3.0, 3.0, -4.0, 5.0) === getBounds("y", "z")(data))
+    assert((-2.0, 4.0, -3.0, 3.0) === getBounds("x", "y")(data))
+  }
+
+  test("cartesian tiling without autobounds") {
+    val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0, 0.0, 0.0, 0.0),
+      Coordinates(0.0, 0.5, 0.5, 0.0),
+      Coordinates(0.0, 1.5, 3.5, 0.0),
+      Coordinates(0.0, 2.5, 2.5, 0.0),
+      Coordinates(0.0, 3.5, 1.5, 0.0),
+      Coordinates(0.0, 4.0, 0.0, 0.0),
+      Coordinates(0.0, 0.0, 4.0, 0.0)
+    )))
+    val tiles = cartesianTiling("x", "y", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(data).collect
+
+    assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  1.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
+  }
 }
+
+case class TestRow (a: Int, b: Double, c: String)
+case class Coordinates (w: Double, x: Double, y: Double, z: Double)
