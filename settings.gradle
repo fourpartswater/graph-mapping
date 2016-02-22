@@ -1,4 +1,9 @@
-include ':salt-sparkpipe-ops'
-project(':salt-sparkpipe-ops').projectDir = new File(settingsDir, '../salt-sparkpipe-ops')
 include ':salt'
 project(':salt').projectDir = new File(settingsDir, '../salt')
+
+include ':sparkpipe-core'
+project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core')
+
+include ':salt-sparkpipe-ops'
+project(':salt-sparkpipe-ops').projectDir = new File(settingsDir, '../salt-sparkpipe-ops')
+

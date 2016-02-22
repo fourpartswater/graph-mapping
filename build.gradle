@@ -78,10 +78,9 @@ artifacts {
 
 // Jars / projects this project depends on.
 dependencies {
-	compile "software.uncharted.salt:salt-core:1.0.0"
-	compile "software.uncharted.sparkpipe:sparkpipe-core:0.9.4"
-	compile project(":salt-sparkpipe-ops")
 	compile project(":salt")
+	compile project(":sparkpipe-core")
+	compile project(":salt-sparkpipe-ops")
 
 	// Compile config - needed to build
 	compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
