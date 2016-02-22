@@ -80,6 +80,8 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
 
   test("cartesian tiling without autobounds") {
     val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0,-1.0, 0.0, 0.0),
+      Coordinates(0.0, 0.0, -1.0, 0.0),
       Coordinates(0.0, 0.0, 0.0, 0.0),
       Coordinates(0.0, 0.5, 0.5, 0.0),
       Coordinates(0.0, 1.5, 3.5, 0.0),
@@ -90,7 +92,21 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
     )))
     val tiles = cartesianTiling("x", "y", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(data).collect
 
-    assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  1.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
+    assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
+  }
+
+  test("cartesian tiling with autobounds") {
+    val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0, 0.0, 0.0, 0.0),
+      Coordinates(0.0, 0.5, 0.5, 0.0),
+      Coordinates(0.0, 1.5, 3.5, 0.0),
+      Coordinates(0.0, 2.5, 2.5, 0.0),
+      Coordinates(0.0, 3.5, 1.5, 0.0),
+      Coordinates(0.0, 4.0, 4.0, 0.0)
+    )))
+    val tiles = cartesianTiling("x", "y", Seq(0), None, 4)(data).collect
+
+    assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
   }
 }
 

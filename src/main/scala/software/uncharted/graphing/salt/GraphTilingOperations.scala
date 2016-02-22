@@ -208,8 +208,12 @@ object GraphTilingOperations {
                        boundsOpt: Option[(Double, Double, Double, Double)] = None,
                        tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
-      val columnBounds = getBounds(xCol, yCol)(input)
-      (columnBounds._1, columnBounds._3, columnBounds._2, columnBounds._4)
+      val (minX, maxX, minY, maxY) = getBounds(xCol, yCol)(input)
+      // Adjust upper bounds based on max level and bins
+      val rangeX = maxX - minX
+      val rangeY = maxY - minY
+      val epsilon = 1.0 / ((1L << levels.max) * tileSize * 4)
+      (minX, minY, maxX + rangeX * epsilon, maxY + rangeY * epsilon)
     }
     val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
     val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
