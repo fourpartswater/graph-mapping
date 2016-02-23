@@ -36,7 +36,6 @@ object NodeTilingPipeline {
     val familyName       = argParser.getString("column", "The column into which to write tiles", "tileData")
     val qualifierName    = argParser.getString("column-qualifier",
       "A qualifier to use on the tile column when writing tiles", "")
-    val nodeFileDescriptor = argParser.getStringOption("nodeColumns", "A file containing parse information for the node lines", None)
 
     // Initialize HBase and our table
     import GraphTilingOperations._
@@ -48,7 +47,7 @@ object NodeTilingPipeline {
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-        tileHierarchyLevel(sqlc)(base, nodeFileDescriptor, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
+        tileHierarchyLevel(sqlc)(base, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
     }
 
     sc.stop()
@@ -81,14 +80,15 @@ object NodeTilingPipeline {
                          hbaseConfiguration: Configuration
   ): Unit = {
     import GraphTilingOperations._
+    import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
+    import RDDIO.mutateContextFcn
 
-    val filterFcn = filterOpt.map(filterStr => regexFilter(filterStr)(_))
     val schema = getSchema
 
 
     val tiles = Pipe(sqlc)
-      .to(read(path + "/level_" + hierarchyLevel))
-      .to(optional(filterFcn))
+      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(regexFilter("^node.*"))
       .to(toDataFrame(sqlc, Map[String, String](), Some(schema)))
       .to(cartesianTiling("x", "y", zoomLevels))
       .to(saveTiles(tableName, family, qualifier, hbaseConfiguration))

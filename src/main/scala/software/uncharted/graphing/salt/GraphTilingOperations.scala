@@ -13,12 +13,10 @@ import org.apache.hadoop.hbase.client.{Admin, Put, ConnectionFactory}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapred.TableOutputFormat
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, HBaseConfiguration, TableName}
-import org.apache.hadoop.io.compress.{GzipCodec, BZip2Codec}
 import org.apache.hadoop.mapred.JobConf
-import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{Row, Column, DataFrame, SQLContext}
 
 import com.databricks.spark.csv.CsvParser
 
@@ -31,64 +29,14 @@ import software.uncharted.sparkpipe.ops.salt.zxy.CartesianOp
 
 
 /**
-  * Created by nkronenfeld on 2016-02-17.
+  * Non-standard operations needed for graph tiling
   */
 object GraphTilingOperations {
-  /**
-    * Implicit conversion from SQLContext to SparkContext, so RDD functions can be called with the former.
-    *
-    * Already submitted to sparkpipe-core; remove when that is published.
-    */
-  implicit def mutateContext(sqlc: SQLContext): SparkContext = sqlc.sparkContext
-  /**
-    * Implicit conversion from a function from SQLContext to a function from SparkContext, so RDD functions can be
-    * called with the pipes in SQLContexts.
-    *
-    * Already submitted to sparkpipe-core; remove when that is published.
-    */
-  implicit def mutateContextFcn[T](fcn: SparkContext => T): SQLContext => T =
-    input => fcn(input.sparkContext)
-
-  /**
-    * Read an RDD from HDFS
-    *
-    * Already submitted to sparkpipe-core; remove when that is published.
-    */
-  def read(path: String,
-           format: String = "text",
-           options: Map[String, String] = Map[String, String]()
-          )(sc: SparkContext): RDD[String] = {
-    assert("text" == format, "Only text format currently supported")
-    if (options.contains("minPartitions")) {
-      sc.textFile(path, options("minPartitions").trim.toInt)
-    } else {
-      sc.textFile(path)
-    }
-  }
-
-  /**
-    * Write an RDD to HDFS
-    *
-    * Already submitted to sparkpipe-core; remove when that is published.
-    */
-  def write[T](path: String,
-               format: String = "text",
-               options: Map[String, String] = Map[String, String]()
-              )(input: RDD[T]): RDD[T] = {
-    assert("text" == format, "Only text format currently supported")
-    options.get("codec").map(_.trim.toLowerCase) match {
-      case Some("bzip2") =>
-        input.saveAsTextFile(path, classOf[BZip2Codec])
-      case Some("gzip") =>
-        input.saveAsTextFile(path, classOf[GzipCodec])
-      case _ =>
-        input.saveAsTextFile(path)
-    }
-    input
-  }
-
   def filter[T](test: T => Boolean)(input: RDD[T]): RDD[T] =
     input.filter(test)
+
+  def filterA (condition: Column)(input: DataFrame): DataFrame =
+    input.filter(condition)
 
   def regexFilter (regexStr: String, exclude: Boolean = false)(input: RDD[String]): RDD[String] = {
     val regex = regexStr.r
@@ -174,23 +122,23 @@ object GraphTilingOperations {
   }
 
   /**
-    * Get the bounds of two columns in a dataframe
+    * Get the bounds of specified columns in a dataframe
     *
-    * @param xCol The first column to examine
-    * @param yCol The second column to examine
+    * @param columns The columns to examine
     * @param data The raw data to examine
     * @return The minimum and maximum of xCol, then the minimum and maximum of yCol.
     */
-  def getBounds (xCol: String, yCol: String)(data: DataFrame): (Double, Double, Double, Double) = {
+  def getBounds (columns: String*)(data: DataFrame): Seq[(Double, Double)] = {
     import org.apache.spark.sql.functions._
-    val minmax = data.select(min(xCol), max(xCol), min(yCol), max(yCol)).take(1)(0)
-    def value (index: Int): Double = minmax(index) match {
+    val selects = columns.flatMap(column => Seq(min(column), max(column)))
+    val minMaxes = data.select(selects:_*).take(1)(0).toSeq.map(_ match {
       case d: Double => d
       case f: Float => f.toDouble
       case l: Long => l.toDouble
       case i: Int => i.toDouble
-    }
-    (value(0), value(1), value(2), value(3))
+    })
+
+    minMaxes.grouped(2).map(bounds => (bounds(0), bounds(1))).toArray
   }
 
   /**
@@ -208,7 +156,9 @@ object GraphTilingOperations {
                        boundsOpt: Option[(Double, Double, Double, Double)] = None,
                        tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
-      val (minX, maxX, minY, maxY) = getBounds(xCol, yCol)(input)
+      val columnBounds = getBounds(xCol, yCol)(input)
+      val (minX, maxX) = columnBounds(0)
+      val (minY, maxY) = columnBounds(1)
       // Adjust upper bounds based on max level and bins
       val rangeX = maxX - minX
       val rangeY = maxY - minY
@@ -218,13 +168,39 @@ object GraphTilingOperations {
     val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
     val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
 
-    val result: RDD[SeriesData[(Int, Int, Int), Double, Double]] =
-      CartesianOp(
-        xCol, yCol, bounds, levels, None, CountAggregator, tileAggregation, tileSize
-      )(
-        new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
-      )(input)
-    result
+
+    CartesianOp(
+      xCol, yCol, bounds, levels, None, CountAggregator, tileAggregation, tileSize
+    )(
+      new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
+    )(input)
+  }
+
+  def segmentTiling (x1Col: String, y1Col: String, x2Col: String, y2Col: String, levels: Seq[Int],
+                     boundsOpt: Option[(Double, Double, Double, Double)] = None,
+                     tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
+    val bounds = boundsOpt.getOrElse {
+      val columnBounds = getBounds(x1Col, x2Col, y1Col, y2Col)(input)
+      val (minX1, maxX1) = columnBounds(0)
+      val (minX2, maxX2) = columnBounds(1)
+      val (minY1, maxY1) = columnBounds(2)
+      val (minY2, maxY2) = columnBounds(3)
+
+      val minX = minX1 min minX2
+      val maxX = maxX1 max maxX2
+      val minY = minY1 min minY2
+      val maxY = maxY1 max maxY2
+
+      // Adjust upper bounds based on max level and bins
+      val rangeX = maxX - minX
+      val rangeY = maxY - minY
+      val epsilon = 1.0 / ((1L << levels.max) * tileSize * 4)
+      (minX, minY, maxX + rangeX * epsilon, maxY + rangeY * epsilon)
+    }
+
+    val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
+    val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
+
   }
 
   /**
