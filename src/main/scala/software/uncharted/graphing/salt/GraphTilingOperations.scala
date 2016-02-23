@@ -138,7 +138,7 @@ object GraphTilingOperations {
       case i: Int => i.toDouble
     })
 
-    minMaxes.grouped(2).map(bounds => (bounds(0), bounds(1))).toArray
+    minMaxes.grouped(2).map(bounds => (bounds(0), bounds(1))).toSeq
   }
 
   /**
@@ -201,6 +201,7 @@ object GraphTilingOperations {
     val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
     val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
 
+    null
   }
 
   /**

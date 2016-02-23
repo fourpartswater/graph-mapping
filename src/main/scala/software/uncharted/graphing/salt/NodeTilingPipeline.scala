@@ -47,7 +47,7 @@ object NodeTilingPipeline {
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-        tileHierarchyLevel(sqlc)(base, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
+        tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
     }
 
     sc.stop()
@@ -71,7 +71,6 @@ object NodeTilingPipeline {
 
   def tileHierarchyLevel(sqlc: SQLContext)(
                          path: String,
-                         filterOpt: Option[String],
                          hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
                          tableName: String,
