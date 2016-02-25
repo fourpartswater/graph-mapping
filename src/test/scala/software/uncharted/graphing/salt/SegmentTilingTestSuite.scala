@@ -70,36 +70,23 @@ class SegmentTilingTestSuite extends FunSuite {
     }
   }
 
-  test("endpointsToBins without limits") {
-    val calculator = new StraightSegmentCalculation {}
-    val points = calculator.endpointsToBins((4, 2), (20, 8), None, None, None)
-    assert(points.length === 17)
-    assert((4, 2) === points(0))
-    assert((20, 8) === points(16))
-
-    points.sliding(2).foreach { p =>
-      assert(p(0)._1 === p(1)._1 - 1)
-      assert(p(0)._2 == p(1)._2 || p(0)._2 == p(1)._2 - 1)
-    }
-  }
-
-  test("endpointsToBins with leader line limit") {
-    val calculator = new StraightSegmentCalculation {}
-
-    for (x1 <- 0 to 10; y1 <- 0 to 10; x2 <- 10 to 20; y2 <- 10 to 20) {
-      val allBins = calculator.endpointsToBins((x1, y1), (x2, y2), None, None, None)
-      val leaderBins = calculator.endpointsToBins((x1, y1), (x2, y2), Some(4), None, None)
-      if (x1 == x2 && y1 == y2) {
-        assert(1 === leaderBins.length)
-        assert((x1, y1) === leaderBins(0))
-      } else {
-        leaderBins.foreach { case (x, y) =>
-          assert(16 >= (x - x1) * (x - x1) + (y - y1) * (y - y1) || 16 >= (x - x2) * (x - x2) + (y - y2) * (y - y2))
-          assert(allBins.contains((x, y)))
-        }
-      }
-    }
-  }
+//  test("endpointsToBins with leader line limit") {
+//    val calculator = new StraightSegmentCalculation {}
+//
+//    for (x1 <- 0 to 10; y1 <- 0 to 10; x2 <- 10 to 20; y2 <- 10 to 20) {
+//      val allBins = calculator.endpointsToBins((x1, y1), (x2, y2), None, None, None)
+//      val leaderBins = calculator.endpointsToBins((x1, y1), (x2, y2), Some(4), None, None)
+//      if (x1 == x2 && y1 == y2) {
+//        assert(1 === leaderBins.length)
+//        assert((x1, y1) === leaderBins(0))
+//      } else {
+//        leaderBins.foreach { case (x, y) =>
+//          assert(16 >= (x - x1) * (x - x1) + (y - y1) * (y - y1) || 16 >= (x - x2) * (x - x2) + (y - y2) * (y - y2))
+//          assert(allBins.contains((x, y)))
+//        }
+//      }
+//    }
+//  }
 }
 
 object TestableSegmentProjection extends SegmentProjection {

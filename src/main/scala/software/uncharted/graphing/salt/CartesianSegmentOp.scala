@@ -135,115 +135,6 @@ trait SegmentProjection {
   }
 }
 
-trait StraightSegmentCalculation {
-  /**
-    * Calc length of a line from two endpoints
-    */
-  def calcLen(start: (Int, Int), end: (Int, Int)): Int = {
-    //calc integer length between to bin indices
-    var (x0, y0, x1, y1) = (start._1, start._2, end._1, end._2)
-    val dx = x1-x0
-    val dy = y1-y0
-    Math.sqrt(dx*dx + dy*dy).toInt
-  }
-
-  private def getPoints (start: (Int, Int), end: (Int, Int)): (Boolean, Int, Int, Int, Int) = {
-    val xs = start._1
-    val xe = end._1
-    val ys = start._2
-    val ye = end._2
-    val steep = (math.abs(ye - ys) > math.abs(xe - xs))
-
-    if (steep) {
-      if (ys > ye) {
-        (steep, ye, xe, ys, xs)
-      } else {
-        (steep, ys, xs, ye, xe)
-      }
-    } else {
-      if (xs > xe) {
-        (steep, xe, ye, xs, ys)
-      } else {
-        (steep, xs, ys, xe, ye)
-      }
-    }
-  }
-
-  def endpointsToBins (start: (Int, Int), end: (Int, Int), leaderLength: Option[Int], minLength: Option[Int], maxLength: Option[Int]): Seq[(Int, Int)] = {
-    val len = calcLen(start, end)
-    var leaderInfo = leaderLength.map(n => (n, n*n, false))
-
-    if (maxLength.map(len > _).getOrElse(false)) {
-      Seq()
-    } else if (minLength.map(len < _).getOrElse(false)) {
-      Seq()
-    } else {
-      val (steep, x0, y0, x1, y1) = getPoints(start, end)
-      var x0_mid = 0
-      var x1_mid = 0
-      var x0_slope = 0.0
-      var x1_slope = 0.0
-
-      val deltax = x1 - x0
-      val deltay = math.abs(y1 - y0)
-      var error = deltax >> 1
-      var y = y0
-      val ystep = if (y0 < y1) 1 else -1
-      var x = x0
-      var pastLeader = leaderLength.map(len => false)
-
-      val points = MutableBuffer[(Int, Int)]()
-      while (x <= x1) {
-        var curY = y
-        error = error - deltay
-        if (error < 0) {
-          y = y + ystep
-          error = error + deltax
-        }
-
-        val storeValue = leaderInfo.map { case (leader, leaderSquared, pastLeader) =>
-          if (pastLeader) {
-            val distanceToEnd = (x - x1) * (x - x1) + (curY - y1) * (curY - y1)
-            distanceToEnd <= leaderSquared
-          } else {
-            val distanceToStart = (x - x0) * (x - x0) + (curY - y0) * (curY - y0)
-            if (distanceToStart > leaderSquared) {
-              leaderInfo = Some((leader, leaderSquared, true))
-              val distanceToEnd = (x - x1) * (x - x1) + (curY - y1) * (curY - y1)
-
-              // Jump to within sight of end
-              // Figure out roughly how many x to jump.  Jump a little (1) less than ideal to make sure to catch
-              // the boundary
-              val jumpLength = ((x1 - x0) * (len - math.sqrt(distanceToStart) - leader) / len.toDouble - 1).ceil.toInt
-              if (jumpLength > 1) {
-                val bigError = error - deltay.toLong * jumpLength
-                val xSteps = ((-bigError.toDouble) / deltax).ceil.toInt
-
-                error = (bigError + deltax.toLong * xSteps).toInt
-                curY = curY + ystep * xSteps
-                y = y + ystep * xSteps
-                x = x + jumpLength
-              }
-              false
-            } else {
-              true
-            }
-          }
-        }.getOrElse(true)
-
-        if (storeValue) {
-          if (steep) points += ((curY, x))
-          else points += ((x, curY))
-        }
-
-        x = x + 1
-      }
-
-      points
-    }
-  }
-}
-
 /**
   * A cartesian projection of lines
   *
@@ -270,7 +161,7 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
     *
     * @param coordinates     the data-space coordinate
     * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-    * @return Option[Seq[(TC, Int)]] representing a series of tile coordinate/bin index pairs if the given source
+    * @return Optional sequence representing a series of tile coordinate/bin index pairs if the given source
     *         row is within the bounds of the viz. None otherwise.
     */
   override def project(coordinates: Option[(Double, Double, Double, Double)],
