@@ -152,22 +152,117 @@ trait SegmentProjection {
 class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
                                     min: (Double, Double),
                                     max: (Double, Double),
-                                    leaderLineLength: Int
+                                    leaderLineLength: Int,
+                                    tms: Boolean
                                    )
-  extends NumericProjection[(Double, Double, Double, Double), (Int, Int, Int), (Int, Int, Int, Int)]((min._1, min._2, min._1, min._2), (max._1, max._2, max._1, max._2)) {
+  extends NumericProjection[(Double, Double, Double, Double), (Int, Int, Int), ((Int, Int), (Int, Int))]((min._1, min._2, min._1, min._2), (max._1, max._2, max._1, max._2))
+    with SegmentProjection {
+  assert(max._1 > min._1)
+  assert(max._2 > min._2)
+
+  // The X and Y range of our bounds; simple calculation, but we'll use it a lot.
+  private val range = (max._1 - min._1, max._2 - min._2)
+  // Translate an input coordinate into [0, 1) x [0, 1)
+  private def translateAndScale (x: Double, y: Double): (Double, Double) =
+    ((x - min._1) / range._1, (y - min._2) / range._2)
+  /** Translate from a point in the range [0, 1) x [0, 1) into universal bin coordinates at the given level */
+  private def scaledToUniversalBin (scaledPoint: (Double, Double), level: Int, maxBin: (Int, Int)): (Int, Int) = {
+    val levelScale = 1L << level
+    val levelX = scaledPoint._1 * levelScale
+    val levelY = scaledPoint._2 * levelScale
+    val tileX = levelX.floor.toInt
+    val tileY = levelY.floor.toInt
+    val binX = ((levelX - tileX) * (maxBin._1 + 1)).floor.toInt
+    val binY = ((levelY - tileY) * (maxBin._2 + 1)).floor.toInt
+    tileBinIndexToUniversalBinIndex((level, tileX, tileY), (binX, binY), maxBin, tms)
+  }
+  // Given an input universal coordinate and a number of bins-per-tile, find the top bin in the tile containing
+  // said input
+  private def getNextTileBoundary (input: Int, maxBin: Int): Int =
+    input + (maxBin - (input % (maxBin + 1)))
+  private def boundaryPointsToEnd (line: LineToPoints, end: (Int, Int), maxBin: Int): Seq[(Int, Int)] = {
+    val points = MutableBuffer[(Int, Int)]()
+    points += line.current
+    var lap = line.curLongAxisPosition
+    val lastBin = line.longAxisValue(end)
+    var nextBoundary = getNextTileBoundary(lap, maxBin)
+    if (nextBoundary > lastBin) {
+      points += end
+    } else {
+      var lastBoundary = getNextTileBoundary(lastBin, maxBin) - maxBin
+      while (nextBoundary < lastBoundary) {
+        points += line.skipTo(nextBoundary)
+        nextBoundary += 1
+        if (nextBoundary < lastBin)
+          points += line.next()
+        nextBoundary += maxBin
+      }
+      points += end
+    }
+    points
+  }
+
 
   /**
     * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
+    * Here we just give tiles; to convert into individual bins, use the CartesianLeaderLineSpreadingFunction
     *
-    * @param coordinates     the data-space coordinate
+    * @param coordinates the data-space coordinates of the segment: start x, start y, end x, end y
     * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
     * @return Optional sequence representing a series of tile coordinate/bin index pairs if the given source
     *         row is within the bounds of the viz. None otherwise.
     */
   override def project(coordinates: Option[(Double, Double, Double, Double)],
-                       maxBin: (Int, Int, Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int, Int, Int))]] = {
+                       maxBin: ((Int, Int), (Int, Int))): Option[Seq[((Int, Int, Int), ((Int, Int), (Int, Int)))]] = {
+    if (!coordinates.isDefined) {
+      None
+    } else {
+      // get input points translated and scaled into [0, 1) x [0, 1)
+      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
+      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
+      val realMaxBin = maxBin._1
 
-    None
+      Some(zoomLevels.flatMap { level =>
+        // Convert input into universal bin coordinates
+        val startUBin = scaledToUniversalBin(startPoint, level, realMaxBin)
+        val endUBin = scaledToUniversalBin(endPoint, level, realMaxBin)
+
+        // These are recorded as the endpoints for every tile
+        val endpoints = (startUBin, endUBin)
+
+        // Now, we just need to find tiles
+        // We go through the line, jumping to every point that is a segment endpoint or a boundary bin on a tile
+
+        // We do this differently depending on whether or not we have to cut out middle points
+        val line2point = new LineToPoints(startUBin, endUBin)
+        val maxLABins = line2point.longAxisValue(realMaxBin)
+        val lastLABin = line2point.lastLongAxisPosition
+        val boundaryBins: Seq[(Int, Int)] =
+          if (line2point.totalLength > 2 * leaderLineLength + maxLABins + 1) {
+            // The line is long enough to ignore some middle ground.
+            // Find the boundaries of that cutout, then go back and fill in
+            val startLeaderEnd = line2point.skipToDistance(startUBin, leaderLineLength)
+            val startLeaderEndLA = line2point.longAxisValue(startLeaderEnd)
+            val endLeaderStart = line2point.skipToDistance(endUBin, leaderLineLength)
+            val endLeaderStartLA = line2point.longAxisValue(endLeaderStart)
+            line2point.reset()
+
+            boundaryPointsToEnd(line2point, startLeaderEnd, maxLABins) union {
+              line2point.skipTo(endLeaderStartLA)
+              boundaryPointsToEnd(line2point, endUBin, maxLABins)
+            }
+          } else {
+            // Line is too short to cut anything out; just pick boundary points until we reach the end.
+            boundaryPointsToEnd(line2point, endUBin, maxLABins)
+          }
+
+        // We go to the boundary points between bins along the long axis of the line, picking the tile of each
+        boundaryBins
+          .map(boundaryUBin => universalBinIndexToTileIndex(level, boundaryUBin, realMaxBin, tms)._1)
+          .distinct
+          .map(tile => (tile, endpoints))
+      })
+    }
   }
 
   /**
@@ -177,13 +272,13 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
     * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
     * @return the bin index converted into its one-dimensional representation
     */
-  override def binTo1D(bin: (Int, Int, Int, Int), maxBin: (Int, Int, Int, Int)): Int = {
-    bin._1 + bin._2*(maxBin._1 + 1)
+  override def binTo1D(bin: ((Int, Int), (Int, Int)), maxBin: ((Int, Int), (Int, Int))): Int = {
+    bin._1._1 + bin._1._2*(maxBin._1._1 + 1)
   }
 
 }
 
-class TrailerHeaderLineSpreadingFunction[T] extends SpreadingFunction[(Int, Int, Int), (Int, Int, Int, Int), T] {
+class CartesianLeaderLineSpreadingFunction[T] extends SpreadingFunction[(Int, Int, Int), (Int, Int, Int, Int), T] {
   /**
     * Spread a single value over multiple visualization-space coordinates
     *
