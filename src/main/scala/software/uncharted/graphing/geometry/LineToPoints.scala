@@ -1,4 +1,4 @@
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.geometry
 
 
 /**
@@ -9,7 +9,9 @@ package software.uncharted.graphing.salt
   * Iteration uses Bressenham's algorithm as is, but we also extend it to allow jumps.
   */
 class LineToPoints (start: (Int, Int), end: (Int, Int)) {
-  val totalLength = length(start, end)
+  import Line._
+  val totalLength = distance(start, end)
+
   private val (steep, x0, y0, x1, y1) = {
     val (xs, ys) = start
     val (xe, ye) = end
@@ -31,6 +33,8 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
   /** Reset this object to start back at the start point of the line */
   def reset(): Unit = {
     error = (deltax * xstep) >> 1
+//      if (xstep > 0) deltax >> 1
+//      else -deltax - (-deltax >> 1)
     y = y0
     x = x0
   }
@@ -48,10 +52,10 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
   def curLongAxisEndDistance = x1 - x
 
   /** Get the current distance from the start of the line */
-  def curStartDistance = length((x, y), (x0, y0))
+  def curStartDistance = Line.distance((x, y), (x0, y0))
 
   /** Get the current distance from the end of the line */
-  def curEndDistance = length((x, y), (x1, y1))
+  def curEndDistance = Line.distance((x, y), (x1, y1))
 
   /** Of an arbitrary pair of values, one for x, one for y, get the one that corresponds to the long axis */
   def longAxisValue[T] (values: (T, T)): T =
@@ -68,7 +72,9 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
   def available = (x1 - x) * xstep + 1
 
   /** Get the current point in this line */
-  def current = (x, y)
+  def current = if (steep) (y, x) else (x, y)
+
+  def increasing = xstep > 0
 
   /** Get the next point in this line */
   def next(): (Int, Int) = {
@@ -76,12 +82,19 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
 
     val ourY = y
     val ourX = x
-    error = error - deltay
 
-    // behavior at error == 0 differs if going up or down, so as to get the two to match exactly
-    if ((1 == xstep && error < 0) || (-1 == xstep && error <= 0)) {
-      y = y + ystep
-      error = error + deltax * xstep
+    if (xstep > 0) {
+      error = error - deltay
+      if (error < 0) {
+        y = y + ystep
+        error = error + deltax
+      }
+    } else {
+      error = error + deltay
+      if (error >= -deltax) {
+        y = y + ystep
+        error = error + deltax
+      }
     }
     x = x + xstep
 
@@ -98,11 +111,19 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
   def skip(n: Int): (Int, Int) = {
     if (n > 0) {
       // Convert to long to make sure to avoid overflow
-      val errorL = error - deltay * n.toLong
-      val ySteps = ((deltax * xstep - (if (1 == xstep) 1 else 0) - errorL) / (deltax * xstep)).toInt
-      error = (errorL + ySteps * deltax * xstep).toInt
-      y = y + ySteps * ystep
-      x = x + n * xstep
+      if (xstep > 0) {
+        val errorL = error - deltay * n.toLong
+        val ySteps = ((deltax  - 1 - errorL) / deltax).toInt
+        error = (errorL + ySteps * deltax ).toInt
+        y = y + ySteps * ystep
+        x = x + n
+      } else {
+        val errorL = error + deltay * n.toLong
+        val ySteps = (errorL / -deltax).toInt
+        error = (errorL + ySteps * deltax).toInt
+        y = y + ySteps * ystep
+        x = x - n
+      }
     }
 
     next()
@@ -135,7 +156,7 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
       override def hasNext: Boolean = {
         if (!LineToPoints.this.hasNext) false
         else {
-          val dSquared = lengthSquared((x, y), referencePoint)
+          val dSquared = Line.distanceSquared((x, y), referencePoint)
           dSquared <= referenceDSquared
         }
       }
@@ -155,82 +176,27 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
     // Get the intersection point of the circle around <code>from</code> of the given radius, and our basic
     // underlying line
 
-    val (xf, yf) = from
-    val d = distance
-    // Line is _A x + _B y = 1
-    // Circle is (x - xf)^2 + (y - yf)^2 = d^2
-    // solve:
-    //    x^2 - 2 x xf + xf^2 + y^2 - 2 y yf + yf^2 = d^2
-    //    y = (1 - _A x) / _B
-    // or (if _B = 0)
-    //    x = (1 - _B y) / _A
-    //
-    // if |_B| >>  0
-    //    y = (1 - _A x) / _B = 1/_B - _A/_B x
-    //    (x - xf)^2 + (1/_B - _A/_B x - yf)^2 = d^2
-    //    (x - xf)^2 + (1/_B - yf - _A/_B x)^2 = d^2
-    //    x^2 - 2 x xf + xf^2 + (1/_B - yf)^2 - 2 _A/_B (1/_B - yf) x + (_A/_B)^2 x^2 = d^2
-    //    (1 + (_A/_B)^2) x^2 - 2 (xf + _A/_B(1/_B - yf)) x + xf^2 + (1/_B - yf)^2 - d^2 = 0
-    //
-    // if |_B| ~= 0
-    //    x = (1 - _B y) / _A = 1/_A - _B/_A y
-    //    (1/_A - _B/_A y - xf)^2 + (y - yf)^2 = d^2
-    //    (y - yf)^2 + (1/_A - xf - _B/_A y)^2 = d^2
-    //    y^2 - 2 yf y + yf^2 + (1/_A - xf)^2 - 2 _B/_A (1/_A - xf) y + (_B/_A)^2 y^2 = d^2
-    //    (1 + (_B/_A)^2) y^2 - 2 (yf + _B/_A (1/_A - xf)) y + yf^2 + (1/_A - xf)^2 - d^2 = 0
+    val circle =
+      if (steep) Circle(from._2, from._1, distance)
+      else Circle(from._1, from._2, distance)
 
-    val (x1, y1, x2, y2) =
-    if (_A.abs > _B.abs) {
-      val BoverA = _B / _A
-      val E = 1/_A - xf
-      val a = 1 + BoverA * BoverA
-      val b = -2 * (yf + BoverA * E)
-      val c = yf * yf + E * E - d * d
+    val ((ix1, iy1), (ix2, iy2)) = circle.intersection(line)
 
-      val determinate = math.sqrt(b * b - 4 * a * c)
-      if (determinate.isNaN) throw new NoIntersectionException("Circle doesn't intersect line in the real plane (case A > B)")
-      val y1 = (-b + determinate) / (2 * a)
-      val x1 = (1 - _B * y1) / _A
-      val y2 = (-b - determinate) / (2 * a)
-      val x2 = (1 - _B * y2) / _A
-
-      (x1, y1, x2, y2)
-    } else {
-      val AoverB = _A / _B
-      val E = 1/_B - yf
-      val a = 1 + AoverB * AoverB
-      val b = -2 * (xf + AoverB * E)
-      val c = xf * xf + E * E - d * d
-
-      val determinate = math.sqrt(b * b - 4 * a * c)
-      if (determinate.isNaN) throw new NoIntersectionException("Circle doesn't intersect line in the real plane (case B > A)")
-      val x1 = (-b + determinate) / (2 * a)
-      val y1 = (1 - _A * x1) / _B
-      val x2 = (-b - determinate) / (2 * a)
-      val y2 = (1 - _A * x2) / _B
-
-      (x1, y1, x2, y2)
-    }
-
-    val (la1, la2) =
-      if (steep) (y1, y2)
-      else (x1, x2)
+    val (la1, la2) = (ix1, ix2)
 
     def before (lhs: Double, rhs: Double) = lhs * xstep < rhs * xstep
+    def skipUpTo (n: Double) = if (increasing) skipTo(n.floor.toInt) else skipTo(n.ceil.toInt)
 
     if (before(la1, x) && before(la2, x)) throw new NoIntersectionException("circle doesn't intersect plane after current point")
-    else if (before(la1, x)) skipTo(la2.floor.toInt)
-    else if (before(la2, x)) skipTo(la1.floor.toInt)
-    else if (before(la1, la2)) skipTo(la1.floor.toInt)
-    else skipTo(la2.floor.toInt)
+    else if (before(la1, x)) skipUpTo(la2)
+    else if (before(la2, x)) skipUpTo(la1)
+    else if (before(la1, la2)) skipUpTo(la1)
+    else skipUpTo(la2)
   }
 
-  // our line can be written in the form Ax + By = 1
+  // Our line can be written either as Ax + By = 1 or Ax + By = 0
   // Doing so requires the following values of A and B:
-  private lazy val _denom = (x0 * y1 - y0 * x1).toDouble
-  private lazy val _A = (y1 - y0) / _denom
-  private lazy val _B = (x0 - x1) / _denom
-
+  private lazy val line = Line((x0, y0), (x1, y1))
 
   /** Get the next N points in this line */
   def next(n: Int): Array[(Int, Int)] = {
@@ -244,21 +210,4 @@ class LineToPoints (start: (Int, Int), end: (Int, Int)) {
 
   /** Get the rest of the points in this line */
   def rest(): Array[(Int, Int)] = next(available)
-
-
-  private def lengthSquared(a: (Int, Int), b: (Int, Int)): Long = {
-    val (xa, ya) = a
-    val (xb, yb) = b
-    val dx = (xb - xa).toLong
-    val dy = (yb - ya).toLong
-    dx * dx + dy * dy
-  }
-
-  private def length(a: (Int, Int), b: (Int, Int)): Double = math.sqrt(lengthSquared(a, b))
-}
-
-class NoIntersectionException (message: String, cause: Throwable) extends Exception(message, cause) {
-  def this () = this(null, null)
-  def this (message: String) = this(message, null)
-  def this (cause: Throwable) = this(null, cause)
 }

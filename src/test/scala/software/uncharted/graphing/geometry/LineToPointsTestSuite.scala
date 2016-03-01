@@ -1,8 +1,13 @@
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.geometry
+
+
 
 import org.scalatest.FunSuite
 
+import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
+
+
 
 /**
   * Created by nkronenfeld on 2/24/2016.
@@ -31,6 +36,22 @@ class LineToPointsTestSuite extends FunSuite {
     val pointsR = l2pR.rest().toList
 
     assert(pointsF === pointsR.reverse)
+  }
+
+  test("Very short lines") {
+    for (x0 <- -2 to 2; y0 <- -2 to 2; x1 <- -2 to 2; y1 <- -2 to 2) {
+      if (x0 != x1 || y0 != y1) {
+        val msg = "Line: [%d, %d] => [%d, %d]".format(x0, y0, x1, y1)
+
+        val l2p = new LineToPoints((x0, y0), (x1, y1))
+        val points = l2p.rest().toList
+        assert((x0, y0) === points.head, msg)
+        assert((x1, y1) === points.last, msg)
+
+        val l2pr = new LineToPoints((x1, y1), (x0, y0))
+        assert(points === l2pr.rest().toList.reverse, msg)
+      }
+    }
   }
 
   test("reset") {
@@ -80,6 +101,24 @@ class LineToPointsTestSuite extends FunSuite {
     assert((11, reference(11)) === l2p.skipTo(11))
     assert((13, reference(13)) === l2p.skipTo(13))
     assert((14, reference(14)) === l2p.skipTo(14))
+  }
+
+  test("Skip to point, horizontal line") {
+    val l2p = new LineToPoints((0, 0), (22, 0))
+
+    for (i <- 0 to 22) {
+      assert((i, 0) === l2p.skipTo(i))
+      l2p.reset()
+    }
+  }
+
+  test("skip to point, vertical line") {
+    val l2p = new LineToPoints((0, 0), (0, 22))
+
+    for (i <- 0 to 22) {
+      assert((0, i) === l2p.skipTo(i))
+      l2p.reset()
+    }
   }
 
   test("skip to point with reversed line") {
@@ -143,10 +182,13 @@ class LineToPointsTestSuite extends FunSuite {
       l2p.skipToDistance((40, 40), 5)
     }
 
-    assert((16, reference(16)) === l2p.skipToDistance((10, 10), 7))
-    assert((7, reference(7)) === l2p.skipToDistance((10, 10), 7))
+    // Going down, it errs on the other side of each boundary
+    assert((17, reference(17)) === l2p.skipToDistance((10, 10), 7))
+    assert((8, reference(8)) === l2p.skipToDistance((10, 10), 7))
     intercept[NoIntersectionException] {
       l2p.skipToDistance((10, 10), 7)
     }
   }
+
+
 }

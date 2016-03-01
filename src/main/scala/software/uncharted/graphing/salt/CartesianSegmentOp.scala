@@ -1,6 +1,7 @@
 package software.uncharted.graphing.salt
 
 
+import software.uncharted.graphing.geometry.{Line, LineToPoints}
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 
@@ -15,6 +16,7 @@ import software.uncharted.salt.core.spreading.SpreadingFunction
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.sparkpipe.ops.core.dataframe._
 
+import scala.util.Try
 
 
 object CartesianSegmentOp {
@@ -160,6 +162,7 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
   assert(max._1 > min._1)
   assert(max._2 > min._2)
 
+  private val leaderLineLengthSquared = leaderLineLength * leaderLineLength
   // The X and Y range of our bounds; simple calculation, but we'll use it a lot.
   private val range = (max._1 - min._1, max._2 - min._2)
   // Translate an input coordinate into [0, 1) x [0, 1)
@@ -178,24 +181,31 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
   }
   // Given an input universal coordinate and a number of bins-per-tile, find the top bin in the tile containing
   // said input
-  private def getNextTileBoundary (input: Int, maxBin: Int): Int =
-    input + (maxBin - (input % (maxBin + 1)))
+  private def getNextTileBoundary (input: Int, maxBin: Int, direction: Int): Int =
+    if (direction > 0) input + (maxBin - (input % (maxBin + 1)))
+    else input - (input % (maxBin + 1))
+
   private def boundaryPointsToEnd (line: LineToPoints, end: (Int, Int), maxBin: Int): Seq[(Int, Int)] = {
     val points = MutableBuffer[(Int, Int)]()
-    points += line.current
+    val cur = line.current
+    points += cur
+    val direction = if (line.longAxisValue(cur) < line.longAxisValue(end)) 1 else -1
+
     var lap = line.curLongAxisPosition
     val lastBin = line.longAxisValue(end)
-    var nextBoundary = getNextTileBoundary(lap, maxBin)
-    if (nextBoundary > lastBin) {
+    var nextBoundary = getNextTileBoundary(lap, maxBin, direction)
+    if (nextBoundary * direction > lastBin * direction) {
       points += end
     } else {
-      var lastBoundary = getNextTileBoundary(lastBin, maxBin) - maxBin
-      while (nextBoundary < lastBoundary) {
-        points += line.skipTo(nextBoundary)
-        nextBoundary += 1
-        if (nextBoundary < lastBin)
+      var lastBoundary = getNextTileBoundary(lastBin, maxBin, direction) - maxBin * direction
+      while (nextBoundary * direction < lastBoundary * direction) {
+        val nb = line.skipTo(nextBoundary)
+        if (nb != cur)
+          points += nb
+        nextBoundary += direction
+        if (nextBoundary * direction < lastBin * direction)
           points += line.next()
-        nextBoundary += maxBin
+        nextBoundary += maxBin * direction
       }
       points += end
     }
@@ -238,29 +248,56 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
         val maxLABins = line2point.longAxisValue(realMaxBin)
         val lastLABin = line2point.lastLongAxisPosition
         val boundaryBins: Seq[(Int, Int)] =
-          if (line2point.totalLength > 2 * leaderLineLength + maxLABins + 1) {
-            // The line is long enough to ignore some middle ground.
-            // Find the boundaries of that cutout, then go back and fill in
-            val startLeaderEnd = line2point.skipToDistance(startUBin, leaderLineLength)
+          if (line2point.totalLength < 2 * leaderLineLength) {
+            boundaryPointsToEnd(line2point, endUBin, maxLABins)
+          } else {
+            // Find first half points
+            val startLeaderEnd = {
+              var skipPoint = line2point.longAxisValue(line2point.skipToDistance(startUBin, leaderLineLength))
+              line2point.reset
+              var p =
+                if (line2point.increasing) line2point.skipTo(skipPoint - 1)
+                else line2point.skipTo(skipPoint + 1)
+              var pn = p
+              while (Line.distanceSquared(pn, startUBin) <= leaderLineLengthSquared) {
+                p = pn
+                pn = line2point.next()
+              }
+              p
+            }
             val startLeaderEndLA = line2point.longAxisValue(startLeaderEnd)
-            val endLeaderStart = line2point.skipToDistance(endUBin, leaderLineLength)
-            val endLeaderStartLA = line2point.longAxisValue(endLeaderStart)
+            line2point.reset()
+            val firstHalf = boundaryPointsToEnd(line2point, startLeaderEnd, maxLABins)
             line2point.reset()
 
-            boundaryPointsToEnd(line2point, startLeaderEnd, maxLABins) union {
-              line2point.skipTo(endLeaderStartLA)
-              boundaryPointsToEnd(line2point, endUBin, maxLABins)
+            // Find the second half points
+            val endLeaderStart = {
+              var p = line2point.skipToDistance(endUBin, leaderLineLength+1)
+              while (Line.distanceSquared(p, endUBin) > leaderLineLengthSquared)
+                p = line2point.next()
+              p
             }
-          } else {
-            // Line is too short to cut anything out; just pick boundary points until we reach the end.
-            boundaryPointsToEnd(line2point, endUBin, maxLABins)
+            val endLeaderStartLA = line2point.longAxisValue(endLeaderStart)
+            line2point.reset()
+            line2point.skipTo(endLeaderStartLA + (if (line2point.increasing) -1 else 1))
+
+            val secondHalf = boundaryPointsToEnd(line2point, endUBin, maxLABins)
+
+            firstHalf ++ secondHalf
           }
 
         // We go to the boundary points between bins along the long axis of the line, picking the tile of each
-        boundaryBins
-          .map(boundaryUBin => universalBinIndexToTileIndex(level, boundaryUBin, realMaxBin, tms)._1)
-          .distinct
-          .map(tile => (tile, endpoints))
+        import Line._
+
+        val bba = boundaryBins
+          .filter { boundaryUBin =>
+            distanceSquared(boundaryUBin, startUBin) <= leaderLineLengthSquared ||
+              distanceSquared(boundaryUBin, endUBin) <= leaderLineLengthSquared
+          }
+        val bbb = bba.map(boundaryUBin => universalBinIndexToTileIndex(level, boundaryUBin, realMaxBin, tms)._1)
+        val bbc = bbb.distinct
+        val bbd = bbc.map(tile => (tile, endpoints))
+        bbd
       })
     }
   }
