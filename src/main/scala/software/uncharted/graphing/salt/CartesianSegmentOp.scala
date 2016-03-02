@@ -135,6 +135,12 @@ trait SegmentProjection {
 
     ((z, tileX, tileY), (binX, binY))
   }
+
+  def universalBinTileBounds (tile: (Int, Int, Int), maxBin: (Int,Int), tms: Boolean): ((Int, Int),(Int, Int)) = {
+    val ul = tileBinIndexToUniversalBinIndex(tile, (0, 0), maxBin, tms)
+    val lr = tileBinIndexToUniversalBinIndex(tile, maxBin, maxBin, tms)
+    (ul, lr)
+  }
 }
 
 /**
@@ -315,7 +321,9 @@ class CartesianLeaderLineProjection(zoomLevels: Seq[Int],
 
 }
 
-class CartesianLeaderLineSpreadingFunction[T] extends SpreadingFunction[(Int, Int, Int), (Int, Int, Int, Int), T] {
+class CartesianLeaderLineSpreadingFunction[T] (maxBin: (Int, Int), tms: Boolean)
+  extends SpreadingFunction[(Int, Int, Int), (Int, Int, Int, Int), T]
+    with SegmentProjection {
   /**
     * Spread a single value over multiple visualization-space coordinates
     *
@@ -324,6 +332,13 @@ class CartesianLeaderLineSpreadingFunction[T] extends SpreadingFunction[(Int, In
     * @return Seq[(TC, BC, Option[T])] A sequence of tile coordinates, with the spread values
     */
   override def spread(coords: Seq[((Int, Int, Int), (Int, Int, Int, Int))], value: Option[T]): Seq[((Int, Int, Int), (Int, Int, Int, Int), Option[T])] = {
+    coords.map { case (tileCoordinates, endPoints) =>
+      val (level, tx, ty) = tileCoordinates
+      val (uxStart, uyStart, uxEnd, uyEnd) = endPoints
+      val uBounds = universalBinTileBounds(tileCoordinates, maxBin, tms)
+      val line = new LineToPoints((uxStart, uyStart), (uxEnd, uyEnd))
+        null
+    }
     null
   }
 }

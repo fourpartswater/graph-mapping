@@ -70,6 +70,20 @@ class SegmentTilingTestSuite extends FunSuite {
     }
   }
 
+  test("Universal bin tile bounds") {
+    for (x <- 0 to 15; y <- 0 to 15) {
+      val (minBinNorm, maxBinNorm) = universalBinTileBounds((4, x, y), (3, 3), false)
+      val (minBinTMS, maxBinTMS) = universalBinTileBounds((4, x, 15 - y), (3, 3), true)
+      assert(minBinNorm === minBinTMS)
+      assert(maxBinNorm === maxBinTMS)
+      assert(minBinNorm._1 === 4 * x)
+      assert(maxBinNorm._1 === 4 * x + 3)
+      assert(minBinNorm._2 === 4 * y)
+      assert(maxBinNorm._2 === 4 * y + 3)
+    }
+  }
+
+
 //  test("endpointsToBins with leader line limit") {
 //    val calculator = new StraightSegmentCalculation {}
 //
