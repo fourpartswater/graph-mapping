@@ -2,7 +2,7 @@ package software.uncharted.graphing.salt
 
 import org.scalatest.FunSuite
 import software.uncharted.graphing.geometry.Line._
-import software.uncharted.graphing.geometry.{Line, LineToPoints}
+import software.uncharted.graphing.geometry.{CartesianTileProjection2D, Line, LineToPoints}
 
 /**
   * Created by nkronenfeld on 3/2/2016.
@@ -16,7 +16,7 @@ class TwoStageLineProjectionTestSuite extends FunSuite {
 
     def checkSign(x: Int, sign: Int): Unit =
       if (0 != x) assert(sign === x.signum)
-    val projection = new LeaderLineProjectionStageOne(Seq(4), bounds._1, bounds._2, leaderLength, tms)
+    val projection = new LeaderLineProjectionStageOne(Seq(4), leaderLength, bounds._1, bounds._2, tms)
     val bruteForce = new BruteForceLeaderLineReducer(maxBin._1, bounds, 4, leaderLength, tms)
     for (xm <- -1 to 1 by 2; ym <- -1 to 1 by 2) {
       for (x0 <- 0 to 20; y0 <- 0 to 20; x1 <- x0 until 40; y1 <- y0 until 40) {
@@ -40,7 +40,7 @@ class TwoStageLineProjectionTestSuite extends FunSuite {
     val leaderLength = 7
     val tms = false
 
-    val projection = new LeaderLineProjectionStageOne(Seq(4), bounds._1, bounds._2, leaderLength, tms)
+    val projection = new LeaderLineProjectionStageOne(Seq(4), leaderLength, bounds._1, bounds._2, tms)
     val bruteForce = new BruteForceLeaderLineReducer(maxBin._1, bounds, 4, leaderLength, tms)
 
     val x0 = -1
@@ -59,7 +59,9 @@ class BruteForceLeaderLineReducer (maxBin: (Int, Int),
                                    bounds: ((Double, Double), (Double, Double)),
                                    level: Int,
                                    leaderLength: Int,
-                                   tms: Boolean) extends SegmentProjection {
+                                   tms: Boolean)
+  extends CartesianTileProjection2D[(Int, Int, Int), ((Int, Int), (Int, Int))](bounds._1, bounds._2, tms)
+{
   def getTiles (x0: Double, y0: Double, x1: Double, y1: Double) = {
     def project(x: Double, y: Double) = {
       val scale = 1 << level
@@ -78,9 +80,11 @@ class BruteForceLeaderLineReducer (maxBin: (Int, Int),
     import Line._
 
     val closePoints = points.filter(p => distance(p, s) <= leaderLength || distance(p, e) <= leaderLength)
-    val closeTiles = closePoints.map(p => universalBinIndexToTileIndex(level, p, maxBin, tms)._1)
+    val closeTiles = closePoints.map(p => universalBinIndexToTileIndex(level, p, maxBin)._1)
 
     closeTiles.distinct
   }
 
+  override def project(dc: Option[(Int, Int, Int)], maxBin: ((Int, Int), (Int, Int))): Option[Seq[((Int, Int, Int), ((Int, Int), (Int, Int)))]] = None
+  override def binTo1D(bin: ((Int, Int), (Int, Int)), maxBin: ((Int, Int), (Int, Int))): Int = 0
 }

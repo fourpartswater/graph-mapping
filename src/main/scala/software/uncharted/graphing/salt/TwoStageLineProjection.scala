@@ -1,8 +1,10 @@
 package software.uncharted.graphing.salt
 
+import software.uncharted.salt.core.spreading.SpreadingFunction
+
 import scala.collection.mutable.{Buffer => MutableBuffer}
 
-import software.uncharted.graphing.geometry.{Line, LineToPoints}
+import software.uncharted.graphing.geometry.{CartesianBinning, CartesianTileProjection2D, Line, LineToPoints}
 import software.uncharted.salt.core.projection.numeric.NumericProjection
 
 
@@ -24,33 +26,15 @@ import software.uncharted.salt.core.projection.numeric.NumericProjection
   * @param tms if true, the Y axis for tile coordinates only is flipped
   */
 class LeaderLineProjectionStageOne(zoomLevels: Seq[Int],
+                                   leaderLineLength: Int,
                                    min: (Double, Double),
                                    max: (Double, Double),
-                                   leaderLineLength: Int,
                                    tms: Boolean
                                   )
-  extends NumericProjection[(Double, Double, Double, Double), (Int, Int, Int), ((Int, Int), (Int, Int))]((min._1, min._2, min._1, min._2), (max._1, max._2, max._1, max._2))
-    with SegmentProjection {
-  assert(max._1 > min._1)
-  assert(max._2 > min._2)
+  extends CartesianTileProjection2D[(Double, Double, Double, Double), ((Int, Int), (Int, Int))](min, max, tms) {
+//  NumericProjection[(Double, Double, Double, Double), (Int, Int, Int), ((Int, Int), (Int, Int))]((min._1, min._2, min._1, min._2), (max._1, max._2, max._1, max._2))
 
   private val leaderLineLengthSquared = leaderLineLength * leaderLineLength
-  // The X and Y range of our bounds; simple calculation, but we'll use it a lot.
-  private val range = (max._1 - min._1, max._2 - min._2)
-  // Translate an input coordinate into [0, 1) x [0, 1)
-  private def translateAndScale (x: Double, y: Double): (Double, Double) =
-    ((x - min._1) / range._1, (y - min._2) / range._2)
-  /** Translate from a point in the range [0, 1) x [0, 1) into universal bin coordinates at the given level */
-  private def scaledToUniversalBin (scaledPoint: (Double, Double), level: Int, maxBin: (Int, Int)): (Int, Int) = {
-    val levelScale = 1L << level
-    val levelX = scaledPoint._1 * levelScale
-    val levelY = scaledPoint._2 * levelScale
-    val tileX = levelX.floor.toInt
-    val tileY = levelY.floor.toInt
-    val binX = ((levelX - tileX) * (maxBin._1 + 1)).floor.toInt
-    val binY = ((levelY - tileY) * (maxBin._2 + 1)).floor.toInt
-    tileBinIndexToUniversalBinIndex((level, tileX, tileY), (binX, binY), maxBin, tms)
-  }
   // Given an input universal coordinate and a number of bins-per-tile, find the top bin in the tile containing
   // said input
   private def getNextTileBoundary (input: Int, maxBin: Int, direction: Int): Int =
@@ -164,7 +148,7 @@ class LeaderLineProjectionStageOne(zoomLevels: Seq[Int],
             distanceSquared(boundaryUBin, startUBin) <= leaderLineLengthSquared ||
               distanceSquared(boundaryUBin, endUBin) <= leaderLineLengthSquared
           }
-        val bbb = bba.map(boundaryUBin => universalBinIndexToTileIndex(level, boundaryUBin, realMaxBin, tms)._1)
+        val bbb = bba.map(boundaryUBin => universalBinIndexToTileIndex(level, boundaryUBin, realMaxBin)._1)
         val bbc = bbb.distinct
         val bbd = bbc.map(tile => (tile, endpoints))
         bbd
@@ -189,15 +173,20 @@ class LeaderLineProjectionStageOne(zoomLevels: Seq[Int],
   * This class takes tiles and the lines that intersect them, and on a tile-by-tile basis, projects those lines into
   * individual bin values.  This is the second stage
   *
-  * @param tms if true, the Y axis for tile coordinates only is flipped
+  * Note that while we inherit from CartesianTileProjection2D, we don't actually care about its projection functions,
+  * just its binning functions - so we just pass in some random bounds.
+  *
+  * @param _tms if true, the Y axis for tile coordinates only is flipped
   * @param valueProjection a function that takes the line value option, line length, and distance from start of the current
   *                        bin, and returns Some(a value option) for that bin - or None if that bin shouldn't get included
   *                        in the resultant dataset.
   * @tparam T The value type associated with each line
   */
-class LeaderLineProjectionStageTwo[T] (tms: Boolean, valueProjection: (Option[T], Double, Double) => Option[Option[T]] = (t: Option[T], l: Double, d: Double) => Some(t))
+class LeaderLineProjectionStageTwo[T] (_tms: Boolean, valueProjection: (Option[T], Double, Double) => Option[Option[T]] = (t: Option[T], l: Double, d: Double) => Some(t))
 //  extends SpreadingFunction[(Int, Int, Int), (Int, Int, Int, Int), T]
-    extends SegmentProjection {
+    extends CartesianBinning
+{
+  override protected def tms: Boolean = _tms
   /**
     * Spread a single value over multiple visualization-space coordinates
     *
@@ -211,7 +200,7 @@ class LeaderLineProjectionStageTwo[T] (tms: Boolean, valueProjection: (Option[T]
     coords.flatMap { case (tileCoordinates, endPoints) =>
       val (uxStart, uyStart, uxEnd, uyEnd) = endPoints
       val lineStart = (uxStart, uyStart)
-      val uBounds = universalBinTileBounds(tileCoordinates, maxBin, tms)
+      val uBounds = universalBinTileBounds(tileCoordinates, maxBin)
       val line = new LineToPoints((uxStart, uyStart), (uxEnd, uyEnd))
 
       val tileStart = if (line.increasing) uBounds._1 else uBounds._2
@@ -221,7 +210,7 @@ class LeaderLineProjectionStageTwo[T] (tms: Boolean, valueProjection: (Option[T]
 
       line.next(line.longAxisValue(maxBin) + 1).flatMap{uBin =>
         import Line.intPointToDoublePoint
-        val (tile, bin) = universalBinIndexToTileIndex(level, uBin, maxBin, tms)
+        val (tile, bin) = universalBinIndexToTileIndex(level, uBin, maxBin)
         assert(tile == tileCoordinates)
         valueProjection(value, line.totalLength, Line.distance(uBin, lineStart))
           .map(binValue => (tileCoordinates, bin, binValue))
