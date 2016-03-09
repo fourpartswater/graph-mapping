@@ -42,4 +42,17 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val usingBruteForce = bruteForce.getBins(x0, y0, x1, y1).sorted.toList
     assert(usingBruteForce === usingProjection, "Points [%d, %d x %d, %d]".format(x0, y0, x1, y1))
   }
+
+  test("Test leader line fading spreader function") {
+    val spreader = new FadingSpreadingFunction(4, (3, 3), false)
+    assert(List(4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0) === spreader.spread(Seq(
+      ((2, 0, 0), (0, 0)), ((2, 0, 0), (1, 0)), ((2, 0, 0), (2, 0)), ((2, 0, 0), (3, 0)),
+      ((2, 1, 0), (0, 0)), ((2, 1, 0), (1, 0)), ((2, 1, 0), (2, 0)), ((2, 1, 0), (3, 0))
+    ), Some(4.0)).map(_._3.get).toList)
+
+    assert(List(4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0) === spreader.spread(Seq(
+      ((2, 0, 0), (0, 0)), ((2, 0, 0), (1, 0)), ((2, 0, 0), (2, 0)), ((2, 0, 0), (3, 0)),
+      ((2, 1, 0), (1, 0)), ((2, 1, 0), (2, 0)), ((2, 1, 0), (3, 0)), ((2, 2, 0), (0, 0))
+    ), Some(4.0)).map(_._3.get).toList)
+  }
 }

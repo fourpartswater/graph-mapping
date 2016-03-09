@@ -138,11 +138,12 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int), _tms: 
       coords.map { case (tile, bin) => (tile, bin, value) }
     } else {
       // Gap in the middle; scale points according to their distance from the end
-      val i = 0
+      var i = 0
       coords.map { case (tile, bin) =>
         val scale =
           if (i < halfWay) (halfWay - i).toDouble / halfWay
           else (i - halfWay + 1).toDouble / halfWay
+        i += 1
 
         (tile, bin, value.map(v => v * scale))
       }
