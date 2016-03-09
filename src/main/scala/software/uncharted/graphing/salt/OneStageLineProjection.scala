@@ -1,6 +1,7 @@
 package software.uncharted.graphing.salt
 
-import software.uncharted.graphing.geometry.{Line, LineToPoints, CartesianTileProjection2D}
+import software.uncharted.graphing.geometry.{CartesianBinning, Line, LineToPoints, CartesianTileProjection2D}
+import software.uncharted.salt.core.spreading.SpreadingFunction
 
 /**
   * Created by nkronenfeld on 08/03/16.
@@ -96,3 +97,53 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
   }
 }
 
+
+/**
+  * Fade the ends of a line (as produced by the SimpleLeaderLineProjection) so they are bright near the endpoints,
+  * and dull near the middle.
+  *
+  * @tparam T Input data type for bin aggregators
+  */
+class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int))
+  extends SpreadingFunction[(Int, Int, Int), (Int, Int), Double]
+  with CartesianBinning
+{
+  /**
+    * Spread a single value over multiple visualization-space coordinates
+    *
+    * @param coords the visualization-space coordinates
+    * @param value  the value to spread
+    * @return Seq[(TC, BC, Option[T])] A sequence of tile coordinates, with the spread values
+    */
+  override def spread(coords: Seq[((Int, Int, Int), (Int, Int))],
+                      value: Option[Double]): Seq[((Int, Int, Int), (Int, Int), Option[Double])] = {
+    val n = coords.length
+    val halfWay = n / 2
+
+    val all =
+      if (n < 2 * leaderLineLength) true
+      else {
+        // Figure out if the midpoints are more than one bin apart
+        val midBinLeft = coords(halfWay - 1)
+        val midBinRight = coords(halfWay)
+        val midUBinLeft = tileBinIndexToUniversalBinIndex(midBinLeft._1, midBinLeft._2, maxBin)
+        val midUBinRight = tileBinIndexToUniversalBinIndex(midBinRight._1, midBinRight._2, maxBin)
+        (midUBinLeft._1 - midUBinRight._1).abs < 2 && (midUBinLeft._2 - midUBinRight._2).abs < 2
+      }
+
+    if (all) {
+      // No gaps, so just use all points without scaling
+      coords.map { case (tile, bin) => (tile, bin value) }
+    } else {
+      // Gap in the middle; scale points according to their distance from the end
+      val i = 0
+      coords.map { case (tile, bin) =>
+        val scale =
+          if (i < halfWay) (halfWay - i).toDouble / halfWay
+          else (i - halfWay + 1).toDouble / halfWay
+
+        (tile, bin, value.map(v => v * scale)
+      }
+    }
+  }
+}
