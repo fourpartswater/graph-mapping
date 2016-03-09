@@ -104,10 +104,12 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
   *
   * @tparam T Input data type for bin aggregators
   */
-class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int))
+class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int), _tms: Boolean)
   extends SpreadingFunction[(Int, Int, Int), (Int, Int), Double]
   with CartesianBinning
 {
+  override protected def tms: Boolean = _tms
+
   /**
     * Spread a single value over multiple visualization-space coordinates
     *
@@ -133,7 +135,7 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int))
 
     if (all) {
       // No gaps, so just use all points without scaling
-      coords.map { case (tile, bin) => (tile, bin value) }
+      coords.map { case (tile, bin) => (tile, bin, value) }
     } else {
       // Gap in the middle; scale points according to their distance from the end
       val i = 0
@@ -142,7 +144,7 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int))
           if (i < halfWay) (halfWay - i).toDouble / halfWay
           else (i - halfWay + 1).toDouble / halfWay
 
-        (tile, bin, value.map(v => v * scale)
+        (tile, bin, value.map(v => v * scale))
       }
     }
   }
