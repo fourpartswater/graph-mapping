@@ -55,36 +55,3 @@ class TwoStageLineProjectionTestSuite extends FunSuite {
   }
 }
 
-class BruteForceLeaderLineReducer (maxBin: (Int, Int),
-                                   bounds: ((Double, Double), (Double, Double)),
-                                   level: Int,
-                                   leaderLength: Int,
-                                   tms: Boolean)
-  extends CartesianTileProjection2D[(Int, Int, Int), ((Int, Int), (Int, Int))](bounds._1, bounds._2, tms)
-{
-  def getTiles (x0: Double, y0: Double, x1: Double, y1: Double) = {
-    def project(x: Double, y: Double) = {
-      val scale = 1 << level
-      val usx = (x - bounds._1._1) / (bounds._2._1 - bounds._1._1)
-      val usy = (y - bounds._1._2) / (bounds._2._2 - bounds._1._2)
-      val sx = usx * scale * (maxBin._1 + 1)
-      val sy = usy * scale * (maxBin._2 + 1)
-      (sx.floor.toInt, sy.floor.toInt)
-    }
-
-    val s = project(x0, y0)
-    val e = project(x1, y1)
-
-    val line = new LineToPoints(s, e)
-    val points = line.rest()
-    import Line._
-
-    val closePoints = points.filter(p => distance(p, s) <= leaderLength || distance(p, e) <= leaderLength)
-    val closeTiles = closePoints.map(p => universalBinIndexToTileIndex(level, p, maxBin)._1)
-
-    closeTiles.distinct
-  }
-
-  override def project(dc: Option[(Int, Int, Int)], maxBin: ((Int, Int), (Int, Int))): Option[Seq[((Int, Int, Int), ((Int, Int), (Int, Int)))]] = None
-  override def binTo1D(bin: ((Int, Int), (Int, Int)), maxBin: ((Int, Int), (Int, Int))): Int = 0
-}
