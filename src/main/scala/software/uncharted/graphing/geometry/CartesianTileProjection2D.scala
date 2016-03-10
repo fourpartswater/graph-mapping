@@ -4,6 +4,9 @@ import software.uncharted.salt.core.projection.Projection
 
 
 trait CartesianBinning {
+  /**
+    * Specify whether the Y axis is flipped for tile coordinates
+    */
   protected def tms: Boolean
 
   /**
@@ -90,6 +93,13 @@ trait CartesianBinning {
 
 /**
   * All functions needed to project a 2-d cartesian space into a tile space, and back
+  *
+  * @param min The minimum coordinates of the data space
+  * @param max The maximum coordinates of the data space
+  * @param _tms
+  * @tparam DC the abstract type representing a data-space coordinate
+  * @tparam BC the abstract type representing a bin coordinate. Must feature a zero-arg
+  *            constructor and should be something that can be represented in 1 dimension.
   */
 abstract class CartesianTileProjection2D[DC, BC] (min: (Double, Double), max: (Double, Double), _tms: Boolean)
   extends Projection[DC, (Int, Int, Int), BC] with CartesianBinning

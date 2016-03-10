@@ -3,8 +3,16 @@ package software.uncharted.graphing.salt
 import software.uncharted.graphing.geometry.{CartesianBinning, Line, LineToPoints, CartesianTileProjection2D}
 import software.uncharted.salt.core.spreading.SpreadingFunction
 
+
 /**
-  * Created by nkronenfeld on 08/03/16.
+  * A line projection that projects straight from lines to raster bins in one pass, emitting only a leader of
+  * predefined length on each end of the line.
+  *
+  * @param zoomLevels The zoom levels onto which to project
+  * @param leaderLineLength
+  * @param min The minimum coordinates of the data space
+  * @param max The maximum coordinates of the data space
+  * @param tms if true, the Y axis for tile coordinates only is flipped     *
   */
 class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
                                   leaderLineLength: Int,
@@ -148,5 +156,70 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int), _tms: 
         (tile, bin, value.map(v => v * scale))
       }
     }
+  }
+}
+
+/**
+  * A line projection that projects straight from lines to raster bins in one pass, emitting only a leader of
+  * predefined length on each end of the line.
+  *
+  * @param zoomLevels The zoom levels onto which to project
+  * @param minLengthOpt The minimum length of line (in bins) to project
+  * @param maxLengthOpt The maximum length of line (in bins) to project
+  * @param min The minimum coordinates of the data space
+  * @param max The maximum coordinates of the data space
+  * @param tms if true, the Y axis for tile coordinates only is flipped     *
+  */
+class SimpleLineProjection (zoomLevels: Seq[Int],
+                            minLengthOpt: Option[Double],
+                            maxLengthOpt: Option[Double],
+                            min: (Double, Double),
+                            max: (Double, Double),
+                            tms: Boolean)
+  extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)] (min, max, tms)
+{
+  /**
+    * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
+    *
+    * @param coordinates     the data-space coordinate
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return Option[Seq[(TC, Int)]] representing a series of tile coordinate/bin index pairs if the given source
+    *         row is within the bounds of the viz. None otherwise.
+    */
+  override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
+    if (coordinates.isEmpty) {
+      None
+    } else {
+      // get input points translated and scaled into [0, 1) x [0, 1)
+      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
+      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
+      val realMaxBin = maxBin._1
+
+      Some(zoomLevels.flatMap { level =>
+        // Convert input into universal bin coordinates
+        val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
+        val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
+
+        val line2point = new LineToPoints(startUBin, endUBin)
+
+        if (minLengthOpt.map(minLength => line2point.totalLength >= minLength).getOrElse(true) &&
+          maxLengthOpt.map(maxLength => line2point.totalLength <= maxLength).getOrElse(true)) {
+          line2point.rest().map { uBin => universalBinIndexToTileIndex(level, uBin, maxBin) }
+        } else {
+          Seq[((Int, Int, Int), (Int, Int))]()
+        }
+      })
+    }
+  }
+
+  /**
+    * Project a bin index BC into 1 dimension for easy storage of bin values in an array
+    *
+    * @param bin    A bin index
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return the bin index converted into its one-dimensional representation
+    */
+  override def binTo1D(bin: (Int, Int), maxBin: (Int, Int)): Int = {
+    bin._1 + bin._2 * (maxBin._1 + 1)
   }
 }
