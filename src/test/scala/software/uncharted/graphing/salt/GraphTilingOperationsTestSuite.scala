@@ -73,9 +73,9 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(-1.0, -2.0, -3.0, -4.0)
     )))
 
-    assert((-1.0, 2.0, -2.0, 4.0) === getBounds("w", "x")(data))
-    assert((-3.0, 3.0, -4.0, 5.0) === getBounds("y", "z")(data))
-    assert((-2.0, 4.0, -3.0, 3.0) === getBounds("x", "y")(data))
+    assert(List((-1.0, 2.0), (-2.0, 4.0)) === getBounds("w", "x")(data).toList)
+    assert(List((-3.0, 3.0), (-4.0, 5.0)) === getBounds("y", "z")(data).toList)
+    assert(List((-2.0, 4.0), (-3.0, 3.0)) === getBounds("x", "y")(data).toList)
   }
 
   test("cartesian tiling without autobounds") {
