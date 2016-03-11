@@ -195,7 +195,7 @@ class SimpleLineProjection (zoomLevels: Seq[Int],
       val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
       val realMaxBin = maxBin._1
 
-      Some(zoomLevels.flatMap { level =>
+      zoomLevels.map { level =>
         // Convert input into universal bin coordinates
         val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
         val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
@@ -204,11 +204,11 @@ class SimpleLineProjection (zoomLevels: Seq[Int],
 
         if (minLengthOpt.map(minLength => line2point.totalLength >= minLength).getOrElse(true) &&
           maxLengthOpt.map(maxLength => line2point.totalLength <= maxLength).getOrElse(true)) {
-          line2point.rest().map { uBin => universalBinIndexToTileIndex(level, uBin, maxBin) }
+          Some(line2point.rest().map { uBin => universalBinIndexToTileIndex(level, uBin, maxBin) }.toSeq)
         } else {
-          Seq[((Int, Int, Int), (Int, Int))]()
+          None
         }
-      })
+      }.reduce((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
     }
   }
 
