@@ -1,13 +1,18 @@
 package software.uncharted.graphing.geometry
 
-/**
-  * Created by nkronenfeld on 11/03/16.
-  */
-class ArcToPoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.Pi/3) {
-  def all: Seq[(Int, Int)] = {
+object ArcToPoints {
+  def getCirclePoint (center: (Int, Int), radius: Double, angle: Double) = {
+    ((center._1 + radius * math.cos(angle)).round.toInt, (center._2 + radius * math.sin(angle)).round.toInt)
+  }
+
+  /**
+    * Get all the points on the arc from start to end of the given arc length
+    * @return
+    */
+  def getArcPoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.Pi/3): Seq[(Int, Int)] = {
     val (x0, y0) = start
     val (x1, y1) = end
-    val (xc, yc, radius, startSlope, endSlope, octants) = initializeArc(start, end)
+    val (xc, yc, radius, startSlope, endSlope, octants) = initializeArc(start, end, arcLength)
 
     // Offset from y from 0 so the y coordinate is the center of its column.
     var yOffset = math.round(yc) - yc
@@ -44,7 +49,7 @@ class ArcToPoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.
     }.toSeq
   }
 
-  private def initializeArc (start: (Int, Int), end: (Int, Int)) = {
+  private def initializeArc (start: (Int, Int), end: (Int, Int), arcLength: Double) = {
     val (x0, y0) = start
     val (x1, y1) = end
     val dx = x1 - x0
@@ -54,12 +59,12 @@ class ArcToPoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.
     val radius = (chordLength / 2.0) / math.sin(arcLength/2.0)
 
     // Go from the midpoint of our chord to the midpoint of the circle
-    // The amount by which to scale the radius to get to the center
-    val chordRadiusScale = math.cos(arcLength/2.0)
+    // The amount by which to scale the chord to get to the center
+    val chordElevationScale = math.tan(arcLength/2.0)
     // The choice of signs here (for dx and dy) determines the direction of the arc as clockwise.  To
     // get a counter-clockwise arc, reverse the signs.
-    val xc = (x0+x1)/2.0 + dy * chordRadiusScale
-    val yc = (y0+y1)/2.0 - dx * chordRadiusScale
+    val xc = (x0+x1)/2.0 + dy / 2.0 * chordElevationScale
+    val yc = (y0+y1)/2.0 - dx / 2.0 * chordElevationScale
 
     // Find the relevant octants
     def findOctant (x: Double, y: Double, isStart: Boolean): Int = {
