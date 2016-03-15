@@ -9,7 +9,7 @@ import software.uncharted.salt.core.spreading.SpreadingFunction
   * predefined length on each end of the line.
   *
   * @param zoomLevels The zoom levels onto which to project
-  * @param leaderLineLength
+  * @param leaderLineLength The number of bins to keep near each end of the line
   * @param min The minimum coordinates of the data space
   * @param max The maximum coordinates of the data space
   * @param tms if true, the Y axis for tile coordinates only is flipped     *
@@ -38,7 +38,6 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
       // get input points translated and scaled into [0, 1) x [0, 1)
       val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
       val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
-      val realMaxBin = maxBin._1
 
       Some(zoomLevels.flatMap { level =>
         // Convert input into universal bin coordinates
@@ -64,7 +63,7 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
               p
             }
             val endLeaderStart = {
-              line2point.reset
+              line2point.reset()
               var p = line2point.skipToDistance(endUBin, leaderLineLength+1)
               while (Line.distanceSquared(p, endUBin) > leaderLineLengthSquared)
                 p = line2point.next()
@@ -79,7 +78,7 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
             line2point.skipTo(line2point.longAxisValue(endLeaderStart) + (if (line2point.increasing) -1 else 1))
             val secondHalf = line2point.rest()
 
-            (firstHalf ++ secondHalf)
+            firstHalf ++ secondHalf
           } else {
             line2point.rest()
           }
@@ -180,10 +179,10 @@ class SimpleLineProjection (zoomLevels: Seq[Int],
   /**
     * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
     *
-    * @param coordinates     the data-space coordinate
+    * @param coordinates the endpoints of a line (x0, y0, x1, y1)
     * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-    * @return Option[Seq[(TC, Int)]] representing a series of tile coordinate/bin index pairs if the given source
-    *         row is within the bounds of the viz. None otherwise.
+    * @return All the bins representing the given line if the given source row is within the bounds of the
+    *         viz. None otherwise.
     */
   override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
     if (coordinates.isEmpty) {
@@ -192,7 +191,6 @@ class SimpleLineProjection (zoomLevels: Seq[Int],
       // get input points translated and scaled into [0, 1) x [0, 1)
       val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
       val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
-      val realMaxBin = maxBin._1
 
       zoomLevels.map { level =>
         // Convert input into universal bin coordinates
@@ -251,8 +249,8 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
     *
     * @param coordinates     the data-space coordinate
     * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-    * @return Option[Seq[(TC, Int)]] representing a series of tile coordinate/bin index pairs if the given source
-    *         row is within the bounds of the viz. None otherwise.
+    * @return An optional sequence of points on the arc between the input coordinates, if the given input coordinates
+    *         are within the bounds of the viz. None otherwise.
     */
   override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
     import Line.intPointToDoublePoint
@@ -263,7 +261,6 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
       // get input points translated and scaled into [0, 1) x [0, 1)
       val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
       val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
-      val realMaxBin = maxBin._1
 
       zoomLevels.map { level =>
         // Convert input into universal bin coordinates
@@ -274,9 +271,9 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
 
         if (minLengthOpt.map(minLength => chordLength >= minLength).getOrElse(true) &&
           maxLengthOpt.map(maxLength => chordLength <= maxLength).getOrElse(true)) {
-          Some(ArcToPoints.getArcPoints(startUBin, endUBin, arcLength).map(uBin =>
+          Some(ArcToPoints.getArcPointsFromEndpoints(startUBin, endUBin, arcLength).map(uBin =>
             universalBinIndexToTileIndex(level, uBin, maxBin)
-          ).toSeq)
+          ))
         } else {
           None
         }
@@ -298,71 +295,77 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
 
 
 
-//class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
-//                                 leaderLength: Int,
-//                                 arcLength: Double = math.Pi / 3,
-//                                 minLengthOpt: Option[Double] = Some(4),
-//                                 maxLengthOpt: Option[Double] = Some(1024),
-//                                 min: (Double, Double) = (0.0, 0.0),
-//                                 max: (Double, Double) = (1.0, 1.0),
-//                                 tms: Boolean = false)
-//  extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
-//{
-//  /**
-//    * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
-//    *
-//    * @param coordinates     the data-space coordinate
-//    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-//    * @return Option[Seq[(TC, Int)]] representing a series of tile coordinate/bin index pairs if the given source
-//    *         row is within the bounds of the viz. None otherwise.
-//    */
-//  override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
-//    import Line.intPointToDoublePoint
-//
-//    if (coordinates.isEmpty) {
-//      None
-//    } else {
-//      // get input points translated and scaled into [0, 1) x [0, 1)
-//      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
-//      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
-//      val realMaxBin = maxBin._1
-//
-//      zoomLevels.map { level =>
-//        // Convert input into universal bin coordinates
-//        val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
-//        val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
-//        val chordLength = Line.distance(startUBin, endUBin)
-//
-//
-//        if (minLengthOpt.map(minLength => chordLength >= minLength).getOrElse(true) &&
-//          maxLengthOpt.map(maxLength => chordLength <= maxLength).getOrElse(true)) {
-//          Some {
-//            val ((xc, yc), radius, startSlope, endSlope, octants) = ArcToPoints.getArcCharacteristics(startUBin, endUBin, arcLength, true)
-//            val leaderArcLength = ArcToPoints.getArcLength(radius, leaderLength)
-//            if (arcLength <= 2.0 * leaderArcLength) {
-//              // Short arc, use the whole thing
-//              ArcToPoints.getArcPoints(startUBin, endUBin, arcLength).map(uBin =>
-//                universalBinIndexToTileIndex(level, uBin, maxBin)
-//              ).toSeq
-//            } else {
-//
-//            }
-//          }
-//        } else {
-//          None
-//        }
-//      }.reduce((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
-//    }
-//  }
-//
-//  /**
-//    * Project a bin index BC into 1 dimension for easy storage of bin values in an array
-//    *
-//    * @param bin    A bin index
-//    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-//    * @return the bin index converted into its one-dimensional representation
-//    */
-//  override def binTo1D(bin: (Int, Int), maxBin: (Int, Int)): Int = {
-//    bin._1 + bin._2 * (maxBin._1 + 1)
-//  }
-//}
+class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
+                                 leaderLength: Int,
+                                 arcLength: Double = math.Pi / 3,
+                                 minLengthOpt: Option[Double] = Some(4),
+                                 maxLengthOpt: Option[Double] = Some(1024),
+                                 min: (Double, Double) = (0.0, 0.0),
+                                 max: (Double, Double) = (1.0, 1.0),
+                                 tms: Boolean = false)
+  extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
+{
+  /**
+    * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
+    *
+    * @param coordinates The endpoints of an arc (x0, y0, x1, y1)
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return The bins near the endpoins of the given arc, if within data space bounds. None otherwise.
+    */
+  override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
+    import Line.intPointToDoublePoint
+
+    if (coordinates.isEmpty) {
+      None
+    } else {
+      // get input points translated and scaled into [0, 1) x [0, 1)
+      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
+      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
+
+      zoomLevels.map { level =>
+        // Convert input into universal bin coordinates
+        val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
+        val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
+        val chordLength = Line.distance(startUBin, endUBin)
+
+
+        if (minLengthOpt.map(minLength => chordLength >= minLength).getOrElse(true) &&
+          maxLengthOpt.map(maxLength => chordLength <= maxLength).getOrElse(true)) {
+          Some {
+            val center = ArcToPoints.getArcCenter(startUBin, endUBin, arcLength, clockwise = true)
+            val radius = ArcToPoints.getArcRadius(startUBin, endUBin, arcLength)
+            val leaderArcLength = ArcToPoints.getArcLength(radius, leaderLength)
+            if (arcLength <= 2.0 * leaderArcLength) {
+              // Short arc, use the whole thing
+              ArcToPoints.getArcPointsFromEndpoints(startUBin, endUBin, arcLength)
+                .map (uBin => universalBinIndexToTileIndex(level, uBin, maxBin))
+            } else {
+              val startAngle = ArcToPoints.getCircleAngle(center, startUBin)
+              val endAngle = ArcToPoints.getCircleAngle(center, endUBin)
+              val endAngleRelativeToStart = ArcToPoints.toClosestModulus(startAngle, endAngle, math.Pi * 2.0)
+              val direction = (startAngle - endAngleRelativeToStart).signum
+              val startLeaderPoints = ArcToPoints.getArcPointsFromStartCenter(startUBin, center, leaderArcLength * direction)
+              val endLeaderPoints = ArcToPoints.getArcPointsFromStartCenter(endUBin, center, leaderArcLength * direction * -1)
+
+              (startLeaderPoints ++ endLeaderPoints)
+                .map(uBin => universalBinIndexToTileIndex(level, uBin, maxBin))
+            }
+          }
+        } else {
+          None: Option[Seq[((Int, Int, Int), (Int, Int))]]
+        }
+      }.reduce ((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
+    }
+  }
+
+  /**
+    * Project a bin index BC into 1 dimension for easy storage of bin values in an array
+    *
+    * @param bin    A bin index
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return the bin index converted into its one-dimensional representation
+    */
+  override def binTo1D(bin: (Int, Int), maxBin: (Int, Int)): Int = {
+    bin._1 + bin._2 * (maxBin._1 + 1)
+  }
+}

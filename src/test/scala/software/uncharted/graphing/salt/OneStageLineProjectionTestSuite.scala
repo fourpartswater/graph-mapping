@@ -1,6 +1,8 @@
 package software.uncharted.graphing.salt
 
 import org.scalatest.FunSuite
+import org.scalatest.Matchers._
+import software.uncharted.graphing.geometry.{ArcToPoints, Line}
 
 /**
   * Created by nkronenfeld on 08/03/16.
@@ -102,5 +104,35 @@ class OneStageLineProjectionTestSuite extends FunSuite {
       ((2, 0, 0), (0, 0)), ((2, 0, 0), (1, 0)), ((2, 0, 0), (2, 0)), ((2, 0, 0), (3, 0)),
       ((2, 1, 0), (1, 0)), ((2, 1, 0), (2, 0)), ((2, 1, 0), (3, 0)), ((2, 2, 0), (0, 0))
     ), Some(4.0)).map(_._3.get).toList)
+  }
+
+  test("Test arc leader lines  projection - no gap") {
+    import Line.distance
+    import Line.intPointToDoublePoint
+    val epsilon = 1E-12
+
+    val projection = new SimpleLeaderArcProjection(Seq(4), 8, minLengthOpt = None, maxLengthOpt = None, max = (64.0, 64.0))
+    val pointsOpt = projection.project(Some((24.0, 24.0, 36.0, 33.0)), (3, 3))
+    // Points are (24, 24) and (36, 33), creating equilateral triangle arc
+    // length is sqrt(12^2 + 9^2) = 15
+    // center should be (30 + 0.6 * (7.5 * math.sqrt(3)), 28.5 - 0.8 * (7.5 * math.sqrt(3)))
+    val start = (23, 24)
+    val end = (36, 33)
+    val center = (30.0 + 0.6 * 7.5 * math.sqrt(3), 28.5 - 0.8 * 7.5 * math.sqrt(3))
+
+    println("Start angle: "+ArcToPoints.getCircleAngle(center, start))
+    println("End angle: "+ArcToPoints.getCircleAngle(center, end))
+    println("Total arc chord length: "+distance(start, end))
+    assert(pointsOpt.isDefined)
+    val points = pointsOpt.get
+    points.foreach{point =>
+      val (tile, bin) = point
+      val uBin = (tile._2 * 4 + bin._1, tile._3 * 4 + bin._2)
+      println((uBin, ArcToPoints.getCircleAngle(center, uBin), distance(center, uBin), distance(start, uBin), distance(end, uBin)))
+      distance(center, uBin) should be (15.0 +- 1.0)
+      assert(distance(start, uBin) < 9.0 || distance(end, uBin) < 9.0)
+      assert(start._1 <= uBin._1 && uBin._1 <= end._1)
+      assert(start._2 <= uBin._2 && uBin._2 <= end._2)
+    }
   }
 }

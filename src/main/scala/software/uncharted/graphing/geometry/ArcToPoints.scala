@@ -1,12 +1,29 @@
 package software.uncharted.graphing.geometry
 
 object ArcToPoints {
+  import Line.intPointToDoublePoint
+
+  /**
+    * Find the solution to x = value % modulus that is closest to base
+    */
+  def toClosestModulus (base: Double, value:Double, modulus: Double) = {
+    val diff = value - base
+    val moduli = (diff / modulus).round
+    value - moduli * modulus
+  }
+
   /**
     * Find the point on a circle at the given angle
     */
-  def getCirclePoint (center: (Int, Int), radius: Double, angle: Double) = {
+  def getCirclePoint (center: (Double, Double), radius: Double, angle: Double) = {
     ((center._1 + radius * math.cos(angle)).round.toInt, (center._2 + radius * math.sin(angle)).round.toInt)
   }
+
+  /**
+    * Find the angle of a a given point on a circle
+    */
+  def getCircleAngle (center: (Double, Double), circumfrencialPoint: (Int, Int)) =
+    math.atan2(circumfrencialPoint._2 - center._2, circumfrencialPoint._1 - center._1)
 
   /**
     * Find the angular length of an arc with a given chord length (for a circle of a given radius)
@@ -17,48 +34,69 @@ object ArcToPoints {
   }
 
   /**
+    * Get the center point of an arc
+    *
+    * @param start The starting point of the arc
+    * @param end The ending point of the arc
+    * @param arcLength The length of the arc, in radians
+    * @param clockwise true if the arc goes clockwise from the start to the end; false if it goes counter-clockwise.
+    * @return
+    */
+  def getArcCenter (start: (Double, Double), end: (Double, Double), arcLength: Double, clockwise: Boolean): (Double, Double) = {
+    val (x0, y0) = start
+    val (x1, y1) = end
+    val dx = x1 - x0
+    val dy = y1 - y0
+    // Go from the midpoint of our chord to the midpoint of the circle
+    // The amount by which to scale the chord to get to the center
+    val chordElevationScale = math.tan(arcLength / 2.0)
+    // The choice of signs here (for dx and dy) determines the direction of the arc as clockwise.  To
+    // get a counter-clockwise arc, reverse the signs.
+    val sign = if (clockwise) 1.0 else -1.0
+    val xc = (x0 + x1) / 2.0 + sign * dy / (2.0 * chordElevationScale)
+    val yc = (y0 + y1) / 2.0 - sign * dx / (2.0 * chordElevationScale)
+
+    (xc, yc)
+  }
+
+  /**
+    * Get the radius of an arc
+    *
+    * @param start The starting point of the arc
+    * @param end The ending point of the arc
+    * @param arcLength The length of the arc, in radians
+    */
+  def getArcRadius (start: (Double, Double), end: (Double, Double), arcLength: Double): Double = {
+    val (x0, y0) = start
+    val (x1, y1) = end
+    val dx = x1 - x0
+    val dy = y1 - y0
+    val chordLength = math.sqrt(dx * dx + dy * dy)
+
+    (chordLength / 2.0) / math.sin(arcLength / 2.0)
+  }
+
+  /**
     * Get all the points on the arc from start to end of the given arc length
     *
     * @return
     */
-  def getArcPoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.Pi/3): Seq[(Int, Int)] = {
-    val (x0, y0) = start
-    val (x1, y1) = end
-    val ((xc, yc), radius, startSlope, endSlope, octants) = getArcCharacteristics(start, end, arcLength, true)
+  def getArcPointsFromEndpoints (start: (Int, Int), end: (Int, Int), arcLength: Double = math.Pi/3): Seq[(Int, Int)] = {
+    val (center, radius, startSlope, endSlope, octants) = getArcCharacteristics(start, end, arcLength, true)
 
-    // Offset from y from 0 so the y coordinate is the center of its column.
-    var yOffset = math.round(yc) - yc
-    var y = yOffset
-    // x1^2 = x0^2 - 2 y0 dy - dy^2, and y0 = 0
-    var x2 = radius*radius - yOffset*yOffset
-    var x = math.sqrt(x2)
+    getArcPoints (center, radius, startSlope, endSlope, octants)
+  }
 
-    new WhileIterator(
-      () => x >= y,
-      () => {
-        val curX = x
-        val curY = y
+  def getArcPointsFromStartCenter (start: (Int, Int), center: (Double, Double), arcLength: Double): Seq[(Int, Int)] = {
+    val startAngle = getCircleAngle(center, start)
+    val startSlope = getSlope(start, center)
+    val endAngle = startAngle + arcLength
+    val endSlope = math.tan(endAngle)
+    val radius = Line.distance(start, center)
+    val end = getCirclePoint(center, radius, endAngle)
+    val octants = getOctants(start, end, center, arcLength <= 0.0)
 
-        x2 = x2 - 2 * y - 1
-        y = y + 1
-        var nextX = math.round(x)-0.5
-        if (x2 <= nextX*nextX) x = x - 1
-
-        (math.round(curX).toInt, math.round(curY).toInt)
-      }
-    ).flatMap{case (x, y) =>
-      octants.flatMap{octant =>
-        val (xr, yr) = octantTransform(x, y, octant._1)
-        val slope = yr.toDouble/xr
-        if ((octant._2 && slope <= startSlope) ||
-          (octant._3 && slope >= endSlope) ||
-          (!(octant._2 || octant._3))) {
-          Some((math.round(xc+xr).toInt, math.round(yc+yr).toInt))
-        } else {
-          None
-        }
-      }
-    }.toSeq
+    getArcPoints(center, radius, startSlope, endSlope, octants)
   }
 
 
@@ -79,24 +117,71 @@ object ArcToPoints {
     *           </ol>
     */
   def getArcCharacteristics (start: (Int, Int), end: (Int, Int), arcLength: Double, clockwise: Boolean) = {
+    val center = getArcCenter(start, end, arcLength, clockwise)
+
+    (
+      center,
+      getArcRadius(start, end, arcLength),
+      getSlope(start, center),
+      getSlope(end, center),
+      getOctants(start, end, center, clockwise)
+      )
+  }
+
+
+
+  // Actual function to calculate arc points
+  private def getArcPoints (center: (Double, Double),
+                            radius: Double,
+                            startSlope: Double,
+                            endSlope: Double,
+                            octants: Seq[(Int, Boolean, Boolean)]): Seq[(Int, Int)] = {
+    val (xc, yc) = center
+    // Offset from y from 0 so the y coordinate is the center of its column.
+    val yOffset = math.round(yc) - yc
+    var y = yOffset
+    // x1^2 = x0^2 - 2 y0 dy - dy^2, and y0 = 0
+    var x2 = radius * radius - yOffset * yOffset
+    var x = math.sqrt(x2)
+
+    val octantPoints =
+      new WhileIterator(
+        () => x >= y,
+        () => {
+          val curX = x
+          val curY = y
+
+          x2 = x2 - 2 * y - 1
+          y = y + 1
+          val nextX = math.round(x) - 0.5
+          if (x2 <= nextX * nextX) x = x - 1
+
+          (math.round(curX).toInt, math.round(curY).toInt)
+        }
+      ).toList
+    val result = octantPoints.flatMap { case (xw, yw) =>
+      octants.flatMap { octant =>
+        val (xr, yr) = octantTransform(xw, yw, octant._1)
+        val slope = yr.toDouble / xr
+        if ((octant._2 && slope <= startSlope) ||
+          (octant._3 && slope >= endSlope) ||
+          (!(octant._2 || octant._3))) {
+          Some((math.round(xc + xr).toInt, math.round(yc + yr).toInt))
+        } else {
+          None
+        }
+      }
+    }.toSeq
+    result
+  }
+
+  // Calculate the octants covered by a given arc
+  private def getOctants (start: (Double, Double), end: (Double, Double), center: (Double, Double),
+                          clockwise: Boolean): Seq[(Int, Boolean, Boolean)] = {
     val (x0, y0) = start
     val (x1, y1) = end
-    val dx = x1 - x0
-    val dy = y1 - y0
-    val chordLength = math.sqrt(dx * dx + dy * dy)
+    val (xc, yc) = center
 
-    val radius = (chordLength / 2.0) / math.sin(arcLength / 2.0)
-
-    // Go from the midpoint of our chord to the midpoint of the circle
-    // The amount by which to scale the chord to get to the center
-    val chordElevationScale = math.tan(arcLength / 2.0)
-    // The choice of signs here (for dx and dy) determines the direction of the arc as clockwise.  To
-    // get a counter-clockwise arc, reverse the signs.
-    val sign = if (clockwise) 1.0 else -1.0
-    val xc = (x0 + x1) / 2.0 + sign * dy / (2.0 * chordElevationScale)
-    val yc = (y0 + y1) / 2.0 - sign * dx / (2.0 * chordElevationScale)
-
-    // Find the relevant octants
     def findOctant(x: Double, y: Double, isStart: Boolean): Int = {
       if (x == 0.0) if ((isStart && y >= 0.0) || (!isStart && y <= 0.0)) 0 else 4
       else if (y == 0.0) if ((isStart && x > 0.0) || (!isStart && x < 0.0)) 2 else 6
@@ -106,8 +191,8 @@ object ArcToPoints {
       else if (-y > x) 6 else 7
     }
 
-    val startOctant = findOctant(x0 - xc, y0 - yc, true)
-    val endOctant = findOctant(x1 - xc, y1 - yc, false)
+    val startOctant = findOctant(x0 - xc, y0 - yc, isStart = true)
+    val endOctant = findOctant(x1 - xc, y1 - yc, isStart = false)
 
     val octants: Seq[(Int, Boolean, Boolean)] = {
       val rawOctants: Seq[Int] =
@@ -121,14 +206,7 @@ object ArcToPoints {
 
       rawOctants.map(_ % 8).map(octant => (octant, octant == startOctant, octant == endOctant))
     }
-
-    (
-      (xc, yc),
-      radius,
-      (y0 - yc) / (x0 - xc),
-      (y1 - yc) / (x1 - xc),
-      octants
-      )
+    octants
   }
 
   private def octantTransform (x: Int, y: Int, octant: Int): (Int, Int) =
@@ -143,24 +221,10 @@ object ArcToPoints {
       case 7 => (x, -y)
     }
 
-  private def rotate [@specialized(Double, Int) N: Numeric] (x: N, y: N, rotation: Int): (N, N) = {
-    val num: Numeric[N] = implicitly[Numeric[N]]
-    import num.mkNumericOps
-
-    rotation match {
-      case -6 => (-y, x)
-      case -4 => (-x, -y)
-      case -2 => (y, -x)
-      case 0 => (x, y)
-      case 2 => (-y, x)
-      case 4 => (-x, -y)
-      case 6 => (y, -x)
-      case _ => throw new IllegalArgumentException("Bad rotation "+rotation)
-    }
-  }
-  private def pairAbs [@specialized(Double, Int) N: Numeric] (pair: (N, N)): (N, N) = {
-    val num: Numeric[N] = implicitly[Numeric[N]]
-    (num.abs(pair._1), num.abs(pair._2))
+  private def getSlope (p0: (Double, Double), p1: (Double, Double)): Double = {
+    val (x0, y0) = p0
+    val (x1, y1) = p1
+    (y0 - y1) / (x0 - x1)
   }
 }
 
