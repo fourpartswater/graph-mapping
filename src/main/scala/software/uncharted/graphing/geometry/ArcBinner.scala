@@ -1,6 +1,6 @@
 package software.uncharted.graphing.geometry
 
-import scala.collection.mutable.{Stack => MutableStack}
+import scala.collection.mutable.{Stack => MutableStack, ArrayBuffer}
 
 /**
   * Created by nkronenfeld on 14/03/16.
@@ -47,6 +47,8 @@ object ArcBinner {
     *
     * Quadrant 0 is centered on the positive X axis, quadrant 1, the positive Y axis, quadrant 2, the negative X axis,
     * and quadrant 3, the negative Y axis
+    *
+    * Quadrants are closed on the counter-clockwise side, and open on the clockwise side.
     */
   def getQuadrant (coords: DoubleTuple): Int = {
     getQuadrant(coords.x, coords.y)
@@ -66,34 +68,59 @@ object ArcBinner {
   }
 
   /**
-    * Get the pair of octants most centered on the given coordinates.  0 is centered on the positive x axis, 1 on the
-    * positive x=y diagonal, 2 on the positive y axis, etc.
+    * Get the octant of the cartesian plane in which a given poitn lies.
+    *
+    * Octant 0 goes from the positive x axis to the 45deg line x=y, octant 1 goes from that line to the positive y
+    * axis, etc.
+    *
+    * Octants are closed on the counter-clockwise side, and open on the clockwise side.
     */
-  def getDoubleOctant (coords: DoubleTuple): Int = {
-    getDoubleOctant(coords.x, coords.y)
+  def getOctant (coords: DoubleTuple): Int = {
+    getOctant(coords.x, coords.y)
   }
-  def getDoubleOctant (x: Double, y: Double): Int = {
+  def getOctant(x: Double, y: Double): Int = {
     if (0.0 == x && 0.0 == y) {
       0
     } else if (x >= 0 && y > 0) {
-      if (x * doubleOctantRatio >= y) 0
-      else if (x >= y * doubleOctantRatio) 1
-      else 2
-    } else if (x < 0 && y >= 0) {
-      if (y * doubleOctantRatio > -x) 2
-      else if (y >= -x * doubleOctantRatio) 3
-      else 4
+      if (y > x) 1 else 0
+    } else if (x < 0 && y >=0) {
+      if (-x > y) 3 else 2
     } else if (x <= 0 && y < 0) {
-      if (-x * doubleOctantRatio >= -y) 4
-      else if (-x >= doubleOctantRatio * -y) 5
-      else 6
-    } else {
-      if (-y * doubleOctantRatio >= x) 6
-      else if (-y >= doubleOctantRatio * x) 7
-      else 0
+      if (-y > -x) 5 else 4
+    } else { // x > 0 && y <= 0
+      if (x > -y) 7 else 6
     }
   }
-  private val doubleOctantRatio = math.tan(math.Pi/8)
+
+  /**
+    * Get the sectors between start and end, assuming a cyclical sector system (like quadrants or octants)
+    *
+    * @param startSector The first sector
+    * @param withinStartSector A relative proportion of the way through the start sector of the start point.  Exact
+    *                          proportion doesn't matter, as long as it is the correct direction from withinEndSector
+    * @param endSector The last sector
+    * @param withinEndSector A relative proportion of the way through the end sector of the end point.  Exact
+    *                        proportion doesn't matter, as long as it is the correct direction from withinStartSector
+    * @param numSectors The total number of sectors
+    * @param positive True if we want the sectors from start to end travelling in the positive direction; false if the
+    *                 negative direction.
+    * @return All sectors from the first to the last, including both.
+    */
+  def getInterveningSectors (startSector: Int, withinStartSector: Double,
+                             endSector: Int, withinEndSector: Double,
+                             numSectors: Int, positive: Boolean): Seq[Int] = {
+    if (positive) {
+      if (endSector > startSector) (startSector to endSector)
+      else if (endSector < startSector) (startSector to (endSector + numSectors))
+      else if (withinStartSector > withinEndSector) (startSector to endSector)
+      else (startSector to (endSector + numSectors))
+    } else {
+      if (endSector < startSector) (startSector to endSector by -1)
+      else if (endSector > startSector) (startSector to (endSector - numSectors) by -1)
+      else if (withinStartSector < withinEndSector) (startSector to endSector by -1)
+      else (startSector to (endSector - numSectors) by -1)
+    }.map(n => (n + 2 * numSectors) % numSectors)
+  }
 
   def getSlope (p0: DoubleTuple, p1: DoubleTuple): Double =
     (p0.y - p1.y) / (p0.x - p1.x)
@@ -128,32 +155,21 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
   import DoubleTuple._
 
   private val center = getArcCenter(start, end, arcLength, clockwise)
-  private val radius = getArcRadius(start, end, arcLength)
 
   private val startQuadrant = getQuadrant(start - center)
-  private val startDoubleOctant = getDoubleOctant(start - center)
+  private val startOctant = getOctant(start - center)
   private val startSlope = getSlope(start, center)
-  private val startAngle = getCircleAngle(start - center)
-  private val forwardsQuadrantStack = MutableStack[Int]()
+  // The list of octants going forwards around the arc from the current octant
+  private val forwardsOctantStack = MutableStack[Int]()
 
   private val endQuadrant = getQuadrant(end - center)
-  private val endDoubleOctant = getDoubleOctant(end - center)
+  private val endOctant = getOctant(end - center)
   private val endSlope = getSlope(end, center)
-  private val endAngle = getCircleAngle(end - center)
-  private val backwardsQuadrantStack = MutableStack[Int]()
+  // The list of octants behind the current octant
+  private val backwardsOctantStack = MutableStack[Int]()
 
-  private val quadrantList =
-    if (clockwise) {
-      if (endQuadrant < startQuadrant) startQuadrant to endQuadrant by -1
-      else if (endQuadrant > startQuadrant) startQuadrant to (endQuadrant - 4) by -1
-      else if (startSlope < endSlope) startQuadrant to endQuadrant by -1
-      else startQuadrant to (endQuadrant - 4) by -1
-    } else {
-      if (endQuadrant > startQuadrant) startQuadrant to endQuadrant
-      else if (endQuadrant < startQuadrant) startQuadrant to (endQuadrant + 4)
-      else if (startSlope > endSlope) startQuadrant to endQuadrant
-      else startQuadrant to (endQuadrant + 4) by -1
-    }.map(n => (n+8)% 4).toList
+  private val octantList =
+    getInterveningSectors(startOctant, startSlope, endOctant, endSlope, 8, !clockwise)
 
   private var x = 0
   private var x2 = 0.0
@@ -163,20 +179,22 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
   private var y2 = 0.0
   private var y2min = 0.0
   private var y2max = 0.0
-  private var quadrant = 0
+  private var octant = 0
   private var slope = 0.0
+  private var atStart = false
+  private var atEnd = false
   toStart()
 
   def toStart(): Unit = {
     x = start.x.floor.toInt
     y = start.y.floor.toInt
-    quadrant = startQuadrant
+    octant = startOctant
     slope = getSlope((x, y), center)
+    atStart = true
 
-    forwardsQuadrantStack.clear()
-    forwardsQuadrantStack.push(quadrant)
-    backwardsQuadrantStack.clear()
-    backwardsQuadrantStack.pushAll(quadrantList.reverse)
+    forwardsOctantStack.clear()
+    forwardsOctantStack.pushAll(octantList.drop(1))
+    backwardsOctantStack.clear()
 
     recalculateSquaredBounds(xBounds = true, yBounds = true)
   }
@@ -184,14 +202,13 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
   def toEnd(): Unit = {
     x = end.x.floor.toInt
     y = end.y.floor.toInt
-    quadrant = endQuadrant
+    octant = endOctant
     slope = getSlope((x, y), center)
+    atEnd = true
 
-    forwardsQuadrantStack.clear()
-    forwardsQuadrantStack.pushAll(quadrantList)
-    backwardsQuadrantStack.clear()
-    backwardsQuadrantStack.push(quadrant)
-
+    forwardsOctantStack.clear()
+    backwardsOctantStack.clear()
+    backwardsOctantStack.pushAll(octantList.reverse.drop(1))
 
     recalculateSquaredBounds(xBounds = true, yBounds = true)
   }
@@ -224,9 +241,12 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
       y2min = y2max
       y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
     }
-    val newQuadrant = getQuadrant(x, y)
-    if (newQuadrant != quadrant) {
-      setNewQuadrant(newQuadrant)
+    slope = getSlope((x, y), center)
+    val startSlope = getSlope(start, center)
+    val newOctant = getOctant((x, y) - center)
+    val startOctant = getOctant(start - center)
+    if (newOctant != octant) {
+      setNewOctant(newOctant)
       recalculateSquaredBounds(yBounds = true)
     }
   }
@@ -245,69 +265,101 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
       x2min = x2max
       x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
     }
-    val newQuadrant = getQuadrant(x, y)
-    if (newQuadrant != quadrant) {
-      setNewQuadrant(newQuadrant)
+    slope = getSlope((x, y), center)
+    val newOctant = getOctant((x, y) - center)
+    if (newOctant != octant) {
+      setNewOctant(newOctant)
       recalculateSquaredBounds(xBounds = true)
     }
   }
 
-  private def setNewQuadrant (newQuadrant: Int): Unit = {
+  private def setNewOctant (newOctant: Int): Unit = {
     val forwards =
-      if (newQuadrant == quadrant + 1 || newQuadrant == quadrant - 3) {
+      if (newOctant == octant + 1 || newOctant == octant - 7) {
         !clockwise
       } else {
         clockwise
       }
     if (forwards) {
-      forwardsQuadrantStack.push(newQuadrant)
-      assert(quadrant == backwardsQuadrantStack.pop())
+      if (!hasNext) atEnd = true
+      if (!atEnd) {
+        assert(newOctant == forwardsOctantStack.pop())
+        backwardsOctantStack.push(octant)
+      }
+    } else {
+      if (!hasPrevious) atStart = true
+      if (!atStart) {
+        assert(newOctant == backwardsOctantStack.pop())
+        forwardsOctantStack.push(octant)
+      }
     }
-    quadrant = newQuadrant
+    octant = newOctant
   }
 
   private def nextClockwise(): (Int, Int) = {
     val curPoint = (x, y)
-    quadrant match {
+    octant match {
+      case 7 => incrementY(false)
       case 0 => incrementY(false)
       case 1 => incrementX(true)
-      case 2 => incrementY(true)
-      case 3 => incrementX(false)
+      case 2 => incrementX(true)
+      case 3 => incrementY(true)
+      case 4 => incrementY(true)
+      case 5 => incrementX(false)
+      case 6 => incrementX(false)
     }
     curPoint
   }
 
   private def nextCounterclockwise(): (Int, Int) = {
     val curPoint = (x, y)
-    quadrant match {
+    octant match {
+      case 7 => incrementY(true)
       case 0 => incrementY(true)
       case 1 => incrementX(false)
-      case 2 => incrementY(false)
-      case 3 => incrementX(true)
+      case 2 => incrementX(false)
+      case 3 => incrementY(false)
+      case 4 => incrementY(false)
+      case 5 => incrementX(true)
+      case 6 => incrementX(true)
     }
     curPoint
   }
 
-  def next(): (Int, Int) =
+  def next(): (Int, Int) = {
+    atStart = false
     if (clockwise) nextClockwise()
     else nextCounterclockwise()
+  }
 
-  def previous(): (Int, Int) =
+  def previous(): (Int, Int) = {
+    atEnd = false
     if (clockwise) nextCounterclockwise()
     else nextClockwise()
+  }
 
   def hasNext: Boolean = {
-    if (forwardsQuadrantStack.length == quadrantList.length) {
-      if (clockwise) slope <= endSlope
-      else slope >= endSlope
-    } else false
+    if (forwardsOctantStack.isEmpty) {
+      if (clockwise) slope >= endSlope
+      else slope <= endSlope
+    } else true
+  }
+
+  def remaining: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
+    override def hasNext: Boolean = ArcBinner.this.hasNext
+    override def next(): (Int, Int) = ArcBinner.this.next()
   }
 
   def hasPrevious: Boolean = {
-    if (backwardsQuadrantStack.length == quadrantList.length) {
-      if (clockwise) slope >= startSlope
-      else slope <= startSlope
-    } else false
+    if (backwardsOctantStack.isEmpty) {
+      if (clockwise) slope <= startSlope
+      else slope >= startSlope
+    } else true
+  }
+
+  def preceding: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
+    override def hasNext: Boolean = ArcBinner.this.hasPrevious
+    override def next(): (Int, Int) = ArcBinner.this.previous()
   }
 }
 

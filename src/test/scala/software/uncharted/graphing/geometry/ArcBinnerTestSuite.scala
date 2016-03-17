@@ -41,44 +41,90 @@ class ArcBinnerTestSuite extends FunSuite {
     assert(3 === getQuadrant(4, -4))
   }
 
-  test("Double-octant determination") {
-    assert(0 === getDoubleOctant(4, 0))
-    assert(1 === getDoubleOctant(4, 4))
-    assert(2 === getDoubleOctant(0, 4))
-    assert(3 === getDoubleOctant(-4, 4))
-    assert(4 === getDoubleOctant(-4, 0))
-    assert(5 === getDoubleOctant(-4, -4))
-    assert(6 === getDoubleOctant(0, -4))
-    assert(7 === getDoubleOctant(4, -4))
-  }
+//  test("Double-octant determination") {
+//    assert(0 === getDoubleOctant(4, 0))
+//    assert(1 === getDoubleOctant(4, 4))
+//    assert(2 === getDoubleOctant(0, 4))
+//    assert(3 === getDoubleOctant(-4, 4))
+//    assert(4 === getDoubleOctant(-4, 0))
+//    assert(5 === getDoubleOctant(-4, -4))
+//    assert(6 === getDoubleOctant(0, -4))
+//    assert(7 === getDoubleOctant(4, -4))
+//  }
+//
+//  test("Double-octant borderline determination") {
+//    val s = math.sin(math.Pi * 0.125)
+//    val c = math.cos(math.Pi * 0.125)
+//    assert(0 === getDoubleOctant(c, s - epsilon))
+//    assert(1 === getDoubleOctant(s + epsilon, c))
+//    assert(2 === getDoubleOctant(-s + epsilon, c))
+//    assert(3 === getDoubleOctant(-c, s + epsilon))
+//    assert(4 === getDoubleOctant(-c, -s + epsilon))
+//    assert(5 === getDoubleOctant(-s - epsilon, -c))
+//    assert(6 === getDoubleOctant(s - epsilon, -c))
+//    assert(7 === getDoubleOctant(c, -s - epsilon))
+//  }
 
-  test("Double-octant borderline determination") {
-    val s = math.sin(math.Pi * 0.125)
-    val c = math.cos(math.Pi * 0.125)
-    assert(0 === getDoubleOctant(c, s - epsilon))
-    assert(1 === getDoubleOctant(s + epsilon, c))
-    assert(2 === getDoubleOctant(-s + epsilon, c))
-    assert(3 === getDoubleOctant(-c, s + epsilon))
-    assert(4 === getDoubleOctant(-c, -s + epsilon))
-    assert(5 === getDoubleOctant(-s - epsilon, -c))
-    assert(6 === getDoubleOctant(s - epsilon, -c))
-    assert(7 === getDoubleOctant(c, -s - epsilon))
-  }
-
-  test("Simple test of full arc") {
+  test("Simple test of full arc, forward direction") {
     val arcBinner = new ArcBinner((5, 5), (-5, 5), math.Pi / 2, false)
     var last: (Int, Int) = arcBinner.next()
     assert((5, 5) === last)
-    println(last)
 
     while (arcBinner.hasNext) {
       val next = arcBinner.next()
-      println(next)
       assert(distance(next, last) < math.sqrt(2) + epsilon)
       assert(distance(next, (0, 0)) < math.sqrt(2) * 5.5 + epsilon)
       last = next
     }
     assert((-5, 5) === last)
+  }
+
+  test("test of iterable return, forward direction") {
+    val arcBinner = new ArcBinner((5, 5), (-5, 5), math.Pi / 2, false)
+    val points = arcBinner.remaining.toList
+    assert((5, 5) === points(0))
+    assert((-5, 5) === points(points.length - 1))
+
+    points.sliding(2).foreach { pair =>
+      val first = pair(0)
+      val second = pair(1)
+
+      assert(distance(first, second) < math.sqrt(2) + epsilon)
+      assert(distance(first, (0, 0)) < math.sqrt(2) * 5.5 + epsilon)
+      assert(math.atan2(first._2, first._1) < math.atan2(second._2, second._1))
+    }
+  }
+
+  test("Simple test of full arc, backward direction") {
+    val arcBinner = new ArcBinner((5, 5), (-5, 5), math.Pi / 2, false)
+    arcBinner.toEnd()
+    var last: (Int, Int) = arcBinner.previous()
+    assert((-5, 5) === last)
+
+    while (arcBinner.hasPrevious) {
+      val next = arcBinner.previous()
+      assert(distance(next, last) < math.sqrt(2) + epsilon)
+      assert(distance(next, (0, 0)) < math.sqrt(2) * 5.5 + epsilon)
+      last = next
+    }
+    assert((5, 5) === last)
+  }
+
+  test("test of iterable return, backward direction") {
+    val arcBinner = new ArcBinner((5, 5), (-5, 5), math.Pi / 2, false)
+    arcBinner.toEnd()
+    val points = arcBinner.preceding.toList
+    assert((-5, 5) === points(0))
+    assert((5, 5) === points(points.length - 1))
+
+    points.sliding(2).foreach{ pair =>
+      val first = pair(0)
+      val second = pair(1)
+
+      assert(distance(first, second) < math.sqrt(2) + epsilon)
+      assert(distance(first, (0, 0)) < math.sqrt(2) * 5.5 + epsilon)
+      assert(math.atan2(first._2, first._1) > math.atan2(second._2, second._1))
+    }
   }
 }
 
