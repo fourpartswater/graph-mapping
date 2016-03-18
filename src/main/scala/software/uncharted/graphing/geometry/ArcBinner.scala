@@ -1,7 +1,6 @@
 package software.uncharted.graphing.geometry
 
 import scala.languageFeature.implicitConversions
-import scala.collection.mutable.{Stack => MutableStack}
 
 /**
   * Created by nkronenfeld on 14/03/16.
@@ -117,6 +116,34 @@ object ArcBinner {
   }
 }
 
+case class SquareBounds (min: Double, current: Double, max: Double) {
+  def asTuple = (min, current, max)
+}
+
+case class ArcPointInfo (point: (Int, Int), center: DoubleTuple, slope: Double, octant: Int, inBounds: Boolean,
+                         private var xSquared: Option[SquareBounds], private var ySquared: Option[SquareBounds]) {
+  def getXSquareBounds: SquareBounds = {
+    if (xSquared.isEmpty) {
+      val x = point._1
+      val x2min = (x - 0.5 - center.x) * (x - 0.5 - center.x)
+      val x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
+      val x2 = (x - center.x) * (x - center.x)
+      xSquared = Some(SquareBounds(x2min, x2, x2max))
+    }
+    xSquared.get
+  }
+  def getYSquareBounds: SquareBounds = {
+    if (ySquared.isEmpty) {
+      val y = point._2
+      val y2min = (y - 0.5 - center.y) * (y - 0.5 - center.y)
+      val y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
+      val y2 = (y - center.y) * (y - center.y)
+      ySquared = Some(SquareBounds(y2min, y2, y2max))
+    }
+    ySquared.get
+  }
+}
+
 /**
   * A class that can report the individual pixels on an arc from start to end of the given arc length
   *
@@ -134,75 +161,60 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
 
   private val startOctant = getOctant(start - center)
   private val startSlope = getSlope(start, center)
-  // The list of octants going forwards around the arc from the current octant
-  private val forwardsOctantStack = MutableStack[Int]()
 
   private val endOctant = getOctant(end - center)
   private val endSlope = getSlope(end, center)
-  // The list of octants behind the current octant
-  private val backwardsOctantStack = MutableStack[Int]()
 
   private val octantList =
     getInterveningSectors(startOctant, startSlope, endOctant, endSlope, 8, !clockwise)
 
-  private var x = 0
-  private var x2 = 0.0
-  private var x2min = 0.0
-  private var x2max = 0.0
-  private var y = 0
-  private var y2 = 0.0
-  private var y2min = 0.0
-  private var y2max = 0.0
-  private var octant = 0
-  private var slope = 0.0
-  private var atStart = false
-  private var atEnd = false
+  private def isInBounds (point: DoubleTuple, slope: Double, octant: Int): Boolean = {
+    if (startOctant == endOctant) {
+      if (octant != startOctant) false
+      else if (clockwise) endSlope <= slope && slope <= startSlope
+      else startSlope <= slope && slope <= endSlope
+    } else if (octant == startOctant) {
+      if (clockwise) slope <= startSlope
+      else startSlope <= slope
+    } else if (octant == endOctant) {
+      if (clockwise) endSlope <= slope
+      else slope <= endSlope
+    } else if (octantList.contains(octant)) true
+    else false
+  }
+
+  private def getInBoundsPointInfo (point: DoubleTuple) = {
+    val floor = point.floor
+    val isInBounds = true
+    ArcPointInfo(floor, center, getSlope(floor, center), getOctant(floor - center), isInBounds, None, None)
+  }
+
+  val startPointInfo = getInBoundsPointInfo(start)
+  val endPointInfo = getInBoundsPointInfo(end)
+
+  var currentPoint: ArcPointInfo = null
+  var nextPoint: Option[ArcPointInfo] = None
+  var previousPoint: Option[ArcPointInfo] = None
+
   resetToStart()
 
   def resetToStart(): Unit = {
-    x = start.x.floor.toInt
-    y = start.y.floor.toInt
-    octant = startOctant
-    slope = getSlope((x, y), center)
-    atStart = true
-
-    forwardsOctantStack.clear()
-    forwardsOctantStack.pushAll(octantList.drop(1))
-    backwardsOctantStack.clear()
-
-    recalculateSquaredBounds(xBounds = true, yBounds = true)
+    currentPoint = startPointInfo
+    nextPoint = Some(currentPoint)
+    previousPoint = None
   }
 
   def resetToEnd(): Unit = {
-    x = end.x.floor.toInt
-    y = end.y.floor.toInt
-    octant = endOctant
-    slope = getSlope((x, y), center)
-    atEnd = true
-
-    forwardsOctantStack.clear()
-    backwardsOctantStack.clear()
-    backwardsOctantStack.pushAll(octantList.reverse.drop(1))
-
-    recalculateSquaredBounds(xBounds = true, yBounds = true)
+    currentPoint = endPointInfo
+    nextPoint = None
+    previousPoint = Some(currentPoint)
   }
 
-  private def recalculateSquaredBounds(xBounds: Boolean = false, yBounds: Boolean = false): Unit = {
-    if (xBounds) {
-      x2min = (x - 0.5 - center.x) * (x - 0.5 - center.x)
-      x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
-      x2 = (x - center.x) * (x - center.x)
-    }
-
-    if (yBounds) {
-      y2min = (y - 0.5 - center.y) * (y - 0.5 - center.y)
-      y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
-      y2 = (y - center.y) * (y - center.y)
-    }
-  }
-
-  private def incrementX(positive: Boolean): Unit = {
+  private def incrementX (current: ArcPointInfo, positive: Boolean): ArcPointInfo = {
     val sign = if (positive) 1 else -1
+    var (x, y) = current.point
+    var (y2min, y2, y2max) = current.getYSquareBounds.asTuple
+
     y2 = y2 - sign * 2.0 * (x - center.x) - 1.0
     x = x + sign
 
@@ -215,16 +227,19 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
       y2min = y2max
       y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
     }
-    slope = getSlope((x, y), center)
-    val newOctant = getOctant((x, y) - center)
-    if (newOctant != octant) {
-      setNewOctant(newOctant)
-      recalculateSquaredBounds(yBounds = true)
-    }
+
+    val point = (x, y)
+    val slope = getSlope(point, center)
+    val octant = getOctant(point - center)
+    val inBounds = isInBounds(point, slope, octant)
+    ArcPointInfo((x, y), center, slope, octant, inBounds, None, Some(SquareBounds(y2min, y2, y2max)))
   }
 
-  private def incrementY(positive: Boolean): Unit = {
+  private def incrementY (current: ArcPointInfo, positive: Boolean): ArcPointInfo = {
     val sign = if (positive) 1 else -1
+    var (x, y) = current.point
+    var (x2min, x2, x2max) = current.getYSquareBounds.asTuple
+
     x2 = x2 - sign * 2.0 * y - 1.0
     y = y + sign
 
@@ -237,96 +252,85 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
       x2min = x2max
       x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
     }
-    slope = getSlope((x, y), center)
-    val newOctant = getOctant((x, y) - center)
-    if (newOctant != octant) {
-      setNewOctant(newOctant)
-      recalculateSquaredBounds(xBounds = true)
+
+    val point = (x, y)
+    val slope = getSlope(point, center)
+    val octant = getOctant(point - center)
+    val inBounds = isInBounds(point, slope, octant)
+    ArcPointInfo((x, y), center, slope, octant, inBounds, Some(SquareBounds(x2min, x2, x2max)), None)
+  }
+
+  private val positive = true
+  private val negative = false
+  private def nextClockwise(): ArcPointInfo = {
+    currentPoint.octant match {
+      case 7 => incrementY(currentPoint, negative)
+      case 0 => incrementY(currentPoint, negative)
+      case 1 => incrementX(currentPoint, positive)
+      case 2 => incrementX(currentPoint, positive)
+      case 3 => incrementY(currentPoint, positive)
+      case 4 => incrementY(currentPoint, positive)
+      case 5 => incrementX(currentPoint, negative)
+      case 6 => incrementX(currentPoint, negative)
     }
   }
 
-  private def setNewOctant (newOctant: Int): Unit = {
-    val forwards =
-      if (newOctant == octant + 1 || newOctant == octant - 7) {
-        !clockwise
-      } else {
-        clockwise
-      }
-    if (forwards) {
-      if (!hasNext) atEnd = true
-      if (!atEnd) {
-        assert(newOctant == forwardsOctantStack.pop())
-        backwardsOctantStack.push(octant)
-      }
-    } else {
-      if (!hasPrevious) atStart = true
-      if (!atStart) {
-        assert(newOctant == backwardsOctantStack.pop())
-        forwardsOctantStack.push(octant)
-      }
+  private def nextCounterclockwise(): ArcPointInfo = {
+    currentPoint.octant match {
+      case 7 => incrementY(currentPoint, positive)
+      case 0 => incrementY(currentPoint, positive)
+      case 1 => incrementX(currentPoint, negative)
+      case 2 => incrementX(currentPoint, negative)
+      case 3 => incrementY(currentPoint, negative)
+      case 4 => incrementY(currentPoint, negative)
+      case 5 => incrementX(currentPoint, positive)
+      case 6 => incrementX(currentPoint, positive)
     }
-    octant = newOctant
-  }
-
-  private def nextClockwise(): (Int, Int) = {
-    val curPoint = (x, y)
-    octant match {
-      case 7 => incrementY(false)
-      case 0 => incrementY(false)
-      case 1 => incrementX(true)
-      case 2 => incrementX(true)
-      case 3 => incrementY(true)
-      case 4 => incrementY(true)
-      case 5 => incrementX(false)
-      case 6 => incrementX(false)
-    }
-    curPoint
-  }
-
-  private def nextCounterclockwise(): (Int, Int) = {
-    val curPoint = (x, y)
-    octant match {
-      case 7 => incrementY(true)
-      case 0 => incrementY(true)
-      case 1 => incrementX(false)
-      case 2 => incrementX(false)
-      case 3 => incrementY(false)
-      case 4 => incrementY(false)
-      case 5 => incrementX(true)
-      case 6 => incrementX(true)
-    }
-    curPoint
-  }
-
-  def next(): (Int, Int) = {
-    atStart = false
-    if (clockwise) nextClockwise()
-    else nextCounterclockwise()
-  }
-
-  def previous(): (Int, Int) = {
-    atEnd = false
-    if (clockwise) nextCounterclockwise()
-    else nextClockwise()
   }
 
   def hasNext: Boolean = {
-    if (forwardsOctantStack.isEmpty) {
-      if (clockwise) slope >= endSlope
-      else slope <= endSlope
-    } else true
+    if (nextPoint.isEmpty) {
+      nextPoint = Some(
+        if (clockwise) nextClockwise()
+        else nextCounterclockwise()
+      )
+    }
+    nextPoint.get.inBounds
+  }
+
+  def hasPrevious: Boolean = {
+    if (previousPoint.isEmpty) {
+      previousPoint = Some(
+        if (clockwise) nextCounterclockwise()
+        else nextClockwise()
+      )
+    }
+    previousPoint.get.inBounds
+  }
+
+  def next(): (Int, Int) = {
+    if (hasNext) {
+      previousPoint = Some(currentPoint)
+      currentPoint = nextPoint.get
+      nextPoint = None
+
+      currentPoint.point
+    } else throw new Exception("Attempt to get past start of arc")
+  }
+
+  def previous(): (Int, Int) = {
+    if (hasPrevious) {
+      nextPoint = Some(currentPoint)
+      currentPoint = previousPoint.get
+      previousPoint = None
+
+      currentPoint.point
+    } else throw new Exception("Attempt to get past end of arc")
   }
 
   def remaining: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
     override def hasNext: Boolean = ArcBinner.this.hasNext
     override def next(): (Int, Int) = ArcBinner.this.next()
-  }
-
-  def hasPrevious: Boolean = {
-    if (backwardsOctantStack.isEmpty) {
-      if (clockwise) slope <= startSlope
-      else slope >= startSlope
-    } else true
   }
 
   def preceding: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
@@ -339,6 +343,7 @@ object DoubleTuple {
   implicit def fromTupleOfDouble (tuple: (Double, Double)): DoubleTuple = new DoubleTuple(tuple._1, tuple._2)
   implicit def fromTupleOfInt (tuple: (Int, Int)): DoubleTuple = new DoubleTuple(tuple._1.toDouble, tuple._2.toDouble)
   implicit def toTupleOfDouble (tuple: DoubleTuple): (Double, Double) = (tuple.x, tuple.y)
+  implicit def toTupleOfInt (tuple: DoubleTuple): (Int, Int) = (tuple.x.toInt, tuple.y.toInt)
 }
 
 case class DoubleTuple (x: Double, y: Double) {
@@ -354,7 +359,9 @@ case class DoubleTuple (x: Double, y: Double) {
 
   def length = math.sqrt(x * x + y * y)
 
-  implicit def toTuple: (Double, Double) = (x, y)
+  def floor = DoubleTuple(x.floor, y.floor)
+
+  def ceil = DoubleTuple(x.ceil, y.ceil)
 }
 
 case class DoubleRotation (r00: Double, r01: Double, r10: Double, r11: Double) {

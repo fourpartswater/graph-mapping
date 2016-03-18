@@ -101,7 +101,7 @@ class ArcBinnerTestSuite extends FunSuite {
     assert((5, 5) === last)
   }
 
-  ignore("test of iterable return, backward direction") {
+  test("test of iterable return, backward direction") {
     val arcBinner = new ArcBinner((5, 5), (-5, 5), math.Pi / 2, false)
     arcBinner.resetToEnd()
     val points = arcBinner.preceding.toList
