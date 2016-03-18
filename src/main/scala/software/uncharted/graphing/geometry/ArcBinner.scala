@@ -43,6 +43,14 @@ object ArcBinner {
   }
 
   /**
+    * Find the angular length of an arc with a given chord length (for a circle of a given radius)
+    */
+  def getArcLength (radius: Double, chordLength: Double): Double = {
+    // sin(1/2 theta) = 1/s chord length / radius
+    2.0 * math.asin(chordLength / (2.0 * radius))
+  }
+
+  /**
     * Get the octant of the cartesian plane in which a given poitn lies.
     *
     * Octant 0 goes from the positive x axis to the 45deg line x=y, octant 1 goes from that line to the positive y
@@ -128,7 +136,7 @@ case class ArcPointInfo (point: (Int, Int), center: DoubleTuple, slope: Double, 
       val x2min = (x - 0.5 - center.x) * (x - 0.5 - center.x)
       val x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
       val x2 = (x - center.x) * (x - center.x)
-      xSquared = Some(SquareBounds(x2min, x2, x2max))
+      xSquared = Some(SquareBounds(x2min min x2max, x2, x2min max x2max))
     }
     xSquared.get
   }
@@ -138,7 +146,7 @@ case class ArcPointInfo (point: (Int, Int), center: DoubleTuple, slope: Double, 
       val y2min = (y - 0.5 - center.y) * (y - 0.5 - center.y)
       val y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
       val y2 = (y - center.y) * (y - center.y)
-      ySquared = Some(SquareBounds(y2min, y2, y2max))
+      ySquared = Some(SquareBounds(y2min min y2max, y2, y2min max y2max))
     }
     ySquared.get
   }
@@ -219,13 +227,25 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
     x = x + sign
 
     if (y2 < y2min) {
-      y = y - 1
-      y2max = y2min
-      y2min = (y - 0.5 - center.y) * (y - 0.5 - center.y)
+      if (y - center.y > 0) {
+        y = y - 1
+        y2max = y2min
+        y2min = (y - 0.5 - center.y) * (y - 0.5 - center.y)
+      } else {
+        y = y + 1
+        y2max = y2min
+        y2min = (y + 0.5 - center.y) * (y + 0.5 - center.y)
+      }
     } else if (y2 >= y2max) {
-      y = y + 1
-      y2min = y2max
-      y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
+      if (y - center.y > 0) {
+        y = y + 1
+        y2min = y2max
+        y2max = (y + 0.5 - center.y) * (y + 0.5 - center.y)
+      } else {
+        y = y - 1
+        y2min = y2max
+        y2max = (y - 0.5 - center.y) * (y - 0.5 - center.y)
+      }
     }
 
     val point = (x, y)
@@ -238,26 +258,38 @@ class ArcBinner (start: DoubleTuple, end: DoubleTuple, arcLength: Double, clockw
   private def incrementY (current: ArcPointInfo, positive: Boolean): ArcPointInfo = {
     val sign = if (positive) 1 else -1
     var (x, y) = current.point
-    var (x2min, x2, x2max) = current.getYSquareBounds.asTuple
+    var (x2min, x2, x2max) = current.getXSquareBounds.asTuple
 
-    x2 = x2 - sign * 2.0 * y - 1.0
+    x2 = x2 - sign * 2.0 * (y - center.y) - 1.0
     y = y + sign
 
     if (x2 < x2min) {
-      x = x - 1
-      x2max = x2min
-      x2min = (x - 0.5 - center.x) * (x - 0.5 - center.x)
+      if (x - center.x > 0) {
+        x = x - 1
+        x2max = x2min
+        x2min = (x - 0.5 - center.x) * (x - 0.5 - center.x)
+      } else {
+        x = x + 1
+        x2max = x2min
+        x2min = (x + 0.5 - center.x) * (x + 0.5 - center.x)
+      }
     } else if (x2 >= x2max) {
-      x = x + 1
-      x2min = x2max
-      x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
+      if (x - center.x > 0) {
+        x = x + 1
+        x2min = x2max
+        x2max = (x + 0.5 - center.x) * (x + 0.5 - center.x)
+      } else {
+        x = x - 1
+        x2min = x2max
+        x2max = (x - 0.5 - center.x) * (x - 0.5 - center.x)
+      }
     }
 
     val point = (x, y)
     val slope = getSlope(point, center)
     val octant = getOctant(point - center)
     val inBounds = isInBounds(point, slope, octant)
-    ArcPointInfo((x, y), center, slope, octant, inBounds, Some(SquareBounds(x2min, x2, x2max)), None)
+    ArcPointInfo((x, y), center, slope, octant, inBounds, Some(SquareBounds(x2min min x2max, x2, x2min max x2max)), None)
   }
 
   private val positive = true

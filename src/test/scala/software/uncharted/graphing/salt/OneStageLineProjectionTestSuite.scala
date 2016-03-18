@@ -120,16 +120,12 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val end = (36, 33)
     val center = (30.0 + 0.6 * 7.5 * math.sqrt(3), 28.5 - 0.8 * 7.5 * math.sqrt(3))
 
-    println("Start angle: "+ArcToPoints.getCircleAngle(center, start))
-    println("End angle: "+ArcToPoints.getCircleAngle(center, end))
-    println("Total arc chord length: "+distance(start, end))
     assert(pointsOpt.isDefined)
     val points = pointsOpt.get
     points.foreach{point =>
       val (tile, bin) = point
       val uBin = (tile._2 * 4 + bin._1, tile._3 * 4 + bin._2)
-      println((uBin, ArcToPoints.getCircleAngle(center, uBin), distance(center, uBin), distance(start, uBin), distance(end, uBin)))
-      distance(center, uBin) should be (15.0 +- 1.0)
+      distance(center, uBin) should be (15.0 +- math.sqrt(0.5))
       assert(distance(start, uBin) < 9.0 || distance(end, uBin) < 9.0)
       assert(start._1 <= uBin._1 && uBin._1 <= end._1)
       assert(start._2 <= uBin._2 && uBin._2 <= end._2)

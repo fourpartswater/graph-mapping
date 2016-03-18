@@ -1,7 +1,11 @@
 package software.uncharted.graphing.salt
 
+
+
+import scala.collection.mutable.{Buffer => MutableBuffer}
 import software.uncharted.graphing.geometry._
 import software.uncharted.salt.core.spreading.SpreadingFunction
+
 
 
 /**
@@ -271,9 +275,11 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
 
         if (minLengthOpt.map(minLength => chordLength >= minLength).getOrElse(true) &&
           maxLengthOpt.map(maxLength => chordLength <= maxLength).getOrElse(true)) {
-          Some(ArcToPoints.getArcPointsFromEndpoints(startUBin, endUBin, arcLength).map(uBin =>
+          import DoubleTuple._
+          val arcToPoints = new ArcBinner(startUBin, endUBin, arcLength, true)
+          Some(arcToPoints.remaining.map(uBin =>
             universalBinIndexToTileIndex(level, uBin, maxBin)
-          ))
+          ).toSeq)
         } else {
           None
         }
@@ -332,22 +338,25 @@ class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
         if (minLengthOpt.map(minLength => chordLength >= minLength).getOrElse(true) &&
           maxLengthOpt.map(maxLength => chordLength <= maxLength).getOrElse(true)) {
           Some {
-            val center = ArcToPoints.getArcCenter(startUBin, endUBin, arcLength, clockwise = true)
-            val radius = ArcToPoints.getArcRadius(startUBin, endUBin, arcLength)
-            val leaderArcLength = ArcToPoints.getArcLength(radius, leaderLength)
+            val binner = new ArcBinner(startUBin, endUBin, arcLength, clockwise = true)
+            val center = ArcBinner.getArcCenter(startUBin, endUBin, arcLength, clockwise = true)
+            val radius = ArcBinner.getArcRadius(startUBin, endUBin, arcLength)
+            val leaderArcLength = ArcBinner.getArcLength(radius, leaderLength)
             if (arcLength <= 2.0 * leaderArcLength) {
               // Short arc, use the whole thing
-              ArcToPoints.getArcPointsFromEndpoints(startUBin, endUBin, arcLength)
-                .map (uBin => universalBinIndexToTileIndex(level, uBin, maxBin))
+              binner.remaining.map(uBin => universalBinIndexToTileIndex(level, uBin, maxBin)).toSeq
             } else {
-              val startAngle = ArcToPoints.getCircleAngle(center, startUBin)
-              val endAngle = ArcToPoints.getCircleAngle(center, endUBin)
-              val endAngleRelativeToStart = ArcToPoints.toClosestModulus(startAngle, endAngle, math.Pi * 2.0)
-              val direction = (startAngle - endAngleRelativeToStart).signum
-              val startLeaderPoints = ArcToPoints.getArcPointsFromStartCenter(startUBin, center, leaderArcLength * direction)
-              val endLeaderPoints = ArcToPoints.getArcPointsFromStartCenter(endUBin, center, leaderArcLength * direction * -1)
+              val startLeaderBuffer = MutableBuffer[(Int, Int)]()
+              binner.resetToStart()
+              while (binner.hasNext && Line.distance(binner.currentPoint.point, startUBin) < leaderLength)
+                startLeaderBuffer += binner.next
 
-              (startLeaderPoints ++ endLeaderPoints)
+              val endLeaderBuffer = MutableBuffer[(Int, Int)]()
+              binner.resetToEnd()
+              while (binner.hasPrevious && Line.distance(binner.currentPoint.point, endUBin) < leaderLength)
+                endLeaderBuffer += binner.previous()
+
+              (startLeaderBuffer ++ endLeaderBuffer)
                 .map(uBin => universalBinIndexToTileIndex(level, uBin, maxBin))
             }
           }

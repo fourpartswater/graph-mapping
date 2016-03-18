@@ -117,6 +117,18 @@ class ArcBinnerTestSuite extends FunSuite {
       assert(math.atan2(first._2, first._1) > math.atan2(second._2, second._1))
     }
   }
+
+  test("Test off-origin arc") {
+    val binner = new ArcBinner((24, 24), (36, 33), math.Pi/3, clockwise = true)
+    val center = ArcBinner.getArcCenter((24, 24), (36, 33), math.Pi/3, clockwise = true)
+    val radius = distance(center, (24, 24))
+
+    distance(center, (36, 33)) should be (radius +- epsilon)
+
+    while (binner.hasNext) {
+      distance(center, binner.next) should be (radius +- (math.sqrt(2)/2.0 + epsilon))
+    }
+  }
 }
 
 case class DoubleTupleMatcher (right: DoubleTuple, epsilon: Double = 1E-12) extends BeMatcher[DoubleTuple] {
