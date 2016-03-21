@@ -14,8 +14,8 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val leaderLength = 5
     val tms = false
 
-    val projection = new SimpleLeaderLineProjection(Seq(4), leaderLength, bounds._1, bounds._2, tms)
-    val bruteForce = new BruteForceLeaderLineReducer(maxBin, bounds, 4, leaderLength, tms)
+    val projection = new SimpleLeaderLineProjection(Seq(4), bounds._1, bounds._2, leaderLength, tms = tms)
+    val bruteForce = new BruteForceLeaderLineReducer(maxBin, bounds, 4, leaderLength, tms = tms)
     for (x0 <- -10 to 10; y0 <- -10 to 10; x1 <- -10 to 10; y1 <- -10 to 10) {
       if (x0 != x1 || y0 != y1) {
         try {
@@ -37,8 +37,8 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val leaderLength = 5
     val tms = false
 
-    val projection = new SimpleLeaderLineProjection(Seq(4), leaderLength, bounds._1, bounds._2, tms)
-    val bruteForce = new BruteForceLeaderLineReducer(maxBin, bounds, 4, leaderLength, tms)
+    val projection = new SimpleLeaderLineProjection(Seq(4), bounds._1, bounds._2, leaderLength, tms = tms)
+    val bruteForce = new BruteForceLeaderLineReducer(maxBin, bounds, 4, leaderLength, tms = tms)
 
     val usingProjection = projection.project(Some((x0.toDouble, y0.toDouble, x1.toDouble, y1.toDouble)), maxBin).get.sorted.toList
     val usingBruteForce = bruteForce.getBins(x0, y0, x1, y1).sorted.toList
@@ -53,7 +53,7 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val maxLength = Some(7.0)
     val tms = false
 
-    val projection = new SimpleLineProjection(Seq(4), minLength, maxLength, bounds._1, bounds._2, tms)
+    val projection = new SimpleLineProjection(Seq(4), bounds._1, bounds._2, minLength, maxLength, tms = tms)
     for (x0 <- -10 to 10; y0 <- -10 to 10; x1 <- -10 to 10; y1 <- -10 to 10) {
       if (x0 != x1 || y0 != y1) {
         try {
@@ -82,7 +82,7 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     val maxLength = Some(7.0)
     val tms = false
 
-    val projection = new SimpleLineProjection(Seq(4), minLength, maxLength, bounds._1, bounds._2, tms)
+    val projection = new SimpleLineProjection(Seq(4), bounds._1, bounds._2, minLength, maxLength, tms = tms)
     val expectedLineLength = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
     val bins = projection.project(Some((x0.toDouble, y0.toDouble, x1.toDouble, y1.toDouble)), maxBin)
     if (expectedLineLength >= 3.0 && expectedLineLength <= 7.0) {
@@ -110,7 +110,7 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     import Line.distance
     import Line.intPointToDoublePoint
 
-    val projection = new SimpleLeaderArcProjection(Seq(4), 8, minLengthOpt = None, maxLengthOpt = None, max = (64.0, 64.0))
+    val projection = new SimpleLeaderArcProjection(Seq(4), (0.0, 0.0), (64.0, 64.0), 8)
     val pointsOpt = projection.project(Some((24.0, 24.0, 36.0, 33.0)), (3, 3))
     // Points are (24, 24) and (36, 33), creating equilateral triangle arc
     // length is sqrt(12^2 + 9^2) = 15
@@ -136,7 +136,7 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     import Line.intPointToDoublePoint
 
 
-    val projection = new SimpleLeaderArcProjection(Seq(4), 8, minLengthOpt = None, maxLengthOpt = None, max = (64.0, 64.0))
+    val projection = new SimpleLeaderArcProjection(Seq(4), (0.0, 0.0), (64.0, 64.0), 8)
     val pointsOpt = projection.project(Some((34.0, 17.0, 10.0, 7.0)), (3, 3))
     // Points are (34, 17), (10, 7), creating equilateral triangle arc
     // Length is 26

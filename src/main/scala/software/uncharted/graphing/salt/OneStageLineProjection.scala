@@ -9,20 +9,89 @@ import software.uncharted.salt.core.spreading.SpreadingFunction
 
 
 /**
+  * A line projection that projects straight from lines to raster bins in one pass.
+  *
+  * @param zoomLevels The zoom levels onto which to project
+  * @param min The minimum coordinates of the data space
+  * @param max The maximum coordinates of the data space
+  * @param minLengthOpt The minimum length of line (in bins) to project
+  * @param maxLengthOpt The maximum length of line (in bins) to project
+  * @param tms if true, the Y axis for tile coordinates only is flipped     *
+  */
+class SimpleLineProjection (zoomLevels: Seq[Int],
+                            min: (Double, Double),
+                            max: (Double, Double),
+                            minLengthOpt: Option[Double] = None,
+                            maxLengthOpt: Option[Double] = None,
+                            tms: Boolean = false)
+  extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)] (min, max, tms)
+{
+  /**
+    * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
+    *
+    * @param coordinates the endpoints of a line (x0, y0, x1, y1)
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return All the bins representing the given line if the given source row is within the bounds of the
+    *         viz. None otherwise.
+    */
+  override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
+    if (coordinates.isEmpty) {
+      None
+    } else {
+      // get input points translated and scaled into [0, 1) x [0, 1)
+      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
+      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
+
+      zoomLevels.map { level =>
+        // Convert input into universal bin coordinates
+        val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
+        val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
+
+        val line2point = new LineToPoints(startUBin, endUBin)
+
+        if (minLengthOpt.map(minLength => line2point.totalLength >= minLength).getOrElse(true) &&
+          maxLengthOpt.map(maxLength => line2point.totalLength <= maxLength).getOrElse(true)) {
+          Some(line2point.rest().map { uBin => universalBinIndexToTileIndex(level, uBin, maxBin) }.toSeq)
+        } else {
+          None
+        }
+      }.reduce((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
+    }
+  }
+
+  /**
+    * Project a bin index BC into 1 dimension for easy storage of bin values in an array
+    *
+    * @param bin    A bin index
+    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
+    * @return the bin index converted into its one-dimensional representation
+    */
+  override def binTo1D(bin: (Int, Int), maxBin: (Int, Int)): Int = {
+    bin._1 + bin._2 * (maxBin._1 + 1)
+  }
+}
+
+
+
+/**
   * A line projection that projects straight from lines to raster bins in one pass, emitting only a leader of
   * predefined length on each end of the line.
   *
   * @param zoomLevels The zoom levels onto which to project
-  * @param leaderLineLength The number of bins to keep near each end of the line
   * @param min The minimum coordinates of the data space
   * @param max The maximum coordinates of the data space
+  * @param leaderLineLength The number of bins to keep near each end of the line
+  * @param minLengthOpt The minimum length of line (in bins) to project
+  * @param maxLengthOpt The maximum length of line (in bins) to project
   * @param tms if true, the Y axis for tile coordinates only is flipped     *
   */
 class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
-                                  leaderLineLength: Int,
                                   min: (Double, Double),
                                   max: (Double, Double),
-                                  tms: Boolean)
+                                  leaderLineLength: Int = 1024,
+                                  minLengthOpt: Option[Int] = None,
+                                  maxLengthOpt: Option[Int] = None,
+                                  tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)] (min, max, tms)
 {
   private val leaderLineLengthSquared = leaderLineLength * leaderLineLength
@@ -43,56 +112,61 @@ class SimpleLeaderLineProjection (zoomLevels: Seq[Int],
       val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
       val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
 
-      Some(zoomLevels.flatMap { level =>
+      zoomLevels.map { level =>
         // Convert input into universal bin coordinates
         val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
         val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
 
         val line2point = new LineToPoints(startUBin, endUBin)
 
-        val uBins: Seq[(Int, Int)] =
-          if (line2point.totalLength > 2 * leaderLineLength) {
-            val startVal = line2point.longAxisValue(startUBin)
-            val startLeaderEnd = {
-              val skipPoint = line2point.longAxisValue(line2point.skipToDistance(startUBin, leaderLineLength))
-              line2point.reset()
-              var p =
-                if (line2point.increasing) line2point.skipTo(skipPoint - 1)
-                else line2point.skipTo(skipPoint + 1)
-              var pn = p
-              while (Line.distanceSquared(pn, startUBin) <= leaderLineLengthSquared) {
-                p = pn
-                pn = line2point.next()
+        if (minLengthOpt.map(minLength => line2point.totalLength >= minLength).getOrElse(true) &&
+          maxLengthOpt.map(maxLength => line2point.totalLength <= maxLength).getOrElse(true)) {
+          val uBins: Seq[(Int, Int)] =
+            if (line2point.totalLength > 2 * leaderLineLength) {
+              val startVal = line2point.longAxisValue(startUBin)
+              val startLeaderEnd = {
+                val skipPoint = line2point.longAxisValue(line2point.skipToDistance(startUBin, leaderLineLength))
+                line2point.reset()
+                var p =
+                  if (line2point.increasing) line2point.skipTo(skipPoint - 1)
+                  else line2point.skipTo(skipPoint + 1)
+                var pn = p
+                while (Line.distanceSquared(pn, startUBin) <= leaderLineLengthSquared) {
+                  p = pn
+                  pn = line2point.next()
+                }
+                p
               }
-              p
-            }
-            val endLeaderStart = {
+              val endLeaderStart = {
+                line2point.reset()
+                var p = line2point.skipToDistance(endUBin, leaderLineLength + 1)
+                while (Line.distanceSquared(p, endUBin) > leaderLineLengthSquared)
+                  p = line2point.next()
+                p
+              }
+
               line2point.reset()
-              var p = line2point.skipToDistance(endUBin, leaderLineLength+1)
-              while (Line.distanceSquared(p, endUBin) > leaderLineLengthSquared)
-                p = line2point.next()
-              p
+              val firstHalf =
+                if (line2point.increasing) line2point.next(line2point.longAxisValue(startLeaderEnd) - startVal + 1)
+                else line2point.next(startVal - line2point.longAxisValue(startLeaderEnd) + 1)
+              line2point.reset()
+              line2point.skipTo(line2point.longAxisValue(endLeaderStart) + (if (line2point.increasing) -1 else 1))
+              val secondHalf = line2point.rest()
+
+              firstHalf ++ secondHalf
+            } else {
+              line2point.rest()
             }
 
-            line2point.reset()
-            val firstHalf =
-              if (line2point.increasing) line2point.next(line2point.longAxisValue(startLeaderEnd) - startVal + 1)
-              else line2point.next(startVal - line2point.longAxisValue(startLeaderEnd) + 1)
-            line2point.reset()
-            line2point.skipTo(line2point.longAxisValue(endLeaderStart) + (if (line2point.increasing) -1 else 1))
-            val secondHalf = line2point.rest()
+          val bins: Seq[((Int, Int, Int), (Int, Int))] = uBins.map(uBin =>
+            universalBinIndexToTileIndex(level, uBin, maxBin)
+          )
 
-            firstHalf ++ secondHalf
-          } else {
-            line2point.rest()
-          }
-
-        val bins: Seq[((Int, Int, Int), (Int, Int))] = uBins.map(uBin =>
-          universalBinIndexToTileIndex(level, uBin, maxBin)
-        )
-
-        bins
-      })
+          Some(bins)
+        } else {
+          None: Option[Seq[((Int, Int, Int), (Int, Int))]]
+        }
+      }.reduce((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
     }
   }
 
@@ -163,88 +237,23 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int), _tms: 
 
 
 /**
-  * A line projection that projects straight from lines to raster bins in one pass.
-  *
-  * @param zoomLevels The zoom levels onto which to project
-  * @param minLengthOpt The minimum length of line (in bins) to project
-  * @param maxLengthOpt The maximum length of line (in bins) to project
-  * @param min The minimum coordinates of the data space
-  * @param max The maximum coordinates of the data space
-  * @param tms if true, the Y axis for tile coordinates only is flipped     *
-  */
-class SimpleLineProjection (zoomLevels: Seq[Int],
-                            minLengthOpt: Option[Double],
-                            maxLengthOpt: Option[Double],
-                            min: (Double, Double),
-                            max: (Double, Double),
-                            tms: Boolean)
-  extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)] (min, max, tms)
-{
-  /**
-    * Project a data-space coordinate into the corresponding tile coordinate and bin coordinate
-    *
-    * @param coordinates the endpoints of a line (x0, y0, x1, y1)
-    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-    * @return All the bins representing the given line if the given source row is within the bounds of the
-    *         viz. None otherwise.
-    */
-  override def project(coordinates: Option[(Double, Double, Double, Double)], maxBin: (Int, Int)): Option[Seq[((Int, Int, Int), (Int, Int))]] = {
-    if (coordinates.isEmpty) {
-      None
-    } else {
-      // get input points translated and scaled into [0, 1) x [0, 1)
-      val startPoint = translateAndScale(coordinates.get._1, coordinates.get._2)
-      val endPoint = translateAndScale(coordinates.get._3, coordinates.get._4)
-
-      zoomLevels.map { level =>
-        // Convert input into universal bin coordinates
-        val startUBin = scaledToUniversalBin(startPoint, level, maxBin)
-        val endUBin = scaledToUniversalBin(endPoint, level, maxBin)
-
-        val line2point = new LineToPoints(startUBin, endUBin)
-
-        if (minLengthOpt.map(minLength => line2point.totalLength >= minLength).getOrElse(true) &&
-          maxLengthOpt.map(maxLength => line2point.totalLength <= maxLength).getOrElse(true)) {
-          Some(line2point.rest().map { uBin => universalBinIndexToTileIndex(level, uBin, maxBin) }.toSeq)
-        } else {
-          None
-        }
-      }.reduce((a, b) => (a ++ b).reduceLeftOption(_ ++ _))
-    }
-  }
-
-  /**
-    * Project a bin index BC into 1 dimension for easy storage of bin values in an array
-    *
-    * @param bin    A bin index
-    * @param maxBin The maximum possible bin index (i.e. if your tile is 256x256, this would be (255,255))
-    * @return the bin index converted into its one-dimensional representation
-    */
-  override def binTo1D(bin: (Int, Int), maxBin: (Int, Int)): Int = {
-    bin._1 + bin._2 * (maxBin._1 + 1)
-  }
-}
-
-
-
-/**
   * A line projection that projects straight from arcs to raster bins in one pass.  All arcs are drawn with the same
   * curvature, and go clockwise from source to destination.
   *
   * @param zoomLevels The zoom levels onto which to project
+  * @param min The minimum coordinates of the data space
+  * @param max The maximum coordinates of the data space
   * @param arcLength The curvature of the arcs drawn, in radians
   * @param minLengthOpt The minimum length of line (in bins) to project
   * @param maxLengthOpt The maximum length of line (in bins) to project
-  * @param min The minimum coordinates of the data space
-  * @param max The maximum coordinates of the data space
   * @param tms if true, the Y axis for tile coordinates only is flipped     *
   */
 class SimpleArcProjection (zoomLevels: Seq[Int],
+                           min: (Double, Double),
+                           max: (Double, Double),
                            arcLength: Double = math.Pi / 3,
                            minLengthOpt: Option[Double] = Some(4),
                            maxLengthOpt: Option[Double] = Some(1024),
-                           min: (Double, Double) = (0.0, 0.0),
-                           max: (Double, Double) = (1.0, 1.0),
                            tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
 {
@@ -302,12 +311,12 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
 
 
 class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
+                                 min: (Double, Double),
+                                 max: (Double, Double),
                                  leaderLength: Int,
                                  arcLength: Double = math.Pi / 3,
                                  minLengthOpt: Option[Double] = Some(4),
                                  maxLengthOpt: Option[Double] = Some(1024),
-                                 min: (Double, Double) = (0.0, 0.0),
-                                 max: (Double, Double) = (1.0, 1.0),
                                  tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
 {

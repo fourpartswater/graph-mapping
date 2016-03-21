@@ -114,6 +114,8 @@ class EdgeTilingPipeline {
       .to(regexFilter("^edge.*"))
       .to(toDataFrame(sqlc, Map[String, String](), Some(getSchema)))
       .to(optional(edgeFcn))
+      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels))
+      .to(saveTiles(tableName, familyName, qualifierName, hbaseConfiguration))
   }
 
 
