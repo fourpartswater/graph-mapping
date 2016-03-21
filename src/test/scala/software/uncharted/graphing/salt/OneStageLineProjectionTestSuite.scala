@@ -45,7 +45,7 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     assert(usingBruteForce === usingProjection, "Points [%d, %d x %d, %d]".format(x0, y0, x1, y1))
   }
 
-  ignore("Test lots of possible full lines") {
+  test("Test lots of possible full lines") {
     // 2x2-bin tiles and a data range of 32 should give us a data range of 1 per bin
     val maxBin = (1, 1)
     val bounds = ((-16.0, -16.0), (16.0, 16.0))
@@ -106,10 +106,9 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     ), Some(4.0)).map(_._3.get).toList)
   }
 
-  test("Test arc leader lines  projection - no gap") {
+  test("Test arc leader lines projection - no gap") {
     import Line.distance
     import Line.intPointToDoublePoint
-    val epsilon = 1E-12
 
     val projection = new SimpleLeaderArcProjection(Seq(4), 8, minLengthOpt = None, maxLengthOpt = None, max = (64.0, 64.0))
     val pointsOpt = projection.project(Some((24.0, 24.0, 36.0, 33.0)), (3, 3))
@@ -129,6 +128,32 @@ class OneStageLineProjectionTestSuite extends FunSuite {
       assert(distance(start, uBin) < 9.0 || distance(end, uBin) < 9.0)
       assert(start._1 <= uBin._1 && uBin._1 <= end._1)
       assert(start._2 <= uBin._2 && uBin._2 <= end._2)
+    }
+  }
+
+  test("Test arc leader lines projection - with gap") {
+    import Line.distance
+    import Line.intPointToDoublePoint
+
+
+    val projection = new SimpleLeaderArcProjection(Seq(4), 8, minLengthOpt = None, maxLengthOpt = None, max = (64.0, 64.0))
+    val pointsOpt = projection.project(Some((34.0, 17.0, 10.0, 7.0)), (3, 3))
+    // Points are (34, 17), (10, 7), creating equilateral triangle arc
+    // Length is 26
+    // Center should be (22, 12) + (-5/13, 12/13) * 13 * sqrt(3)
+    val start = (34, 17)
+    val end = (10, 7)
+    val center = (22 - 5 * math.sqrt(3), 12 + 12 * math.sqrt(3))
+
+    assert(pointsOpt.isDefined)
+    val points = pointsOpt.get
+    points.foreach{point =>
+      val (tile, bin) = point
+      val uBin = (tile._2 * 4 + bin._1, tile._3 * 4 + bin._2)
+      distance(center, uBin) should be (26.0 +- math.sqrt(0.5))
+      assert(distance(start, uBin) < 9.0 || distance(end, uBin) < 9.0)
+      assert(end._1 <= uBin._1 && uBin._1 <= start._1)
+      assert(uBin._2 <= start._2)
     }
   }
 }

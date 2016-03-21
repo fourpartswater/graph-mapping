@@ -348,13 +348,31 @@ class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
             } else {
               val startLeaderBuffer = MutableBuffer[(Int, Int)]()
               binner.resetToStart()
-              while (binner.hasNext && Line.distance(binner.currentPoint.point, startUBin) < leaderLength)
-                startLeaderBuffer += binner.next
+              var next = (0, 0)
+              var inBounds = true
+              while (binner.hasNext && inBounds) {
+                next = binner.next()
+                if (Line.distance(next, startUBin) < leaderLength) {
+                  inBounds = true
+                  startLeaderBuffer += next
+                } else {
+                  inBounds = false
+                }
+              }
 
               val endLeaderBuffer = MutableBuffer[(Int, Int)]()
               binner.resetToEnd()
-              while (binner.hasPrevious && Line.distance(binner.currentPoint.point, endUBin) < leaderLength)
-                endLeaderBuffer += binner.previous()
+              var previous = (0, 0)
+              inBounds = true
+              while (binner.hasPrevious && inBounds) {
+                previous = binner.previous()
+                if (Line.distance(previous, endUBin) < leaderLength) {
+                  inBounds = true
+                  endLeaderBuffer += previous
+                } else {
+                  inBounds = false
+                }
+              }
 
               (startLeaderBuffer ++ endLeaderBuffer)
                 .map(uBin => universalBinIndexToTileIndex(level, uBin, maxBin))
