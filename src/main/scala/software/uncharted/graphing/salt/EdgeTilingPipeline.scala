@@ -13,7 +13,7 @@ import software.uncharted.sparkpipe.Pipe
 
 import scala.collection.immutable.Range.Inclusive
 
-class EdgeTilingPipeline {
+object EdgeTilingPipeline {
 
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
@@ -91,7 +91,7 @@ class EdgeTilingPipeline {
 
   def tileHierarchyLevel(sqlc: SQLContext)(
                          path: String,
-                         hierarchLevel: Int,
+                         hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
                          valueOp: OperationType.Value,
                          lineType: Option[LineDrawingType],
@@ -110,7 +110,7 @@ class EdgeTilingPipeline {
       filterA(new Column("isInterCommunity") === value)
     }
     Pipe(sqlc)
-      .to(RDDIO.read(path + "/level_" + hierarchLevel))
+      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
       .to(regexFilter("^edge.*"))
       .to(toDataFrame(sqlc, Map[String, String](), Some(getSchema)))
       .to(optional(edgeFcn))
