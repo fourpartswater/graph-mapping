@@ -9,17 +9,17 @@ import software.uncharted.salt.core.analytic.Aggregator
 
 
 
-class StandardGraphMetadataAnalytic[VT, IBT, FBT] extends MetadataAnalytic[VT, IBT, FBT, Nothing, Nothing] {
-  override def getValueExtractor(inputData: DataFrame): (Row) => Option[VT] = {
-    None
-  }
-
-  override def getBinAggregator: Aggregator[VT, IBT, FBT] = {
-    null
-  }
-
-  override def getTileAggregator: Option[Aggregator[FBT, Nothing, Nothing]] = None
-}
+//class StandardGraphMetadataAnalytic[VT, IBT, FBT] extends MetadataAnalytic[VT, IBT, FBT, Nothing, Nothing] {
+//  override def getValueExtractor(inputData: DataFrame): (Row) => Option[VT] = {
+//    None
+//  }
+//
+//  override def getBinAggregator: Aggregator[VT, IBT, FBT] = {
+//    null
+//  }
+//
+//  override def getTileAggregator: Option[Aggregator[FBT, Nothing, Nothing]] = None
+//}
 
 
 object GraphRecord {
@@ -27,12 +27,34 @@ object GraphRecord {
 
   private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
+
+  private[salt] def escapeString (string: String): String = {
+    if (null == string) "null"
+    else "\"" + string.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+  }
+
+  private[salt] def unescapeString (string: String): String = {
+    if (null == string) null
+    else if ("null" == string) null
+    else {
+      // remove start and end quote, and replace escape characters
+      string.substring(1, string.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+    }
+  }
 }
 case class GraphRecord (communities: Option[MutableBuffer[GraphCommunity]], numCommunities: Int) {
   import GraphRecord._
   communities.map(c => shrinkBuffer(c, maxCommunities))
 
-  // TODO: toString, fromString
+  override def toString: String = {
+    val communityList = communities.map(_.mkString("[", ",", "]")).getOrElse("[]")
+    s"""{
+       |  "numCommunities": $numCommunities,
+       |  "communities": $communityList
+       |}""".stripMargin
+  }
+
+  // TODO: fromString
 }
 
 object GraphCommunity {
@@ -144,6 +166,31 @@ case class GraphCommunity (
       reduceOptionalBuffers(this.internalEdges, that.internalEdges, _ max _),
       reduceOptionalBuffers(this.externalEdges, that.externalEdges, _ max _)
     )
+
+  override def toString: String = {
+    val (x, y) = coordinates
+    val (px, py) = parentCoordinates
+    val escapedMetaData = escapeString(metadata)
+    val statsList = communityStats.map(_.mkString("[", ",", "]")).getOrElse("[]")
+    val internalEdgeList = internalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
+    val externalEdgeList = externalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
+    s"""{
+       |  "hierLevel": $heirarchyLevel,
+       |  "id": $id,
+       |  "coords": [$x, $y],
+       |  "radius": $radius,
+       |  "degree": $degree,
+       |  "numNodes": $numNodes,
+       |  "metadata": $escapedMetaData,
+       |  "isPrimaryNode": $isPrimaryNode,
+       |  "parentId": $parentId,
+       |  "parentCoords": [$px, $py],
+       |  "parentRadius": $parentRadius,
+       |  "statsList": $statsList,
+       |  "interEdges": $internalEdgeList,
+       |  "intraEdges": $externalEdgeList
+       |}""".stripMargin
+  }
 }
 
 case class GraphEdge (destinationId: Long,
@@ -158,4 +205,9 @@ case class GraphEdge (destinationId: Long,
     GraphEdge(this.destinationId max that.destinationId,
       GraphCommunity.maxPair(this.destinationCoordinates, that.destinationCoordinates),
       this.weight max that.weight)
+
+  override def toString: String = {
+    val (x, y) = destinationCoordinates
+    s"""{"dstId": $destinationId, "dstCoords": [$x, $y], "weight": $weight}"""
+  }
 }
