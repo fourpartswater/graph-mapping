@@ -6,7 +6,9 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
+import software.uncharted.graphing.tiling.EdgeTilingPipelineApp
 import software.uncharted.graphing.utilities.ArgumentParser
+import software.uncharted.sparkpipe.Pipe
 
 class MetadataTilingPipeline {
   def main(args: Array[String]): Unit = {
@@ -50,11 +52,33 @@ class MetadataTilingPipeline {
 
   def tileHierarchyLevel(sqlc: SQLContext)(
                          path: String,
-                         hierarchLevel: Int,
+                         hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
                          tableName: String,
                          familyName: String,
                          qualifierName: String,
                          hbaseConfiguration: Configuration): Unit = {
+    import GraphTilingOperations._
+    import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
+    import RDDIO.mutateContextFcn
+
+    val rawData = Pipe(sqlc)
+      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+
+    val nodeSchema = NodeTilingPipeline.getSchema
+    val nodeData = rawData
+      .to(regexFilter("^node.*"))
+      .to(toDataFrame(sqlc, Map[String, String](), Some(nodeSchema)))
+    // TODO: Turn into a VertexRDD
+
+    val edgeSchema = EdgeTilingPipeline.getSchema
+    val edgeData = rawData
+      .to(regexFilter("^edge.*"))
+      .to(toDataFrame(sqlc, Map[String, String](), Some(edgeSchema)))
+    // TODO: Turn into an EdgeRDD
+
+    Pipe(nodeData, edgeData)
+    // TODO: Combine into a graph
+    // TODO: Do matchEdgesWithCommunities from EdgeMatcher.scala to get community data
   }
 }

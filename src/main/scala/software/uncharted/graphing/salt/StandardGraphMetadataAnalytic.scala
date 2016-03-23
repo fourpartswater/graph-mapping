@@ -1,26 +1,47 @@
 package software.uncharted.graphing.salt
 
 
+import org.apache.spark.sql.types.{DataType, StructType}
 import software.uncharted.graphing.utilities.StringParser
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.sql.{Row, DataFrame}
 import software.uncharted.salt.core.analytic.Aggregator
 
+import scala.util.Try
 
 
+/**
+  * Constructs a standard graph metadata analytic that can read data from the given dataframe schema, and extract and
+  * aggregate information from a dataframe with that schema.
+  *
 
-//class StandardGraphMetadataAnalytic[VT, IBT, FBT] extends MetadataAnalytic[VT, IBT, FBT, Nothing, Nothing] {
-//  override def getValueExtractor(inputData: DataFrame): (Row) => Option[VT] = {
-//    None
-//  }
-//
-//  override def getBinAggregator: Aggregator[VT, IBT, FBT] = {
-//    null
-//  }
-//
-//  override def getTileAggregator: Option[Aggregator[FBT, Nothing, Nothing]] = None
-//}
+  * @param schema The schema of the which this analytic is build to analyze.
+  * @tparam VT
+  * @tparam IBT
+  * @tparam FBT
+  */
+class StandardGraphMetadataAnalytic[VT, IBT, FBT] (schema: StructType) extends MetadataAnalytic[VT, IBT, FBT, Nothing, Nothing] {
+  private def getColumnInfo (columnName: String, expectedDataType: DataType) = {
+    val index = schema.fieldIndex(columnName)
+    val fieldType = schema.fields(index).dataType
+    if (fieldType != expectedDataType) {
+      throw new IllegalArgumentException(s"Field $columnName has the wrong type.  Expected $expectedDataType, got $fieldType")
+    }
+    (columnName, index, fieldType)
+  }
+
+
+  override def getValueExtractor(inputData: DataFrame): (Row) => Option[VT] = {
+    row => None
+  }
+
+  override def getBinAggregator: Aggregator[VT, IBT, FBT] = {
+    null
+  }
+
+  override def getTileAggregator: Option[Aggregator[FBT, Nothing, Nothing]] = None
+}
 
 
 object GraphRecord {
