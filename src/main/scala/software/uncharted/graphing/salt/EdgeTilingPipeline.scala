@@ -21,7 +21,7 @@ class EdgeTilingPipeline {
 
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setMaster("local").setAppName("test"))
+    val sc = new SparkContext(new SparkConf().setAppName("Edge Tiling Pipeline"))
     val sqlc = new SQLContext(sc)
 
 
