@@ -1,6 +1,7 @@
 package software.uncharted.graphing.salt
 
 
+import software.uncharted.graphing.utilities.StringParser
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.sql.{Row, DataFrame}
@@ -28,18 +29,20 @@ object GraphRecord {
   private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
 
-  private[salt] def escapeString (string: String): String = {
-    if (null == string) "null"
-    else "\"" + string.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-  }
+  def fromString (string: String): GraphRecord =
+    fromString(new StringParser(string))
 
-  private[salt] def unescapeString (string: String): String = {
-    if (null == string) null
-    else if ("null" == string) null
-    else {
-      // remove start and end quote, and replace escape characters
-      string.substring(1, string.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
-    }
+  def fromString (parser: StringParser): GraphRecord = {
+    parser.eat("{")
+    parser.eat(""""numCommunities"""")
+    parser.eat(":")
+    val numCommunities = parser.nextInt()
+    parser.eat(",")
+    parser.eat(""""communities"""")
+    parser.eat(":")
+    val communities = parser.nextSeq(() => GraphCommunity.fromString(parser), Some("["), Some(","), Some("]"))
+
+    GraphRecord(Some(communities.toBuffer), numCommunities)
   }
 }
 case class GraphRecord (communities: Option[MutableBuffer[GraphCommunity]], numCommunities: Int) {
@@ -96,6 +99,78 @@ object GraphCommunity {
       .reduceLeftOption(reduceFcn)
       .map(t => MutableBuffer(t))
   }
+
+  def fromString (parser: StringParser): GraphCommunity = {
+    parser.eat("{")
+    parser.eat(""""heirLevel"""")
+    parser.eat(":")
+    val heirLevel = parser.nextInt()
+    parser.eat(",")
+    parser.eat(""""id"""")
+    parser.eat(":")
+    val id = parser.nextLong()
+    parser.eat(",")
+    parser.eat(""""coords"""")
+    parser.eat(":")
+    parser.eat("[")
+    val x = parser.nextDouble()
+    parser.eat(",")
+    val y = parser.nextDouble()
+    parser.eat("]")
+    parser.eat(",")
+    parser.eat(""""radius"""")
+    parser.eat(":")
+    val radius = parser.nextDouble()
+    parser.eat(",")
+    parser.eat(""""degree"""")
+    parser.eat(":")
+    val degree = parser.nextInt()
+    parser.eat(",")
+    parser.eat(""""numNodes"""")
+    parser.eat(":")
+    val numNodes = parser.nextLong()
+    parser.eat(",")
+    parser.eat(""""metadata"""")
+    parser.eat(":")
+    val metadata = parser.nextString()
+    parser.eat(",")
+    parser.eat(""""isPrimaryNode"""")
+    parser.eat(":")
+    val isPrimaryNode = parser.nextBoolean()
+    parser.eat(",")
+    parser.eat(""""parentID"""")
+    parser.eat(":")
+    val parentId = parser.nextLong()
+    parser.eat(",")
+    parser.eat(""""parentCoords"""")
+    parser.eat(":")
+    parser.eat("[")
+    val px = parser.nextDouble()
+    parser.eat(",")
+    val py = parser.nextDouble()
+    parser.eat("]")
+    parser.eat(",")
+    parser.eat(""""parentRadius"""")
+    parser.eat(":")
+    val parentRadius = parser.nextDouble()
+    parser.eat(",")
+    parser.eat(""""statsList"""")
+    parser.eat(":")
+    val stats = parser.nextSeq(() => parser.nextDouble(), Some("["), Some(","), Some("]"))
+    parser.eat(",")
+    parser.eat(""""interEdges"""")
+    parser.eat(":")
+    val externalEdges = parser.nextSeq(() => GraphEdge.fromString(parser), Some("["), Some(","), Some("]"))
+    parser.eat(",")
+    parser.eat(""""intraEdges"""")
+    parser.eat(":")
+    val internalEdges = parser.nextSeq(() => GraphEdge.fromString(parser), Some("["), Some(","), Some("]"))
+    parser.eat("}")
+
+    GraphCommunity(heirLevel, id, (x, y), radius, degree, numNodes, metadata, isPrimaryNode,
+      parentId, (px, py), parentRadius,
+      Some(stats.toBuffer), Some(externalEdges.toBuffer), Some(internalEdges.toBuffer))
+  }
 }
 
 case class GraphCommunity (
@@ -111,24 +186,24 @@ case class GraphCommunity (
                             parentCoordinates: (Double, Double),
                             parentRadius: Double,
                             communityStats: Option[MutableBuffer[Double]] = None,
-                            var internalEdges: Option[MutableBuffer[GraphEdge]] = None,
-                            var externalEdges: Option[MutableBuffer[GraphEdge]] = None
+                            var externalEdges: Option[MutableBuffer[GraphEdge]] = None,
+                            var internalEdges: Option[MutableBuffer[GraphEdge]] = None
                           ) {
   import GraphRecord._
   import GraphCommunity._
 
-  communityStats.map(cs => shrinkBuffer(cs, maxStats))
-  internalEdges.map(ie => shrinkBuffer(ie, maxEdges))
-  externalEdges.map(ee => shrinkBuffer(ee, maxEdges))
-
-  def addInternalEdge(newEdge: GraphEdge): Unit = {
-    if (internalEdges.isEmpty) internalEdges = Some(MutableBuffer[GraphEdge]())
-    addEdgeInPlace(internalEdges.get, newEdge)
-  }
+  communityStats.foreach(cs => shrinkBuffer(cs, maxStats))
+  externalEdges.foreach(ee => shrinkBuffer(ee, maxEdges))
+  internalEdges.foreach(ie => shrinkBuffer(ie, maxEdges))
 
   def addExternalEdge(newEdge: GraphEdge): Unit = {
     if (externalEdges.isEmpty) externalEdges = Some(MutableBuffer[GraphEdge]())
     addEdgeInPlace(externalEdges.get, newEdge)
+  }
+
+  def addInternalEdge(newEdge: GraphEdge): Unit = {
+    if (internalEdges.isEmpty) internalEdges = Some(MutableBuffer[GraphEdge]())
+    addEdgeInPlace(internalEdges.get, newEdge)
   }
 
   def min(that: GraphCommunity): GraphCommunity =
@@ -145,8 +220,8 @@ case class GraphCommunity (
       minPair(this.parentCoordinates, that.parentCoordinates),
       this.parentRadius min that.parentRadius,
       reduceOptionalBuffers(this.communityStats, that.communityStats, _ min _),
-      reduceOptionalBuffers(this.internalEdges, that.internalEdges, _ min _),
-      reduceOptionalBuffers(this.externalEdges, that.externalEdges, _ min _)
+      reduceOptionalBuffers(this.externalEdges, that.externalEdges, _ min _),
+      reduceOptionalBuffers(this.internalEdges, that.internalEdges, _ min _)
     )
 
   def max(that: GraphCommunity): GraphCommunity =
@@ -163,19 +238,19 @@ case class GraphCommunity (
       maxPair(this.parentCoordinates, that.parentCoordinates),
       this.parentRadius max that.parentRadius,
       reduceOptionalBuffers(this.communityStats, that.communityStats, _ max _),
-      reduceOptionalBuffers(this.internalEdges, that.internalEdges, _ max _),
-      reduceOptionalBuffers(this.externalEdges, that.externalEdges, _ max _)
+      reduceOptionalBuffers(this.externalEdges, that.externalEdges, _ max _),
+      reduceOptionalBuffers(this.internalEdges, that.internalEdges, _ max _)
     )
 
   override def toString: String = {
     val (x, y) = coordinates
     val (px, py) = parentCoordinates
-    val escapedMetaData = escapeString(metadata)
+    val escapedMetaData = StringParser.escapeString(metadata)
     val statsList = communityStats.map(_.mkString("[", ",", "]")).getOrElse("[]")
-    val internalEdgeList = internalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
     val externalEdgeList = externalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
+    val internalEdgeList = internalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
     s"""{
-       |  "hierLevel": $heirarchyLevel,
+       |  "heirLevel": $heirarchyLevel,
        |  "id": $id,
        |  "coords": [$x, $y],
        |  "radius": $radius,
@@ -183,16 +258,38 @@ case class GraphCommunity (
        |  "numNodes": $numNodes,
        |  "metadata": $escapedMetaData,
        |  "isPrimaryNode": $isPrimaryNode,
-       |  "parentId": $parentId,
+       |  "parentID": $parentId,
        |  "parentCoords": [$px, $py],
        |  "parentRadius": $parentRadius,
        |  "statsList": $statsList,
-       |  "interEdges": $internalEdgeList,
-       |  "intraEdges": $externalEdgeList
+       |  "interEdges": $externalEdgeList,
+       |  "intraEdges": $internalEdgeList
        |}""".stripMargin
   }
 }
 
+object GraphEdge {
+  def fromString (parser: StringParser): GraphEdge = {
+    parser.eat("{")
+    parser.eat(""""dstId"""")
+    parser.eat(":")
+    val dstId = parser.nextLong()
+    parser.eat(",")
+    parser.eat(""""dstCoords"""")
+    parser.eat(":")
+    parser.eat("[")
+    val x = parser.nextDouble()
+    parser.eat(",")
+    val y = parser.nextDouble()
+    parser.eat("]")
+    parser.eat(",")
+    parser.eat(""""weight"""")
+    parser.eat(":")
+    val weight = parser.nextLong()
+    parser.eat("}")
+    GraphEdge(dstId, (x, y), weight)
+  }
+}
 case class GraphEdge (destinationId: Long,
                       destinationCoordinates: (Double, Double),
                       weight: Long) {
