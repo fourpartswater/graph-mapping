@@ -118,4 +118,94 @@ class MetadataAnalyticTestSuite extends FunSuite {
     assert(c1 === r.communities.get.apply(beginning + 0))
     assert(c2 === r.communities.get.apply(beginning + 1))
   }
+
+
+
+  test("Adding records, hierarchy level 0") {
+    def mkCommunity(degree: Int) =
+      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0)
+
+    val list = Seq(7, 6, 5, 3, 2, 1).map(n => mkCommunity(n))
+    assert(GraphRecord.addCommunity(list, mkCommunity(8)).map(_.degree) === List(8, 7, 6, 5, 3, 2, 1))
+    assert(GraphRecord.addCommunity(list, mkCommunity(4)).map(_.degree) === List(7, 6, 5, 4, 3, 2, 1))
+    assert(GraphRecord.addCommunity(list, mkCommunity(0)).map(_.degree) === List(7, 6, 5, 3, 2, 1, 0))
+
+    val oldMax = GraphRecord.maxCommunities
+    GraphRecord.maxCommunities = 10
+    try {
+      val longList = (10 to 1 by -1).map(n => mkCommunity(n))
+      assert(GraphRecord.addCommunity(longList, mkCommunity(11)).map(_.degree) === (11 to 2 by -1).toList)
+      assert(GraphRecord.addCommunity(longList, mkCommunity(5)).map(_.degree) ===
+        List(10, 9, 8, 7, 6, 5, 5, 4, 3, 2))
+      assert(GraphRecord.addCommunity(longList, mkCommunity(0)).map(_.degree) === (10 to 1 by -1).toList)
+    } catch {
+      case t: Throwable =>
+        GraphRecord.maxCommunities = oldMax
+        throw t
+    }
+  }
+
+  test("Adding records, hierarchy level > 0") {
+    def mkCommunity(numNodes: Int) =
+      new GraphCommunity(1, 1L, (0.0, 0.0), 0.0, 0, numNodes.toLong, "", false, 1L, (0.0, 0.0), 0.0)
+
+    val list = Seq(7, 6, 5, 3, 2, 1).map(n => mkCommunity(n))
+    assert(GraphRecord.addCommunity(list, mkCommunity(4)).map(_.numNodes.toInt) === List(7, 6, 5, 4, 3, 2, 1))
+    assert(GraphRecord.addCommunity(list, mkCommunity(0)).map(_.numNodes.toInt) === List(7, 6, 5, 3, 2, 1, 0))
+    assert(GraphRecord.addCommunity(list, mkCommunity(8)).map(_.numNodes.toInt) === List(8, 7, 6, 5, 3, 2, 1))
+
+    val oldMax = GraphRecord.maxCommunities
+    GraphRecord.maxCommunities = 10
+    try {
+      val longList = (10 to 1 by -1).map(n => mkCommunity(n))
+      assert(GraphRecord.addCommunity(longList, mkCommunity(11)).map(_.numNodes.toInt) === (11 to 2 by -1).toList)
+      assert(GraphRecord.addCommunity(longList, mkCommunity(5)).map(_.numNodes.toInt) ===
+        List(10, 9, 8, 7, 6, 5, 5, 4, 3, 2))
+      assert(GraphRecord.addCommunity(longList, mkCommunity(0)).map(_.numNodes.toInt) === (10 to 1 by -1).toList)
+    } catch {
+      case t: Throwable =>
+        GraphRecord.maxCommunities = oldMax
+        throw t
+    }
+  }
+
+  test("Merge communities, hierarch level 0") {
+    def mkCommunity(degree: Int) =
+      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0)
+
+    assert(
+      GraphRecord.mergeCommunities(
+        List(7, 5, 3, 1).map(n => mkCommunity(n)),
+        List(8, 6, 4, 2).map(n => mkCommunity(n))
+      ).map(_.degree).toList === List(8, 7, 6, 5, 4, 3, 2, 1))
+    assert(
+      GraphRecord.mergeCommunities(
+        List(8, 6, 4, 2).map(n => mkCommunity(n)),
+        List(7, 5, 3, 1).map(n => mkCommunity(n))
+      ).map(_.degree).toList === List(8, 7, 6, 5, 4, 3, 2, 1))
+    assert(
+      GraphRecord.mergeCommunities(
+        List(7, 5, 3, 1).map(n => mkCommunity(n)),
+        List[GraphCommunity]()
+      ).map(_.degree).toList === List(7, 5, 3, 1))
+    assert(
+      GraphRecord.mergeCommunities(
+        List[GraphCommunity](),
+        List(7, 5, 3, 1).map(n => mkCommunity(n))
+      ).map(_.degree).toList === List(7, 5, 3, 1))
+
+    val oldMax = GraphRecord.maxCommunities
+    GraphRecord.maxCommunities = 10
+    try {
+      assert(
+        GraphRecord.mergeCommunities(
+          List(11, 9, 7, 5, 3, 1).map(n => mkCommunity(n)),
+          List(10, 8, 6, 4, 2).map(n => mkCommunity(n))
+        ).map(_.degree).toList === (11 to 2 by -1).toList)
+    } catch {
+      case t: Throwable =>
+        GraphRecord.maxCommunities = oldMax
+        throw t
+    }
+  }
 }

@@ -14,26 +14,45 @@ import scala.util.parsing.json.JSON
 /**
   * Constructs a standard graph metadata analytic that can read data from the given dataframe schema, and extract and
   * aggregate information from a dataframe with that schema.
-  *
-  * @tparam VT Value type
-  * @tparam IBT Internal bin type
-  * @tparam FBT external bin type
   */
-class StandardGraphMetadataAnalytic[VT, IBT, FBT]  extends MetadataAnalytic[VT, IBT, FBT, Nothing, Nothing] {
-  override def getValueExtractor(inputData: DataFrame): (Row) => Option[VT] = {
+class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, GraphRecord, GraphRecord, Nothing, Nothing] {
+  override def getValueExtractor(inputData: DataFrame): (Row) => Option[GraphCommunity] = {
     row => None
   }
 
-  override def getBinAggregator: Aggregator[VT, IBT, FBT] = {
-    null
+  override def getBinAggregator: Aggregator[GraphCommunity, GraphRecord, GraphRecord] = {
+    new Aggregator[GraphCommunity, GraphRecord, GraphRecord] {
+      override def default(): GraphRecord = new GraphRecord(None, 0)
+
+      override def add(current: GraphRecord, next: Option[GraphCommunity]): GraphRecord = {
+        next.map { newCommunity =>
+          val oldCommunities = current.communities.map(_.toBuffer).getOrElse(MutableBuffer[GraphCommunity]())
+          val newCommunities = GraphRecord.addCommunity(oldCommunities, newCommunity)
+          GraphRecord(Some(newCommunities), current.numCommunities + 1)
+        }.getOrElse(
+          // Nothing new to add; current is fine.
+          current
+        )
+      }
+
+      override def merge(left: GraphRecord, right: GraphRecord): GraphRecord = {
+        val combinedCommunities =
+          if (left.communities.isEmpty) right.communities
+          else if (right.communities.isEmpty) left.communities
+          else Some(GraphRecord.mergeCommunities(left.communities.get, right.communities.get))
+        new GraphRecord(combinedCommunities, left.numCommunities + right.numCommunities)
+      }
+
+      override def finish(intermediate: GraphRecord): GraphRecord = intermediate
+    }
   }
 
-  override def getTileAggregator: Option[Aggregator[FBT, Nothing, Nothing]] = None
+  override def getTileAggregator: Option[Aggregator[GraphRecord, Nothing, Nothing]] = None
 }
 
 
 object GraphRecord {
-  val maxCommunities = 25
+  var maxCommunities = 25
 
   private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
@@ -42,13 +61,107 @@ object GraphRecord {
     import JSONParserUtils._
 
     JSON.parseFull(string).map(_ match {
-      case m: Map[String, Any] =>
-        val numCommunities = getInt(m, "numCommunities").get
-        val communities = getSeq(m, "communities", a =>
+      case m: Map[Any, Any] =>
+        val mm = m.asInstanceOf[Map[String, Any]]
+        val numCommunities = getInt(mm, "numCommunities").get
+        val communities = getSeq(mm, "communities", a =>
           GraphCommunity.fromJSON(a.asInstanceOf[Map[String, Any]])
         )
         GraphRecord(communities, numCommunities)
     }).get
+  }
+
+  private def getCommunityInsertionPoint (communities: Seq[GraphCommunity], newCommunity: GraphCommunity) =
+    newCommunity.hierarchyLevel match {
+      case 0 =>
+        communities.indexWhere{ oldCommunity =>
+          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel)
+            throw new IllegalArgumentException("Cannot aggregate communities from different hierarch levels")
+          oldCommunity.degree < newCommunity.degree
+        }
+      case _ =>
+        communities.indexWhere{ oldCommunity =>
+          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel)
+            throw new IllegalArgumentException("Cannot aggregate communities from different hierarch levels")
+          oldCommunity.numNodes < newCommunity.numNodes
+        }
+    }
+
+  def mergeCommunities (a: Seq[GraphCommunity], b: Seq[GraphCommunity]): Seq[GraphCommunity] = {
+    val lenA = a.length
+    val lenB = b.length
+
+    if (0 == lenA) b
+    else if (0 == lenB) a
+    else {
+      val hierarchyLevel = a(0).hierarchyLevel
+
+      val comparison: (GraphCommunity, GraphCommunity) => Boolean =
+        hierarchyLevel match {
+          case 0 => (aa, bb) => aa.degree > bb.degree
+          case _ => (aa, bb) => aa.numNodes > bb.numNodes
+        }
+      var n = 0
+      var nA = 0
+      var nB = 0
+
+      val result = MutableBuffer[GraphCommunity]()
+      while (n < maxCommunities && (nA < lenA || nB < lenB)) {
+        val useA =
+          if (nA == lenA) false
+          else if (nB == lenB) true
+          else comparison(a(nA), b(nB))
+
+        if (useA) {
+          result += a(nA)
+          nA += 1
+        } else {
+          result += b(nB)
+          nB += 1
+        }
+        n += 1
+      }
+      result
+    }
+  }
+  def addCommunity (communities: Seq[GraphCommunity], newCommunity: GraphCommunity): Seq[GraphCommunity] = {
+    // Determine where to insert it
+    val insertionIndex = getCommunityInsertionPoint(communities, newCommunity)
+
+    if (-1 == insertionIndex) {
+      if (maxCommunities == communities.length) communities
+      else communities :+ newCommunity
+    } else {
+      val result = MutableBuffer[GraphCommunity]()
+      for (i <- 0 until insertionIndex)
+        result += communities(i)
+      result += newCommunity
+      for (i <- insertionIndex until ((maxCommunities - 1) min communities.length))
+        result += communities(i)
+
+      result
+    }
+  }
+
+  def addCommunityInPlace (communities: MutableBuffer[GraphCommunity],
+                           newCommunity: GraphCommunity): MutableBuffer[GraphCommunity] = {
+    // Determine where to insert it
+    val insertionIndex = getCommunityInsertionPoint(communities, newCommunity)
+
+    // Insert it there
+    if (-1 == insertionIndex) {
+      // Add to end, if there is room
+      if (communities.length < maxCommunities)
+        communities += newCommunity
+    } else {
+      communities.insert(insertionIndex, newCommunity)
+    }
+
+    // Make sure we're not too big
+    shrinkBuffer(communities, maxCommunities)
+
+    // And return our list
+    communities
   }
 }
 case class GraphRecord (communities: Option[Seq[GraphCommunity]], numCommunities: Int) {
