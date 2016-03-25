@@ -54,6 +54,8 @@ object NodeTilingPipeline {
   }
 
   def getSchema: StructType = {
+    // This schema must match that written by HierarchicalFDLayout.saveLayoutResult (the resultNodes variable)
+    // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
     StructType(Seq(
       StructField("fieldType", StringType),
       StructField("nodeId", LongType),
@@ -63,6 +65,7 @@ object NodeTilingPipeline {
       StructField("parentId", LongType),
       StructField("parentX", DoubleType),
       StructField("parentY", DoubleType),
+      StructField("parentR", DoubleType),
       StructField("internalNodes", LongType),
       StructField("degree", IntegerType),
       StructField("metadata", StringType)
