@@ -196,12 +196,13 @@ class FadingSpreadingFunction (leaderLineLength: Int, maxBin: (Int, Int), _tms: 
   /**
     * Spread a single value over multiple visualization-space coordinates
     *
-    * @param coords the visualization-space coordinates
+    * @param coordsTraversable the visualization-space coordinates
     * @param value  the value to spread
     * @return Seq[(TC, BC, Option[T])] A sequence of tile coordinates, with the spread values
     */
-  override def spread(coords: Seq[((Int, Int, Int), (Int, Int))],
-                      value: Option[Double]): Seq[((Int, Int, Int), (Int, Int), Option[Double])] = {
+  override def spread(coordsTraversable: Traversable[((Int, Int, Int), (Int, Int))],
+                      value: Option[Double]): Traversable[((Int, Int, Int), (Int, Int), Option[Double])] = {
+    val coords = coordsTraversable.toSeq
     val n = coords.length
     val halfWay = n / 2
 

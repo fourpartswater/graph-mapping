@@ -61,7 +61,7 @@ object GraphRecord {
     import JSONParserUtils._
 
     JSON.parseFull(string).map(_ match {
-      case m: Map[Any, Any] =>
+      case m: Map[_, _] =>
         val mm = m.asInstanceOf[Map[String, Any]]
         val numCommunities = getInt(mm, "numCommunities").get
         val communities = getSeq(mm, "communities", a =>

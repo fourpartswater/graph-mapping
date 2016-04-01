@@ -98,7 +98,7 @@ class MetadataTilingPipeline {
       (0, 0),
       r => Some(r._1),
       new CartesianProjection(zoomLevels, (0.0, 0.0), (1.0, 1.0)),
-      Some(r => Some(r._2)),
+      r => Some(r._2),
       null,
       null,
       null

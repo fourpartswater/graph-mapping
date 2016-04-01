@@ -24,6 +24,7 @@ import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.output.SeriesData
 import software.uncharted.salt.core.generation.request.TileLevelRequest
+import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.ops.salt.zxy.CartesianOp
 
 
@@ -154,7 +155,7 @@ object GraphTilingOperations {
     */
   def cartesianTiling (xCol: String, yCol: String, levels: Seq[Int],
                        boundsOpt: Option[(Double, Double, Double, Double)] = None,
-                       tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
+                       tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
       val columnBounds = getBounds(xCol, yCol)(input)
       val (minX, maxX) = columnBounds(0)
@@ -170,7 +171,7 @@ object GraphTilingOperations {
 
 
     CartesianOp(
-      xCol, yCol, bounds, levels, None, CountAggregator, tileAggregation, tileSize
+      xCol, yCol, bounds, levels, r => Some(1), CountAggregator, tileAggregation, tileSize
     )(
       new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
     )(input)
@@ -178,7 +179,7 @@ object GraphTilingOperations {
 
   def segmentTiling (x1Col: String, y1Col: String, x2Col: String, y2Col: String, levels: Seq[Int],
                      boundsOpt: Option[(Double, Double, Double, Double)] = None,
-                     tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), Double, Double]] = {
+                     tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
       val columnBounds = getBounds(x1Col, x2Col, y1Col, y2Col)(input)
       val (minX1, maxX1) = columnBounds(0)
@@ -275,10 +276,11 @@ object GraphTilingOperations {
     * @param hbaseConfiguration A fully loaded HBase configuration object
     * @param tileData An RDD of simple double-valued tiles.
     */
-  def saveTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), Double, Double]]) = {
+  def saveTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
     // Convert tiles to hbase format
     val BytesPerDouble = 8
-    def toByteArray (data: Seq[Double]): Array[Byte] = {
+    def toByteArray (sparseData: SparseArray[Double]): Array[Byte] = {
+      val data = sparseData.seq
       val result = new Array[Byte](data.length * BytesPerDouble)
       var resultIndex = 0
       for (i <- data.indices) {
