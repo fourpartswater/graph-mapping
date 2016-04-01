@@ -92,7 +92,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
     )))
     val tiles = cartesianTiling("x", "y", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(data).collect
 
-    assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
+    assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }
 
   test("cartesian tiling with autobounds") {
@@ -106,7 +106,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
     )))
     val tiles = cartesianTiling("x", "y", Seq(0), None, 4)(data).collect
 
-    assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.toList)
+    assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }
 }
 
