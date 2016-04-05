@@ -9,6 +9,7 @@ import scala.reflect.runtime.universe.TypeTag
 import scala.language.implicitConversions
 
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hbase.client.{Admin, Put, ConnectionFactory}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapred.TableOutputFormat
@@ -101,7 +102,7 @@ object GraphTilingOperations {
     def setParserBoolean (key: String, setFcn: Boolean => Unit): Unit =
       setParserValue(key, value => setFcn(value.trim.toLowerCase.toBoolean))
     def setParserCharacter (key: String, setFcn: Character => Unit): Unit =
-      setParserValue(key, value => setFcn(value.charAt(0)))
+      setParserValue(key, value => setFcn(if (null == value) null else value.charAt(0)))
 
     setParserBoolean("useHeader", parser.withUseHeader(_))
     setParserBoolean("ignoreLeadingWhiteSpace", parser.withIgnoreLeadingWhiteSpace(_))
@@ -216,7 +217,7 @@ object GraphTilingOperations {
   def getHBaseConfiguration (hbaseConfigurationFiles: Seq[String]): Configuration = {
     val hbaseConfiguration = HBaseConfiguration.create()
     hbaseConfigurationFiles.foreach{configFile =>
-      hbaseConfiguration.addResource(configFile)
+      hbaseConfiguration.addResource(new Path(configFile))
     }
     hbaseConfiguration
   }

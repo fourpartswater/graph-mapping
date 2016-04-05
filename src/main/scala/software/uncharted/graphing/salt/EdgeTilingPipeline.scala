@@ -112,7 +112,8 @@ object EdgeTilingPipeline {
     Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
       .to(regexFilter("^edge.*"))
-      .to(toDataFrame(sqlc, Map[String, String](), Some(getSchema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
+                      Some(getSchema)))
       .to(optional(edgeFcn))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels))
       .to(saveTiles(tableName, familyName, qualifierName, hbaseConfiguration))

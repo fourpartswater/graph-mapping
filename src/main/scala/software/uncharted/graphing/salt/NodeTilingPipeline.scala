@@ -87,11 +87,11 @@ object NodeTilingPipeline {
 
     val schema = getSchema
 
-
     val tiles = Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
       .to(regexFilter("^node.*"))
-      .to(toDataFrame(sqlc, Map[String, String](), Some(schema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
+                      Some(schema)))
       .to(cartesianTiling("x", "y", zoomLevels))
       .to(saveTiles(tableName, family, qualifier, hbaseConfiguration))
       .run()

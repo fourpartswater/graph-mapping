@@ -78,14 +78,16 @@ class MetadataTilingPipeline {
     val nodeSchema = NodeTilingPipeline.getSchema
     val nodeData = rawData
       .to(regexFilter("^node.*"))
-      .to(toDataFrame(sqlc, Map[String, String](), Some(nodeSchema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
+                      Some(nodeSchema)))
       .to(parseNodes(hierarchyLevel))
 
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
-      .to(toDataFrame(sqlc, Map[String, String](), Some(edgeSchema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
+                      Some(edgeSchema)))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
 
     Pipe(nodeData, edgeData)
