@@ -16,6 +16,8 @@ import scala.util.Try
 object CartesianSegmentOp {
   def apply[T, U, V, W, X]
   (arcType: ArcTypes.Value,
+   minSegLen: Option[Int],
+   maxSegLen: Option[Int],
    x1Col: String,
    y1Col: String,
    x2Col: String,
@@ -41,10 +43,14 @@ object CartesianSegmentOp {
     val maxBounds = (xyBounds._3, xyBounds._4)
     val leaderLineLength = 1024
     val projection = arcType match {
-      case ArcTypes.FullLine => new SimpleLineProjection(zoomLevels, minBounds, maxBounds, tms = true)
-      case ArcTypes.LeaderLine => new SimpleLeaderLineProjection(zoomLevels, minBounds, maxBounds, leaderLineLength, tms = true)
-      case ArcTypes.FullArc => new SimpleArcProjection(zoomLevels, minBounds, maxBounds, tms = true)
-      case ArcTypes.LeaderArc => new SimpleLeaderArcProjection(zoomLevels, minBounds, maxBounds, leaderLineLength, tms = true)
+      case ArcTypes.FullLine => new SimpleLineProjection(zoomLevels, minBounds, maxBounds,
+        minLengthOpt = minSegLen, maxLengthOpt = maxSegLen, tms = true)
+      case ArcTypes.LeaderLine => new SimpleLeaderLineProjection(zoomLevels, minBounds, maxBounds, leaderLineLength,
+        minLengthOpt = minSegLen, maxLengthOpt = maxSegLen, tms = true)
+      case ArcTypes.FullArc => new SimpleArcProjection(zoomLevels, minBounds, maxBounds,
+        minLengthOpt = minSegLen, maxLengthOpt = maxSegLen, tms = true)
+      case ArcTypes.LeaderArc => new SimpleLeaderArcProjection(zoomLevels, minBounds, maxBounds, leaderLineLength,
+        minLengthOpt = minSegLen, maxLengthOpt = maxSegLen, tms = true)
     }
 
     // Put together a series object to encapsulate our tiling job

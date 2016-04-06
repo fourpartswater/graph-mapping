@@ -31,20 +31,13 @@ object EdgeTilingPipeline {
         | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
         | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
         | level 0 will be used for tiling levels 7 and 8.""".stripMargin, None)
-    val valueOp = argParser.getString("valueOperation", """The operation to use when aggregating edge values""", "count").toLowerCase.trim match {
-      case "sum" => OperationType.SUM
-      case "min" => OperationType.MIN
-      case "max" => OperationType.MAX
-      case "mean" => OperationType.MEAN
-      case "count" | _ => OperationType.COUNT
-    }
-    val lineType = argParser.getStringOption("lineType", """The type of line to draw (leader, arc, or line)""", None).map(_.toLowerCase.trim) match {
-      case Some("leader") => Some(LineDrawingType.LeaderLines)
-      case Some("arc") => Some(LineDrawingType.Arcs)
-      case Some("line") => Some(LineDrawingType.Lines)
-      case None => None
-      case Some(other) => throw new Exception("Illegal value for line type: " + other)
-    }
+    val lineType = argParser.getStringOption("lineType", """The type of line to draw (leader, arc, or line)""", None).map(_.toLowerCase.trim match {
+      case "leaderline" => ArcTypes.LeaderLine
+      case "line" => ArcTypes.FullLine
+      case "leaderarc" => ArcTypes.LeaderArc
+      case "arc" => ArcTypes.FullArc
+      case lt => throw new IllegalArgumentException("Illegal line type "+lt)
+    })
     val edgeType = argParser.getString("edgeType", "The type of edge to plot.  Case-insensitive, possible values are intra, inter, or all.  Default is all.", "all").toLowerCase.trim match {
       case "inter" => Some(1)
       case "intra" => Some(0)
@@ -69,7 +62,7 @@ object EdgeTilingPipeline {
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, valueOp, lineType, edgeType, minSegLen, maxSegLen, tableName, familyName, qualifierName, hbaseConfiguration)
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, lineType, edgeType, minSegLen, maxSegLen, tableName, familyName, qualifierName, hbaseConfiguration)
     }
 
     sc.stop()
@@ -93,8 +86,7 @@ object EdgeTilingPipeline {
                          path: String,
                          hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
-                         valueOp: OperationType.Value,
-                         lineType: Option[LineDrawingType],
+                         lineType: Option[ArcTypes.Value],
                          edgeType: Option[Int],
                          minSegLen: Option[Int],
                          maxSegLen: Option[Int],
@@ -115,7 +107,7 @@ object EdgeTilingPipeline {
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(getSchema)))
       .to(optional(edgeFcn))
-      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels))
+      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen))
       .to(saveTiles(tableName, familyName, qualifierName, hbaseConfiguration))
   }
 

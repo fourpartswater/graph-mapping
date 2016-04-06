@@ -21,8 +21,8 @@ import software.uncharted.salt.core.spreading.SpreadingFunction
 class SimpleLineProjection (zoomLevels: Seq[Int],
                             min: (Double, Double),
                             max: (Double, Double),
-                            minLengthOpt: Option[Double] = None,
-                            maxLengthOpt: Option[Double] = None,
+                            minLengthOpt: Option[Int] = None,
+                            maxLengthOpt: Option[Int] = None,
                             tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)] (min, max, tms)
 {
@@ -253,8 +253,8 @@ class SimpleArcProjection (zoomLevels: Seq[Int],
                            min: (Double, Double),
                            max: (Double, Double),
                            arcLength: Double = math.Pi / 3,
-                           minLengthOpt: Option[Double] = Some(4),
-                           maxLengthOpt: Option[Double] = Some(1024),
+                           minLengthOpt: Option[Int] = Some(4),
+                           maxLengthOpt: Option[Int] = Some(1024),
                            tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
 {
@@ -316,8 +316,8 @@ class SimpleLeaderArcProjection (zoomLevels: Seq[Int],
                                  max: (Double, Double),
                                  leaderLength: Int,
                                  arcLength: Double = math.Pi / 3,
-                                 minLengthOpt: Option[Double] = Some(4),
-                                 maxLengthOpt: Option[Double] = Some(1024),
+                                 minLengthOpt: Option[Int] = Some(4),
+                                 maxLengthOpt: Option[Int] = Some(1024),
                                  tms: Boolean = false)
   extends CartesianTileProjection2D[(Double, Double, Double, Double), (Int, Int)](min, max, tms)
 {

@@ -49,8 +49,8 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     // 2x2-bin tiles and a data range of 32 should give us a data range of 1 per bin
     val maxBin = (1, 1)
     val bounds = ((-16.0, -16.0), (16.0, 16.0))
-    val minLength = Some(3.0)
-    val maxLength = Some(7.0)
+    val minLength = Some(3)
+    val maxLength = Some(7)
     val tms = false
 
     val projection = new SimpleLineProjection(Seq(4), bounds._1, bounds._2, minLength, maxLength, tms = tms)
@@ -78,8 +78,8 @@ class OneStageLineProjectionTestSuite extends FunSuite {
     // 2x2-bin tiles and a data range of 32 should give us a data range of 1 per bin
     val maxBin = (1, 1)
     val bounds = ((-16.0, -16.0), (16.0, 16.0))
-    val minLength = Some(3.0)
-    val maxLength = Some(7.0)
+    val minLength = Some(3)
+    val maxLength = Some(7)
     val tms = false
 
     val projection = new SimpleLineProjection(Seq(4), bounds._1, bounds._2, minLength, maxLength, tms = tms)

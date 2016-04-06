@@ -179,6 +179,9 @@ object GraphTilingOperations {
   }
 
   def segmentTiling (x1Col: String, y1Col: String, x2Col: String, y2Col: String, levels: Seq[Int],
+                     arcTypeOpt: Option[ArcTypes.Value] = None,
+                     minSegLen: Option[Int] = None,
+                     maxSegLen: Option[Int] = None,
                      boundsOpt: Option[(Double, Double, Double, Double)] = None,
                      tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
@@ -203,7 +206,17 @@ object GraphTilingOperations {
     val getLevel: ((Int, Int, Int)) => Int = tileIndex => tileIndex._1
     val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
 
-    null
+    CartesianSegmentOp(
+      arcTypeOpt.getOrElse(ArcTypes.LeaderLine), minSegLen, maxSegLen,
+      x1Col, y1Col, x2Col, y2Col,
+      bounds, (levels.min, levels.max),
+      row => Some(1),
+      CountAggregator,
+      tileAggregation,
+      tileSize
+    )(
+      new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
+    )(input)
   }
 
   /**
