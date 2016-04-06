@@ -94,7 +94,6 @@ object NodeTilingPipelineApp {
           PipelineStage("Filter raw data for nodes", regexFilterOp(test, DEFAULT_LINE_COLUMN)(_))
         }
         val CSVStage = PipelineStage("Convert to CSV", rawToCSVOp(getKVFile(nodeFileDescriptor))(_))
-        val debugStage = PipelineStage("Count rows for level " + g + ": ", countRowsOp("Rows for level " + g + ": ")(_))
         val tilingStage = PipelineStage("Tiling level " + g,
           graphHeatMapOp(
             xCol, yCol, tilingParameters, hbaseParameters,
@@ -105,7 +104,6 @@ object NodeTilingPipelineApp {
         loadStage
           .addChild(filterStage)
           .addChild(CSVStage)
-          .addChild(debugStage)
           .addChild(tilingStage)
 
         PipelineTree.execute(loadStage, sqlc)
