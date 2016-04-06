@@ -1,9 +1,7 @@
-package software.uncharted.graphing.tiling
+package software.uncharted.graphing.salt
 
-import com.oculusinfo.tilegen.pipeline.PipelineData
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.DataFrame
 
 
 /**
