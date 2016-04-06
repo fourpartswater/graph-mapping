@@ -44,39 +44,6 @@ object GraphOperations {
     PipelineData(reader.sqlc, reader.asDataFrame)
   }
 
-  def countRowsOp(message: String = "Number of rows: ")(input: PipelineData): PipelineData = {
-    val count = input.srdd.count
-    val top10 = input.srdd.take(10)
-    val schema = input.srdd.schema
-
-    def printRow (s: StructType, r: Row): Unit = {
-      val fields = s.fields
-      print("{ ")
-      for (i <- 0 until fields.length) {
-        val field = fields(i)
-        print(field.name + ": ")
-        field.dataType match {
-          case st: StructType =>
-            printRow(st, r(i).asInstanceOf[Row])
-          case _ =>
-            print(r(i).toString)
-        }
-        print(", ")
-      }
-      print("}")
-    }
-
-    println("\n\n\n")
-    println(message + count)
-    println("Rows:")
-    top10.foreach { row =>
-      printRow(schema, row)
-      println
-    }
-    println("\n\n\n")
-    input
-  }
-
   def filterByRowTypeOp (intraCommunityEdges: Boolean, interCommunityEdges: Boolean, edgeTypeColumn: String)(input: PipelineData): PipelineData = {
     if (intraCommunityEdges && interCommunityEdges) input
     else if (intraCommunityEdges) {
