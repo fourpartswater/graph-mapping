@@ -60,7 +60,7 @@ object SampleGenerator {
     val levels = new Array[Seq[Node]](maxLevel + 1)
     val edges  = new Array[Seq[Edge]](maxLevel + 1)
     levels(0)  = Seq(Node(getNextId, 128.0, 128.0, 128.0, None, 1L, 0, "0"))
-    edges(0)   = Seq[Edge]()
+    edges(0)   = Seq(Edge(levels(0)(0), levels(0)(0), false, 1L))
 
     for (level <- 1 to maxLevel) {
       val (lvlSeq, edgeSeq) = createNodesAndEdgesForLevel(level, maxLevel, levels(level - 1))
@@ -146,6 +146,11 @@ object SampleGenerator {
       this.children = Some(children)
     }
 
+    def addDegree (n: Int): Unit = {
+      degree += n
+      parent.map(_.addDegree(n))
+    }
+
     def addInternalNode (n: Long): Unit = {
       numInternalNodes += n
       parent.map(_.addInternalNode(n))
@@ -164,6 +169,9 @@ object SampleGenerator {
                   dst: Node,
                   maxLevel: Boolean,
                   weight: Long) {
+    src.addDegree(1)
+    dst.addDegree(1)
+
     val interCommunityEdge =if ((src.parent != dst.parent) || maxLevel) 1 else 0
     override def toString = "edge\t" + src.id + "\t" + src.x + "\t" + src.y + "\t" + dst.id + "\t" + dst.x + "\t" + dst.y + "\t" + weight + "\t" + interCommunityEdge
   }
