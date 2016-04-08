@@ -20,7 +20,7 @@ object NodeTilingPipeline {
 
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setMaster("local").setAppName("Node Tiling"))
+    val sc = new SparkContext(new SparkConf().setAppName("Node Tiling"))
     val sqlc = new SQLContext(sc)
 
 
