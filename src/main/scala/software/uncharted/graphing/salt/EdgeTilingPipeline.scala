@@ -95,6 +95,7 @@ object EdgeTilingPipeline {
                          qualifierName: String,
                          hbaseConfiguration: Configuration): Unit = {
     import GraphTilingOperations._
+    import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
@@ -103,11 +104,16 @@ object EdgeTilingPipeline {
     }
     Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
+      .to(countRDDRowsOp("Edge data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(getSchema)))
+      .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
-      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen))
+      .to(countDFRowsOp("Required edges" ))
+      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen, Some((0.0, 0.0, 256.0, 256.0))))
+      .to(countRDDRowsOp("Tiles: "))
       .to(saveTiles(tableName, familyName, qualifierName, hbaseConfiguration))
   }
 

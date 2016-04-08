@@ -20,7 +20,7 @@ object NodeTilingPipeline {
 
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setAppName("Node Tiling"))
+    val sc = new SparkContext(new SparkConf().setMaster("local").setAppName("Node Tiling"))
     val sqlc = new SQLContext(sc)
 
 
@@ -47,7 +47,8 @@ object NodeTilingPipeline {
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-        tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
+      println(s"Tiling hierarchy level $g at tile levels $minT to $maxT")
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
     }
 
     sc.stop()
@@ -82,6 +83,7 @@ object NodeTilingPipeline {
                          hbaseConfiguration: Configuration
   ): Unit = {
     import GraphTilingOperations._
+    import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
@@ -89,10 +91,14 @@ object NodeTilingPipeline {
 
     val tiles = Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^node.*"))
+      .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(schema)))
-      .to(cartesianTiling("x", "y", zoomLevels))
+      .to(countDFRowsOp("Parsed data: "))
+      .to(cartesianTiling("x", "y", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
+      .to(countRDDRowsOp("Tiles: "))
       .to(saveTiles(tableName, family, qualifier, hbaseConfiguration))
       .run()
   }

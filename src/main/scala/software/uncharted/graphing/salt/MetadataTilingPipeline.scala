@@ -68,30 +68,39 @@ class MetadataTilingPipeline {
                          qualifierName: String,
                          hbaseConfiguration: Configuration): Unit = {
     import GraphTilingOperations._
+    import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
     val rawData = Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(countRDDRowsOp(s"Input data for hierarchy level $hierarchyLevel: "))
 
     // Get our VertexRDD
     val nodeSchema = NodeTilingPipeline.getSchema
     val nodeData = rawData
       .to(regexFilter("^node.*"))
+      .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(nodeSchema)))
+      .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel))
+      .to(countRDDRowsOp("Graph nodes: "))
 
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
+      .to(countRDDRowsOp("Edge data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(edgeSchema)))
+      .to(countDFRowsOp("Parsed edge data: "))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
+      .to(countRDDRowsOp("Graph edges: "))
 
     Pipe(nodeData, edgeData)
       .to(consolidateCommunities)
+      .to(countRDDRowsOp("Communities: "))
 
     //                      RT = row type                       DC = data c.      TC - tile c.     BC = Bin c.
     val series = new Series[((Double, Double), GraphCommunity), (Double, Double), (Int, Int, Int), (Int, Int),
