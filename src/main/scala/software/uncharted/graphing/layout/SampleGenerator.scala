@@ -37,7 +37,8 @@ object SampleGenerator {
     val (nodes, edges) = createNodes(levels)
 
     for (level <- 0 to levels) {
-      val directory = new File(s"level_$level")
+      val hierarchyLevel = levels - level
+      val directory = new File(s"level_$hierarchyLevel")
       if (!directory.exists()) directory.mkdir()
 
       val nodeFile = new File(directory, "nodes")
