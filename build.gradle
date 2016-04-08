@@ -23,7 +23,7 @@ repositories {
 ext {
 	dependencyScalaVersion = "2.10"
 	scalaVersion = "2.10.6"
-	sparkVersion = "1.5.2"
+	sparkVersion = "1.6.0"
 }
 
 // appends scala test functionality to the baseline test task

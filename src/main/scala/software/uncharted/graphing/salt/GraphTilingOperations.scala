@@ -4,20 +4,21 @@ package software.uncharted.graphing.salt
 
 import java.lang.{Double => JavaDouble}
 
+
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 import scala.language.implicitConversions
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.mapreduce.Job
 import org.apache.hadoop.hbase.client.{Admin, Put, ConnectionFactory}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.mapred.TableOutputFormat
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, HBaseConfiguration, TableName}
-import org.apache.hadoop.mapred.JobConf
+import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Row, Column, DataFrame, SQLContext}
+import org.apache.spark.sql.{Column, DataFrame, SQLContext}
 
 import com.databricks.spark.csv.CsvParser
 
@@ -324,10 +325,8 @@ object GraphTilingOperations {
     }
 
     // Write hbase tiles
-    val jobConfiguration = new JobConf(hbaseConfiguration, this.getClass)
-    jobConfiguration.setOutputFormat(classOf[TableOutputFormat])
-    jobConfiguration.set(TableOutputFormat.OUTPUT_TABLE, table)
-
-    hbaseFormattedTiles.saveAsHadoopDataset(jobConfiguration)
+    val job = new Job(hbaseConfiguration)
+    TableMapReduceUtil.initTableReducerJob(table, null, job)
+    hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
   }
 }
