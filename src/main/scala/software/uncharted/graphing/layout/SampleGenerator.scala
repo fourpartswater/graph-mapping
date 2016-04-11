@@ -34,7 +34,7 @@ object SampleGenerator {
         throw e
     }
 
-    val (nodes, edges) = createNodes(levels)
+    val data = createNodeTriangles(levels)
 
     for (level <- 0 to levels) {
       val hierarchyLevel = levels - level
@@ -44,35 +44,90 @@ object SampleGenerator {
       val nodeFile = new File(directory, "nodes")
       if (nodeFile.exists()) nodeFile.delete()
       val nodeFileWriter = new OutputStreamWriter(new FileOutputStream(nodeFile))
-      nodes(level).foreach(node => writeNode(nodeFileWriter, node))
+      data(level)._1.foreach(node => writeNode(nodeFileWriter, node))
       nodeFileWriter.flush()
       nodeFileWriter.close()
 
       val edgeFile = new File(directory, "edges")
       if (edgeFile.exists()) edgeFile.delete()
       val edgeFileWriter = new OutputStreamWriter(new FileOutputStream(edgeFile))
-      edges(level).foreach(edge => writeEdge(edgeFileWriter, edge))
+      data(level)._2.foreach(edge => writeEdge(edgeFileWriter, edge))
       edgeFileWriter.flush()
       edgeFileWriter.close()
     }
   }
 
-  def createNodes (maxLevel: Int): (Array[Seq[Node]], Array[Seq[Edge]]) = {
+
+
+  def createNodeTriangles (maxLevel: Int): Array[(Seq[Node], Seq[Edge])] = {
+    val nodes = new Array[Seq[Node]](maxLevel + 1)
+    val edges = new Array[Seq[Edge]](maxLevel + 1)
+
+    val n0 = Node(getNextId, 144.0, 112.0, 32.0, None, 1L, 0, "0")
+    val n1 = Node(getNextId, 208.0, 176.0, 32.0, None, 1L, 0, "1")
+    val n2 = Node(getNextId, 112.0, 240.0, 32.0, None, 1L, 0, "2")
+    nodes(0) = Seq(n0, n1, n2)
+    edges(0) = Seq(
+      Edge(n0, n1, false, 1L), Edge(n1, n2, false, 1L), Edge(n2, n0, false, 1L),
+      Edge(n0, n0, false, 1L), Edge(n1, n1, false, 1L), Edge(n2, n2, false, 1L)
+    )
+
+    for (level <- 1 to maxLevel) {
+      val (nodeSeq, edgeSeq) = createNodeTrianglesAndEdgesForLevel(level, maxLevel, nodes(level - 1))
+      nodes(level) = nodeSeq
+      edges(level) = edgeSeq
+    }
+
+    nodes zip edges
+  }
+
+  def createNodeTrianglesAndEdgesForLevel (level: Int, maxLevel: Int, parentLevel: Seq[Node]): (Seq[Node], Seq[Edge]) = {
+    val isMaxLevel = (level == maxLevel)
+
+    val (nodes, internalEdges) = parentLevel.map { p =>
+      val r = p.radius
+
+      val n0 = Node(getNextId, p.x + r * 0.125, p.y - r * 0.125, r / 4.0, Some(p), 1L, 0, p.metaData + ":0")
+      val n1 = Node(getNextId, p.x + r * 0.625, p.y + 4 * 0.375, r / 4.0, Some(p), 1L, 0, p.metaData + ":1")
+      val n2 = Node(getNextId, p.x - r * 0.125, p.y + r * 0.875, r / 4.0, Some(p), 1L, 0, p.metaData + ":2")
+      (
+        Seq(n0, n1, n2),
+        Seq(Edge(n0, n1, isMaxLevel, 1L), Edge(n1, n2, isMaxLevel, 1L), Edge(n2, n0, isMaxLevel, 1L))
+        )
+    }.reduce((a, b) => (a._1 ++ b._1, a._2 ++ b._2))
+
+    val maxNumExternalEdges = (1 to level).map(n => 2).reduce(_ * _)
+    val r = scala.util.Random
+    val externalEdges = (1 to maxNumExternalEdges).flatMap{n =>
+      val n1 = nodes(r.nextInt(nodes.length))
+      val n2 = nodes(r.nextInt(nodes.length))
+
+      if (n1 != n2 && n1.parent != n2.parent) {
+        Some(Edge(n1, n2, isMaxLevel, 1L))
+      } else {
+        None
+      }
+    }
+    (nodes, internalEdges ++ externalEdges)
+  }
+
+
+  def createNodeOctets (maxLevel: Int): Array[(Seq[Node], Seq[Edge])] = {
     val levels = new Array[Seq[Node]](maxLevel + 1)
     val edges  = new Array[Seq[Edge]](maxLevel + 1)
     levels(0)  = Seq(Node(getNextId, 128.0, 128.0, 128.0, None, 1L, 0, "0"))
     edges(0)   = Seq(Edge(levels(0)(0), levels(0)(0), false, 1L))
 
     for (level <- 1 to maxLevel) {
-      val (lvlSeq, edgeSeq) = createNodesAndEdgesForLevel(level, maxLevel, levels(level - 1))
+      val (lvlSeq, edgeSeq) = createNodeOctetsAndEdgesForLevel(level, maxLevel, levels(level - 1))
       levels(level) = lvlSeq
       edges(level) = edgeSeq
     }
 
-    (levels, edges)
+    levels zip edges
   }
 
-  def createNodesAndEdgesForLevel (level: Int, maxLevel: Int, upperLevel: Seq[Node]): (Seq[Node], Seq[Edge]) = {
+  def createNodeOctetsAndEdgesForLevel (level: Int, maxLevel: Int, upperLevel: Seq[Node]): (Seq[Node], Seq[Edge]) = {
     val isMaxLevel = (level == maxLevel)
 
     def mkEdge (a: Node, b: Node, weight: Long) =
