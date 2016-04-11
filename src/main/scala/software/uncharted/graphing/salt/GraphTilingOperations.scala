@@ -1,9 +1,11 @@
 package software.uncharted.graphing.salt
 
 
-
+import java.io.ByteArrayOutputStream
 import java.lang.{Double => JavaDouble}
 
+
+import software.uncharted.salt.core.projection.numeric.CartesianProjection
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -291,7 +293,7 @@ object GraphTilingOperations {
     * @param hbaseConfiguration A fully loaded HBase configuration object
     * @param tileData An RDD of simple double-valued tiles.
     */
-  def saveTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
+  def saveDenseTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
     // Convert tiles to hbase format
     val BytesPerDouble = 8
     def toByteArray (sparseData: SparseArray[Double]): Array[Byte] = {
@@ -307,6 +309,80 @@ object GraphTilingOperations {
       }
       result
     }
+    def getRowIndex (tileIndex: (Int, Int, Int)): String = {
+      val (z, x, y) = tileIndex
+      val digits = math.log10(1 << z).floor.toInt + 1
+      ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
+    }
+
+    val familyBytes = family.getBytes
+    val qualifierBytes = qualifier.getBytes
+
+    val hbaseFormattedTiles = tileData.map { tile =>
+      val data = toByteArray(tile.bins)
+      val rowIndex = getRowIndex(tile.coords)
+      val put = new Put(rowIndex.getBytes())
+      put.addColumn(familyBytes, qualifierBytes, data)
+      (new ImmutableBytesWritable, put)
+    }
+
+    // Write hbase tiles
+    val job = new Job(hbaseConfiguration)
+    TableMapReduceUtil.initTableReducerJob(table, null, job)
+    hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
+  }
+
+  def saveSparseTiles (maxBin: (Int, Int), table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
+    val projection = new CartesianProjection(Seq(0), (0.0, 0.0), (1.0, 1.0))
+
+    // Convert tiles to hbase format
+    val BytesPerDouble = 8
+    def toByteArray (sparseData: SparseArray[Double]): Array[Byte] = {
+      val defaultValue = sparseData.default
+      var nonDefaultCount = 0
+      for (i <- 0 until sparseData.length())
+        if (defaultValue != sparseData(i)) nonDefaultCount += 1
+
+      val baos = new ByteArrayOutputStream()
+
+      def writeInt (value: Int): Unit = {
+        for (i <- 0 to 3) {
+          val bi = (value >> (i*8)) & 0xff
+          baos.write(bi)
+        }
+      }
+
+      def writeLong (value: Long): Unit = {
+        for (i <- 0 to 7) {
+          val bi: Int = ((value >> (i*8)) & 0xff).toInt
+          baos.write(bi)
+        }
+      }
+
+      def writeDouble (value: Double): Unit = {
+        writeLong(JavaDouble.doubleToLongBits(value))
+      }
+
+      def binFrom1D (z: Int) = {
+        val y = z / (maxBin._1 + 1)
+        val x = z - y * (maxBin._1 + 1)
+        (x, y)
+      }
+
+      writeInt(nonDefaultCount)
+      writeDouble(defaultValue)
+      for (i <- 0 until sparseData.length())
+        if (defaultValue != sparseData(i)) {
+          val (x, y) = binFrom1D(i)
+          writeInt(x)
+          writeInt(y)
+          writeDouble(sparseData(i))
+        }
+      baos.flush()
+      baos.close()
+      baos.toByteArray
+    }
+
     def getRowIndex (tileIndex: (Int, Int, Int)): String = {
       val (z, x, y) = tileIndex
       val digits = math.log10(1 << z).floor.toInt + 1
