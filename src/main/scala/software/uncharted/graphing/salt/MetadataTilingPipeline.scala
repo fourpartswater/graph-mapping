@@ -275,7 +275,7 @@ object MetadataTilingPipeline {
   }
 }
 
-abstract class ValueExtractor[T](data: DataFrame, columnName: String, defaultValue: Option[T]) {
+abstract class ValueExtractor[T](data: DataFrame, columnName: String, defaultValue: Option[T]) extends Serializable {
   val columnIndex = data.schema.fieldIndex(columnName)
 
   def getValue(row: Row): T = {
