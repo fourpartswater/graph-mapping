@@ -99,7 +99,7 @@ object NodeTilingPipeline {
       .to(countDFRowsOp("Parsed data: "))
       .to(cartesianTiling("x", "y", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-      .to(saveSparseTiles((255, 255), tableName, family, qualifier, hbaseConfiguration))
+      .to(saveSparseTilesToHBase((255, 255), tableName, family, qualifier, hbaseConfiguration))
       .run()
   }
 }

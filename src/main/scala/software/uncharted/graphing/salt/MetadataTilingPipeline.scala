@@ -1,9 +1,12 @@
 package software.uncharted.graphing.salt
 
 
+import java.io.ByteArrayOutputStream
+
 import org.apache.spark.rdd.RDD
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
+import software.uncharted.salt.core.util.SparseArray
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
@@ -76,6 +79,19 @@ class MetadataTilingPipeline {
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Input data for hierarchy level $hierarchyLevel: "))
 
+    //                      RT = row type                       DC = data c.      TC - tile c.     BC = Bin c.
+    val series = new Series[((Double, Double), GraphCommunity), (Double, Double), (Int, Int, Int), (Int, Int),
+      // T = data type  U, V = binTypes
+      GraphCommunity, GraphRecord, GraphRecord, GraphRecord, GraphRecord](
+      (0, 0),
+      r => Some(r._1),
+      new CartesianProjection(zoomLevels, (0.0, 0.0), (1.0, 1.0)),
+      r => Some(r._2),
+      null,
+      null,
+      null
+    )
+
     // Get our VertexRDD
     val nodeSchema = NodeTilingPipeline.getSchema
     val nodeData = rawData
@@ -98,22 +114,53 @@ class MetadataTilingPipeline {
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
       .to(countRDDRowsOp("Graph edges: "))
 
-    Pipe(nodeData, edgeData)
+    // Combine them into communities
+    val communityData = Pipe(nodeData, edgeData)
       .to(consolidateCommunities)
       .to(countRDDRowsOp("Communities: "))
 
-    //                      RT = row type                       DC = data c.      TC - tile c.     BC = Bin c.
-    val series = new Series[((Double, Double), GraphCommunity), (Double, Double), (Int, Int, Int), (Int, Int),
-    // T = data type  U, V = binTypes
-      GraphCommunity, GraphRecord, GraphRecord, GraphRecord, GraphRecord](
-      (0, 0),
-      r => Some(r._1),
-      new CartesianProjection(zoomLevels, (0.0, 0.0), (1.0, 1.0)),
-      r => Some(r._2),
-      null,
-      null,
-      null
-    )
+    // Tile the communities
+    val getZoomLevel: ((Int, Int, Int)) => Int =  _._1
+
+    val encodeTile: SparseArray[GraphRecord] => Array[Byte] = tileData => {
+      val baos = new ByteArrayOutputStream()
+
+      def writeInt (value: Int): Unit = {
+        for (i <- 0 to 3) {
+          val bi = (value >> (i*8)) & 0xff
+          baos.write(bi)
+        }
+      }
+
+      def writeRecord (record: GraphRecord): Unit = {
+        if (null == record) {
+          writeInt(0)
+        } else {
+          val recordString = record.toString
+          writeInt(recordString.length)
+          baos.write(recordString.toCharArray.map(_.toByte))
+        }
+      }
+
+      val default = tileData.default
+      val nonDefaultCount = tileData.filter(_ != default).length()
+      writeRecord(default)
+      writeInt(nonDefaultCount)
+      for (i <- 0 until tileData.length()) {
+        if (tileData(i) != default) {
+          writeInt(i)
+          writeRecord(tileData(i))
+        }
+      }
+
+      baos.flush()
+      baos.close()
+      baos.toByteArray
+    }
+
+    communityData
+      .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
+      .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
   }
 
   def parseNodes (hierarchyLevel: Int)(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {

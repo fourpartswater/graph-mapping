@@ -1,10 +1,12 @@
 package software.uncharted.graphing.salt
 
 
-import java.io.ByteArrayOutputStream
+import java.io.{FileOutputStream, File, ByteArrayOutputStream}
 import java.lang.{Double => JavaDouble}
 
 
+import software.uncharted.salt.core.generation.Series
+import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 
 import scala.reflect.ClassTag
@@ -27,7 +29,7 @@ import com.databricks.spark.csv.CsvParser
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.output.SeriesData
-import software.uncharted.salt.core.generation.request.TileLevelRequest
+import software.uncharted.salt.core.generation.request.{TileRequest, TileLevelRequest}
 import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.ops.salt.zxy.CartesianOp
 
@@ -222,6 +224,17 @@ object GraphTilingOperations {
     )(input)
   }
 
+  def genericFullTilingRequest[RT, DC, TC: ClassTag, BC, T, U, V, W, X] (series: Series[RT, DC, TC, BC, T, U, V, W, X], levels: Seq[Int], getZoomLevel: TC => Int)(data: RDD[RT]): RDD[SeriesData[TC, BC, V, X]] = {
+    genericTiling(series)(new TileLevelRequest[TC](levels, getZoomLevel))(data)
+  }
+
+  def genericTiling[RT, DC, TC: ClassTag, BC, T, U, V, W, X] (series: Series[RT, DC, TC, BC, T, U, V, W, X])(request: TileRequest[TC])(data: RDD[RT]): RDD[SeriesData[TC, BC, V, X]] = {
+    val sc = data.sparkContext
+    val generator = new RDDTileGenerator(sc)
+
+    generator.generate(data, series, request).flatMap(t => series(t))
+  }
+
   /**
     * Helper function for initializing an HBase connection
     *
@@ -280,47 +293,15 @@ object GraphTilingOperations {
     }
   }
 
-  /**
-    * Save a tile set of simple Double-valued tiles out to HBase
-    *
-    * The table should be already initialized (see initializeHBaseTable, above)
-    *
-    * This will be superceded (I hope) by what Ahilan is writing.
-    *
-    * @param table The name of the table into which to save the tiles
-    * @param family The family name of the column in which to save tiles
-    * @param qualifier A qualifier to use with the column in which to save tiles
-    * @param hbaseConfiguration A fully loaded HBase configuration object
-    * @param tileData An RDD of simple double-valued tiles.
-    */
-  def saveDenseTiles (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
-    // Convert tiles to hbase format
-    val BytesPerDouble = 8
-    def toByteArray (sparseData: SparseArray[Double]): Array[Byte] = {
-      val data = sparseData.seq
-      val result = new Array[Byte](data.length * BytesPerDouble)
-      var resultIndex = 0
-      for (i <- data.indices) {
-        val datum = JavaDouble.doubleToLongBits(data(i).doubleValue())
-        for (i <- 0 to 7) {
-          result(resultIndex) = ((datum >> (i * 8)) & 0xff).asInstanceOf[Byte]
-          resultIndex += 1
-        }
-      }
-      result
-    }
-    def getRowIndex (tileIndex: (Int, Int, Int)): String = {
-      val (z, x, y) = tileIndex
-      val digits = math.log10(1 << z).floor.toInt + 1
-      ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
-    }
-
+  def saveToHBase[TC, BC, V, X] (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration,
+                                 encodeKey: TC => String,
+                                 encodeTile: SparseArray[V] => Array[Byte])(tileData: RDD[SeriesData[TC, BC, V, X]]) = {
     val familyBytes = family.getBytes
     val qualifierBytes = qualifier.getBytes
 
     val hbaseFormattedTiles = tileData.map { tile =>
-      val data = toByteArray(tile.bins)
-      val rowIndex = getRowIndex(tile.coords)
+      val rowIndex = encodeKey(tile.coords)
+      val data = encodeTile(tile.bins)
       val put = new Put(rowIndex.getBytes())
       put.addColumn(familyBytes, qualifierBytes, data)
       (new ImmutableBytesWritable, put)
@@ -332,77 +313,120 @@ object GraphTilingOperations {
     hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
   }
 
-  def saveSparseTiles (maxBin: (Int, Int), table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]]) = {
-    val projection = new CartesianProjection(Seq(0), (0.0, 0.0), (1.0, 1.0))
+  def saveToFileSystem[TC, BC, V, X] (encodeKey: TC => File,
+                                      encodeTile: SparseArray[V] => Array[Byte])(tileData: RDD[SeriesData[TC, BC, V, X]]) = {
+    tileData.map{ tile =>
+      val fos = new FileOutputStream(encodeKey(tile.coords))
+      fos.write(encodeTile(tile.bins))
+      fos.flush()
+      fos.close()
+    }
+  }
 
-    // Convert tiles to hbase format
-    val BytesPerDouble = 8
-    def toByteArray (sparseData: SparseArray[Double]): Array[Byte] = {
-      val defaultValue = sparseData.default
-      var nonDefaultCount = 0
-      for (i <- 0 until sparseData.length())
-        if (defaultValue != sparseData(i)) nonDefaultCount += 1
-
-      val baos = new ByteArrayOutputStream()
-
-      def writeInt (value: Int): Unit = {
-        for (i <- 0 to 3) {
-          val bi = (value >> (i*8)) & 0xff
-          baos.write(bi)
-        }
+  private val BytesPerDouble = 8
+  private val doubleTileToByteArrayDense: SparseArray[Double] => Array[Byte] = sparseData => {
+    val data = sparseData.seq
+    val result = new Array[Byte](data.length * BytesPerDouble)
+    var resultIndex = 0
+    for (i <- data.indices) {
+      val datum = JavaDouble.doubleToLongBits(data(i).doubleValue())
+      for (i <- 0 to 7) {
+        result(resultIndex) = ((datum >> (i * 8)) & 0xff).asInstanceOf[Byte]
+        resultIndex += 1
       }
+    }
+    result
+  }
+  private val doubleTileToByteArraySparse: SparseArray[Double] => Array[Byte] = sparseData => {
+    val defaultValue = sparseData.default
+    var nonDefaultCount = 0
+    for (i <- 0 until sparseData.length())
+      if (defaultValue != sparseData(i)) nonDefaultCount += 1
 
-      def writeLong (value: Long): Unit = {
-        for (i <- 0 to 7) {
-          val bi: Int = ((value >> (i*8)) & 0xff).toInt
-          baos.write(bi)
-        }
+    val baos = new ByteArrayOutputStream()
+
+    def writeInt (value: Int): Unit = {
+      for (i <- 0 to 3) {
+        val bi = (value >> (i*8)) & 0xff
+        baos.write(bi)
       }
-
-      def writeDouble (value: Double): Unit = {
-        writeLong(JavaDouble.doubleToLongBits(value))
-      }
-
-      def binFrom1D (z: Int) = {
-        val y = z / (maxBin._1 + 1)
-        val x = z - y * (maxBin._1 + 1)
-        (x, y)
-      }
-
-      writeInt(nonDefaultCount)
-      writeDouble(defaultValue)
-      for (i <- 0 until sparseData.length())
-        if (defaultValue != sparseData(i)) {
-          val (x, y) = binFrom1D(i)
-          writeInt(x)
-          writeInt(y)
-          writeDouble(sparseData(i))
-        }
-      baos.flush()
-      baos.close()
-      baos.toByteArray
     }
 
-    def getRowIndex (tileIndex: (Int, Int, Int)): String = {
-      val (z, x, y) = tileIndex
-      val digits = math.log10(1 << z).floor.toInt + 1
-      ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
+    def writeLong (value: Long): Unit = {
+      for (i <- 0 to 7) {
+        val bi: Int = ((value >> (i*8)) & 0xff).toInt
+        baos.write(bi)
+      }
     }
 
-    val familyBytes = family.getBytes
-    val qualifierBytes = qualifier.getBytes
-
-    val hbaseFormattedTiles = tileData.map { tile =>
-      val data = toByteArray(tile.bins)
-      val rowIndex = getRowIndex(tile.coords)
-      val put = new Put(rowIndex.getBytes())
-      put.addColumn(familyBytes, qualifierBytes, data)
-      (new ImmutableBytesWritable, put)
+    def writeDouble (value: Double): Unit = {
+      writeLong(JavaDouble.doubleToLongBits(value))
     }
 
-    // Write hbase tiles
-    val job = new Job(hbaseConfiguration)
-    TableMapReduceUtil.initTableReducerJob(table, null, job)
-    hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
+    writeInt(nonDefaultCount)
+    writeDouble(defaultValue)
+    for (i <- 0 until sparseData.length())
+      if (defaultValue != sparseData(i)) {
+        writeInt(i)
+        writeDouble(sparseData(i))
+      }
+    baos.flush()
+    baos.close()
+    baos.toByteArray
+  }
+
+  val getHBaseRowIndex: ((Int, Int, Int)) => String = tileIndex => {
+    val (z, x, y) = tileIndex
+    val digits = math.log10(1 << z).floor.toInt + 1
+    ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
+  }
+
+  private def getFileSystemRowIndex (baseLocation: File)(tileIndex: (Int, Int, Int)): File = {
+    val levelDir = new File(baseLocation, ""+tileIndex._1)
+    val xDir = new File(levelDir, ""+tileIndex._2)
+    xDir.mkdirs()
+    new File(xDir, tileIndex._3 + ".tile")
+  }
+
+  /**
+    * Save a tile set of simple Double-valued tiles out to HBase as dense arrays
+    *
+    * The table should be already initialized (see initializeHBaseTable, above)
+    *
+    * This will be superceded (I hope) by what Ahilan is writing.
+    *
+    * @param table The name of the table into which to save the tiles
+    * @param family The family name of the column in which to save tiles
+    * @param qualifier A qualifier to use with the column in which to save tiles
+    * @param hbaseConfiguration A fully loaded HBase configuration object
+    * @param tileData An RDD of simple double-valued tiles.
+    */
+  def saveDenseTilesToHBase[BC, X] (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToHBase(table, family, qualifier, hbaseConfiguration, getHBaseRowIndex, doubleTileToByteArrayDense)(tileData)
+  }
+
+  /**
+    * Save a tile set of simple Double-valued tiles out to HBase as sparse arrays
+    *
+    * The table should be already initialized (see initializeHBaseTable, above)
+    *
+    * This will be superceded (I hope) by what Ahilan is writing.
+    *
+    * @param table The name of the table into which to save the tiles
+    * @param family The family name of the column in which to save tiles
+    * @param qualifier A qualifier to use with the column in which to save tiles
+    * @param hbaseConfiguration A fully loaded HBase configuration object
+    * @param tileData An RDD of simple double-valued tiles.
+    */
+  def saveSparseTilesToHBase[BC, X] (maxBin: (Int, Int), table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToHBase(table, family, qualifier, hbaseConfiguration, getHBaseRowIndex, doubleTileToByteArraySparse)(tileData)
+  }
+
+  def saveDenseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArrayDense)(tileData)
+  }
+
+  def saveSparseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArrayDense)(tileData)
   }
 }
