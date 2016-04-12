@@ -33,8 +33,22 @@ object SampleGenerator {
         System.exit(0)
         throw e
     }
+    val sampleType = Try{
+      args(1) match {
+        case "symetric" => 0
+        case "asymetric" => 1
+        case "registration" => 2
+      }
+    } match {
+      case Success(n) => n
+      case Failure(e) => println("Required ")
+    }
 
-    val data = createNodeTriangles(levels)
+    val data = sampleType match {
+      case 0 => createNodeOctets(levels)
+      case 1 => createNodeTriangles(levels)
+      case 2 => createRegistrationTest(levels)
+    }
 
     for (level <- 0 to levels) {
       val hierarchyLevel = levels - level
@@ -58,6 +72,33 @@ object SampleGenerator {
   }
 
 
+  def createRegistrationTest (maxLevel: Int): Array[(Seq[Node], Seq[Edge])] = {
+    val nodes = new Array[Seq[Node]](maxLevel + 1)
+    val edges = new Array[Seq[Edge]](maxLevel + 1)
+
+    val cx = 128.0
+    val cy = 128.0
+    for (level <- 0 to maxLevel) {
+      val a = 32.0 / (1 << level)
+      val b = 16.0 / (1 << level)
+      val r = 2.0 / (1 << level)
+      val n0 = Node(getNextId, cx - a, cy - b, r, None, 1L, 0, s"$level-0")
+      val n1 = Node(getNextId, cx + b, cy - a, r, None, 1L, 0, s"$level-0")
+      val n2 = Node(getNextId, cx + a, cy + b, r, None, 1L, 0, s"$level-0")
+      val n3 = Node(getNextId, cx - b, cy + a, r, None, 1L, 0, s"$level-0")
+      nodes(level) = Seq(n0, n1, n2, n3)
+      edges(level) = Seq(
+        Edge(n0, n1, false, 1L),
+        Edge(n1, n2, false, 1L),
+        Edge(n2, n3, false, 1L),
+        Edge(n3, n0, false, 1L),
+        Edge(n0, n2, false, 2L),
+        Edge(n1, n3, false, 2L)
+      )
+    }
+
+    nodes zip edges
+  }
 
   def createNodeTriangles (maxLevel: Int): Array[(Seq[Node], Seq[Edge])] = {
     val nodes = new Array[Seq[Node]](maxLevel + 1)
