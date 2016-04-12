@@ -22,14 +22,14 @@ import software.uncharted.sparkpipe.Pipe
 
 
 
-class MetadataTilingPipeline {
+object MetadataTilingPipeline {
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
     Logger.getRootLogger.setLevel(Level.WARN)
 
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setAppName("Edge Tiling Pipeline"))
+    val sc = new SparkContext(new SparkConf().setAppName("MetaData Tiling Pipeline").setMaster("local"))
     val sqlc = new SQLContext(sc)
 
     val base = argParser.getStringOption("base", "The base location of graph layout information", None).get
@@ -161,6 +161,7 @@ class MetadataTilingPipeline {
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
+      .run()
   }
 
   def parseNodes (hierarchyLevel: Int)(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
