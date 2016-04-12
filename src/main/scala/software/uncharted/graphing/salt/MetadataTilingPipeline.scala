@@ -20,8 +20,6 @@ import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.sparkpipe.Pipe
 
 
-
-
 object MetadataTilingPipeline {
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
@@ -52,7 +50,7 @@ object MetadataTilingPipeline {
     initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
-    val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
+    val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds.head, bounds.last - 1)).toList.reverse.zipWithIndex.reverse
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
@@ -97,8 +95,7 @@ object MetadataTilingPipeline {
     val nodeData = rawData
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
-                      Some(nodeSchema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(nodeSchema)))
       .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel))
       .to(countRDDRowsOp("Graph nodes: "))
@@ -108,8 +105,7 @@ object MetadataTilingPipeline {
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
-                      Some(edgeSchema)))
+      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(edgeSchema)))
       .to(countDFRowsOp("Parsed edge data: "))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
       .to(countRDDRowsOp("Graph edges: "))
@@ -120,19 +116,19 @@ object MetadataTilingPipeline {
       .to(countRDDRowsOp("Communities: "))
 
     // Tile the communities
-    val getZoomLevel: ((Int, Int, Int)) => Int =  _._1
+    val getZoomLevel: ((Int, Int, Int)) => Int = _._1
 
     val encodeTile: SparseArray[GraphRecord] => Array[Byte] = tileData => {
       val baos = new ByteArrayOutputStream()
 
-      def writeInt (value: Int): Unit = {
+      def writeInt(value: Int): Unit = {
         for (i <- 0 to 3) {
-          val bi = (value >> (i*8)) & 0xff
+          val bi = (value >> (i * 8)) & 0xff
           baos.write(bi)
         }
       }
 
-      def writeRecord (record: GraphRecord): Unit = {
+      def writeRecord(record: GraphRecord): Unit = {
         if (null == record) {
           writeInt(0)
         } else {
@@ -164,7 +160,7 @@ object MetadataTilingPipeline {
       .run()
   }
 
-  def parseNodes (hierarchyLevel: Int)(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
+  def parseNodes(hierarchyLevel: Int)(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
     // Names must match those in NodeTilingPipeline schema
     val idExtractor = new LongExtractor(rawData, "nodeId", None)
     val xExtractor = new DoubleExtractor(rawData, "x", None)
@@ -177,8 +173,8 @@ object MetadataTilingPipeline {
     val parentXExtractor = new DoubleExtractor(rawData, "parentX", Some(-1.0))
     val parentYExtractor = new DoubleExtractor(rawData, "parentY", Some(-1.0))
     val parentRExtractor = new DoubleExtractor(rawData, "parentR", Some(0.0))
-    rawData.rdd.flatMap{row =>
-      Try{
+    rawData.rdd.flatMap { row =>
+      Try {
         val id = idExtractor.getValue(row)
         val x = xExtractor.getValue(row)
         val y = yExtractor.getValue(row)
@@ -196,8 +192,8 @@ object MetadataTilingPipeline {
     }
   }
 
-  def parseEdges[T] (hierarchyLevel: Int, weighted: Boolean, specifiesExternal: Boolean)
-                    (rawData: DataFrame): RDD[(Long, (GraphEdge, Boolean))] = {
+  def parseEdges[T](hierarchyLevel: Int, weighted: Boolean, specifiesExternal: Boolean)
+                   (rawData: DataFrame): RDD[(Long, (GraphEdge, Boolean))] = {
     // Names must match those in EdgeTilingPipeline schema
     val srcIdExtractor = new LongExtractor(rawData, "srcId", None)
     val srcXExtractor = new DoubleExtractor(rawData, "srcX", None)
@@ -234,7 +230,7 @@ object MetadataTilingPipeline {
     }
   }
 
-  def consolidateCommunities (input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
+  def consolidateCommunities(input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
   RDD[((Double, Double), GraphCommunity)] = {
     val (vertices, edges) = input
     type EdgeListOption = Option[MutableBuffer[GraphEdge]]
@@ -257,28 +253,29 @@ object MetadataTilingPipeline {
       (getCombineEdgeList(a._1, b._1), getCombineEdgeList(a._2, b._2))
     )
 
-    vertices.leftOuterJoin(edgeLists).map{case (id, (community, edgesOption)) =>
-        val coordinates = community.coordinates
-        val newCommunity = new GraphCommunity(
-          community.hierarchyLevel,
-          community.id,
-          community.coordinates,
-          community.radius,
-          community.degree,
-          community.numNodes,
-          community.metadata,
-          community.isPrimaryNode,
-          community.parentId,
-          community.parentCoordinates,
-          community.parentRadius,
-          edgesOption.map(_._1).getOrElse(None),
-          edgesOption.map(_._2).getOrElse(None)
-        )
+    vertices.leftOuterJoin(edgeLists).map { case (id, (community, edgesOption)) =>
+      val coordinates = community.coordinates
+      val newCommunity = new GraphCommunity(
+        community.hierarchyLevel,
+        community.id,
+        community.coordinates,
+        community.radius,
+        community.degree,
+        community.numNodes,
+        community.metadata,
+        community.isPrimaryNode,
+        community.parentId,
+        community.parentCoordinates,
+        community.parentRadius,
+        edgesOption.map(_._1).getOrElse(None),
+        edgesOption.map(_._2).getOrElse(None)
+      )
       (coordinates, newCommunity)
     }
   }
 }
-abstract class ValueExtractor[T] (data: DataFrame, columnName: String, defaultValue: Option[T]) {
+
+abstract class ValueExtractor[T](data: DataFrame, columnName: String, defaultValue: Option[T]) {
   val columnIndex = data.schema.fieldIndex(columnName)
 
   def getValue(row: Row): T = {
@@ -288,23 +285,23 @@ abstract class ValueExtractor[T] (data: DataFrame, columnName: String, defaultVa
 
   protected def getValueInternal(row: Row, index: Int): T
 }
-class IntExtractor (data: DataFrame, columnName: String, defaultValue: Option[Int])
-  extends ValueExtractor[Int](data, columnName, defaultValue)
-{
+
+class IntExtractor(data: DataFrame, columnName: String, defaultValue: Option[Int])
+  extends ValueExtractor[Int](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): Int = row.getInt(index)
 }
-class LongExtractor (data: DataFrame, columnName: String, defaultValue: Option[Long])
-  extends ValueExtractor[Long](data, columnName, defaultValue)
-{
+
+class LongExtractor(data: DataFrame, columnName: String, defaultValue: Option[Long])
+  extends ValueExtractor[Long](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): Long = row.getLong(index)
 }
-class DoubleExtractor (data: DataFrame, columnName: String, defaultValue: Option[Double])
-  extends ValueExtractor[Double](data, columnName, defaultValue)
-{
+
+class DoubleExtractor(data: DataFrame, columnName: String, defaultValue: Option[Double])
+  extends ValueExtractor[Double](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): Double = row.getDouble(index)
 }
-class StringExtractor (data: DataFrame, columnName: String, defaultValue: Option[String])
-  extends ValueExtractor[String](data, columnName, defaultValue)
-{
+
+class StringExtractor(data: DataFrame, columnName: String, defaultValue: Option[String])
+  extends ValueExtractor[String](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): String = row.getString(index)
 }
