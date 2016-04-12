@@ -121,6 +121,7 @@ abstract class CartesianTileProjection2D[DC, BC] (min: (Double, Double), max: (D
     val levelScale = 1L << level
     val levelX = scaledPoint._1 * levelScale
     val levelY = scaledPoint._2 * levelScale
-    ((levelX * (maxBin._1 + 1)).toInt, (levelY * maxBin._2 + 1).toInt)
+    val maxY = levelScale * maxBin._2
+    ((levelX * (maxBin._1 + 1)).toInt, (maxY - levelY * (maxBin._2 + 1)).toInt)
   }
 }

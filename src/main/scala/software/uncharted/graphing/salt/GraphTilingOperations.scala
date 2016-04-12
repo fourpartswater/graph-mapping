@@ -175,7 +175,7 @@ object GraphTilingOperations {
 
 
     CartesianOp(
-      xCol, yCol, bounds, levels, r => Some(1), CountAggregator, tileAggregation, tileSize
+      yCol, xCol, bounds, levels, r => Some(1), CountAggregator, tileAggregation, tileSize
     )(
       new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
     )(input)

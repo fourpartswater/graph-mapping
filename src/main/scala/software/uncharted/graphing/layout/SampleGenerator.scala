@@ -187,27 +187,32 @@ object SampleGenerator {
     (nodes, (internalEdges ++ externalEdges))
   }
 
-  case class Node(id: Long,
-                  x: Double,
-                  y: Double,
-                  radius: Double,
-                  parent: Option[Node],
-                  var numInternalNodes: Long,
-                  var degree: Int,
-                  metaData: String) {
+  object Node {
+    def apply (id: Long, x: Double, y: Double, radius: Double, parent: Option[Node], numInternalNodes: Long, degree: Int, metaData: String) = {
+      new Node(id, (x max 0.0) min 255.99999, (y max 0.0) min 255.99999, radius, parent, numInternalNodes, degree, metaData)
+    }
+  }
+  class Node(val id: Long,
+             val x: Double,
+             val y: Double,
+             val radius: Double,
+             val parent: Option[Node],
+             var numInternalNodes: Long,
+             var degree: Int,
+             val metaData: String) {
     var children: Option[Seq[Node]] = None
 
-    def setChildren (children: Node*): Unit = {
+    def setChildren(children: Node*): Unit = {
       addInternalNode(children.length)
       this.children = Some(children)
     }
 
-    def addDegree (n: Int): Unit = {
+    def addDegree(n: Int): Unit = {
       degree += n
       parent.map(_.addDegree(n))
     }
 
-    def addInternalNode (n: Long): Unit = {
+    def addInternalNode(n: Long): Unit = {
       numInternalNodes += n
       parent.map(_.addInternalNode(n))
     }
@@ -218,6 +223,14 @@ object SampleGenerator {
       } else {
         val p = parent.get
         "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + p.id + "\t" + p.x + "\t" + p.y + "\t" + p.radius + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
+      }
+
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Node =>
+          this.id == that.id
+
+        case _ => false
       }
   }
 

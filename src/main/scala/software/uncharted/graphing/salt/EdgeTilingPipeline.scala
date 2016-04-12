@@ -117,32 +117,4 @@ object EdgeTilingPipeline {
       .to(saveSparseTiles((255, 255), tableName, familyName, qualifierName, hbaseConfiguration))
       .run()
   }
-
-
-  //  def tileHierarchyLevel(sqlc: SQLContext)(
-//    path: String,
-//    filterOpt: Option[String],
-//    hierarchyLevel: Int,
-//    zoomLevels: Seq[Int],
-//    tableName: String,
-//    family: String,
-//    qualifier: String,
-//    hbaseConfiguration: Configuration
-//  ): Unit = {
-//    import GraphTilingOperations._
-//    import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-//    import RDDIO.mutateContextFcn
-//
-//    val filterFcn = filterOpt.map(filterStr => regexFilter(filterStr)(_))
-//    val schema = getSchema
-//
-//
-//    val tiles = Pipe(sqlc)
-//      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
-//      .to(optional(filterFcn))
-//      .to(toDataFrame(sqlc, Map[String, String](), Some(schema)))
-//      .to(cartesianTiling("x", "y", zoomLevels))
-//      .to(saveTiles(tableName, family, qualifier, hbaseConfiguration))
-//      .run()
-//  }
 }
