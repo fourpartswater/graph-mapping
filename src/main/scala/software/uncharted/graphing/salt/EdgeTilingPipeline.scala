@@ -111,7 +111,7 @@ object EdgeTilingPipeline {
                       Some(getSchema)))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
-      .to(countDFRowsOp("Required edges" ))
+      .to(countDFRowsOp("Required edges: " ))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
       .to(saveSparseTiles((255, 255), tableName, familyName, qualifierName, hbaseConfiguration))
