@@ -27,7 +27,7 @@ object MetadataTilingPipeline {
 
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setAppName("MetaData Tiling Pipeline").setMaster("local"))
+    val sc = new SparkContext(new SparkConf().setAppName("MetaData Tiling Pipeline"))
     val sqlc = new SQLContext(sc)
 
     val base = argParser.getStringOption("base", "The base location of graph layout information", None).get
@@ -82,12 +82,14 @@ object MetadataTilingPipeline {
       // T = data type  U, V = binTypes
       GraphCommunity, GraphRecord, GraphRecord, GraphRecord, GraphRecord](
       (0, 0),
-      r => Some(r._1),
-      new CartesianProjection(zoomLevels, (0.0, 0.0), (1.0, 1.0)),
-      r => Some(r._2),
-      null,
-      null,
-      null
+      r => {
+        Some(r._1)
+      },
+      new CartesianProjection(zoomLevels, (0.0, 0.0), (256.0, 256.0)),
+      r => {
+        Some(r._2)
+      },
+      new GraphMetadataAggregator
     )
 
     // Get our VertexRDD
@@ -156,6 +158,7 @@ object MetadataTilingPipeline {
 
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
+      .to(countRDDRowsOp("Tiles: "))
       .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
       .run()
   }
