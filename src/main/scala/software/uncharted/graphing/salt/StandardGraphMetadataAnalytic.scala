@@ -337,3 +337,27 @@ case class GraphEdge (destinationId: Long,
     s"""{"dstId": $destinationId, "dstCoords": [$x, $y], "weight": $weight}"""
   }
 }
+
+class GraphMetadataAggregator extends Aggregator[GraphCommunity, GraphRecord, GraphRecord] {
+  override def default(): GraphRecord = GraphRecord(None, 0)
+
+  override def finish(intermediate: GraphRecord): GraphRecord = intermediate
+
+  override def merge(left: GraphRecord, right: GraphRecord): GraphRecord = {
+    if (null == left) right
+    else if (null == right) left
+    else {
+      new GraphRecord(
+        (left.communities ++ right.communities).reduceOption(_ ++ _),
+        left.numCommunities + right.numCommunities
+      )
+    }
+  }
+
+  override def add(current: GraphRecord, next: Option[GraphCommunity]): GraphRecord = {
+    GraphRecord(
+      (next.map(c => Seq(c)) ++ current.communities).reduceOption(_ ++ _),
+      current.numCommunities + next.map(c => 1).getOrElse(0)
+    )
+  }
+}
