@@ -1,9 +1,0 @@
-oculus.binning.parsing.separator=\t
-oculus.binning.parsing.x1.index=2
-oculus.binning.parsing.y1.index=3
-oculus.binning.parsing.x2.index=5
-oculus.binning.parsing.y2.index=6
-oculus.binning.parsing.v.index=7
-oculus.binning.parsing.v.fieldAggregation=add
-oculus.binning.parsing.edgeType.index=8
-

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# THis script pulls a tile set from HBase onto the local file system.
+#
+
 MAIN_CLASS=software.uncharted.graphing.tiling.TilesetPuller
 MAIN_JAR=../lib/xdata-graph.jar
 JOB_MASTER=yarn-client
