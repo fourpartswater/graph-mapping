@@ -28,8 +28,6 @@ package software.uncharted.graphing.layout
 
 
 import scala.util.Random
-import com.oculusinfo.geometry.quadtree.QuadTree
-import com.oculusinfo.geometry.quadtree.QuadNode
 
 
 

@@ -27,10 +27,6 @@ package software.uncharted.graphing.layout
 
 
 
-import com.oculusinfo.geometry.quadtree.QuadNode
-
-
-
 /**
  *  A Graph Layout algorithm that prevents nodes/communities from overlapping using an iterative repulsion calculation. N
  *  Nodes that do not overlap each other are not altered.

@@ -24,6 +24,46 @@ ext {
 	dependencyScalaVersion = "2.10"
 	scalaVersion = "2.10.6"
 	sparkVersion = "1.6.0"
+	hbaseVersion = "1.0.0"
+	htraceVersion = "3.1.0-incubating"
+
+	// A shared function that adds hbase dependencies to the supplied project based on the build type.
+	// We can't use the DSL in this context, so we have to go through the lower level DependencyManager APIs.
+	addHBaseDependencies = { config ->
+		if (config == null || config == "") {
+			config = "compile"
+		}
+		getDependencies().add(config, "org.apache.hbase:hbase-common:$hbaseVersion", {
+			exclude group: "asm", module: "asm"
+			exclude group: "org.slf4j", module: "slf4j-api"
+			exclude group: "org.slf4j", module: "slf4j-log4j12"
+			exclude group: "org.jboss.netty", module: "netty"
+			exclude group: "io.netty", module: "netty"
+		})
+		getDependencies().add(config, "org.apache.hbase:hbase-client:$hbaseVersion", {
+			exclude group: "asm", module: "asm"
+			exclude group: "org.slf4j", module: "slf4j-api"
+			exclude group: "org.slf4j", module: "slf4j-log4j12"
+			exclude group: "org.jboss.netty", module: "netty"
+			exclude group: "io.netty", module: "netty"
+		})
+		getDependencies().add(config, "org.apache.hbase:hbase-server:$hbaseVersion", {
+			exclude group: "asm", module: "asm"
+			exclude group: "org.slf4j", module: "slf4j-api"
+			exclude group: "org.slf4j", module: "slf4j-log4j12"
+			exclude group: "org.mortbay.jetty", module: "servlet-api-2.5"
+			exclude group: "org.jboss.netty", module: "netty"
+			exclude group: "io.netty", module: "netty"
+		})
+		getDependencies().add(config, "org.apache.htrace:htrace-core:$htraceVersion", {
+			exclude group: "asm", module: "asm"
+			exclude group: "org.slf4j", module: "slf4j-api"
+			exclude group: "org.slf4j", module: "slf4j-log4j12"
+			exclude group: "org.mortbay.jetty", module: "servlet-api-2.5"
+			exclude group: "org.jboss.netty", module: "netty"
+			exclude group: "io.netty", module: "netty"
+		})
+	}
 }
 
 // appends scala test functionality to the baseline test task
@@ -90,23 +130,25 @@ dependencies {
 	compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
 
 	compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
-	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7"
-	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7"
-	compile "com.oculusinfo:factory-utilities:0.7-SNAPSHOT-cdh5.4.7"
+//	compile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7"
+//	compile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7"
+//	compile "com.oculusinfo:factory-utilities:0.7-SNAPSHOT-cdh5.4.7"
+	addHBaseDependencies()
 
 	provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 
 	testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
-	testCompile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:tests"
-	testCompile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7:tests"
+//	testCompile "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:tests"
+//	testCompile "com.oculusinfo:binning-utilities:0.7-SNAPSHOT-cdh5.4.7:tests"
 
-	assemblyJarDepends "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:assembly"
+//	assemblyJarDepends "com.oculusinfo:tile-generation:0.7-SNAPSHOT-cdh5.4.7:assembly"
 	assemblyJarDepends project(":salt")
 	assemblyJarDepends project(":sparkpipe-core")
 	assemblyJarDepends project(":salt-sparkpipe-ops")
 	assemblyJarDepends "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
 	assemblyJarDepends "org.apache.commons:commons-csv:1.1"
 	assemblyJarDepends "com.univocity:univocity-parsers:1.5.1"
+	addHBaseDependencies("assemblyJarDepends")
 }
 
 // Creation of a distribution jar

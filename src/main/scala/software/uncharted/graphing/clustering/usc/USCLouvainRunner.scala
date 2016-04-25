@@ -26,10 +26,9 @@ import org.apache.spark.graphx.{Graph => SparkGraph, Edge}
 import org.apache.spark.{Accumulable, SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 
-import com.oculusinfo.tilegen.util.ArgumentParser
 
 import software.uncharted.graphing.clustering.ClusteringStatistics
-import software.uncharted.graphing.utilities.GraphOperations
+import software.uncharted.graphing.utilities.{ArgumentParser, GraphOperations}
 import GraphOperations._
 
 
@@ -38,7 +37,7 @@ import GraphOperations._
  * A class to run my version of the USC Louvain Clustering algorithm on a spark graph
  */
 object USCLouvainRunner {
-  def usage: Unit = {
+  def usage(): Unit = {
     println("Usage: LouvainSpark <node file> <node prefix> <edge file> <edge prefix> <partitions>")
   }
 
@@ -75,25 +74,24 @@ object USCLouvainRunner {
     val (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions):
     (Option[String], Option[String], String, Option[Int], String, Option[String], String, Int, Int, Option[Int], Int) =
       try {
-        val nodeFile = argParser.getStringOption("nodeFile", "The data file from which to get nodes")
-        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.")
-        val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
-        val nodeIdCol = argParser.getIntOption("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
+        val nodeFile = argParser.getStringOption("nodeFile", "The data file from which to get nodes", None)
+        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", None)
+        val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", "\t")
+        val nodeIdCol = argParser.getIntOption("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)", None)
 
-        val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
-        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.")
-        val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
-        val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
-        val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
-        val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge")
+        val edgeFile = argParser.getStringOption("edgeFile", "The data file from which to get edges", None).get
+        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", None)
+        val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", "\t")
+        val edgeSrcCol = argParser.getIntOption("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node", None).get
+        val edgeDstCol = argParser.getIntOption("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node", None).get
+        val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge", None)
 
-        val partitions = argParser.getInt("partitions", "The number of partitions into which to break the graph for first-round processing")
+        val partitions = argParser.getIntOption("partitions", "The number of partitions into which to break the graph for first-round processing", None).get
         (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions)
       } catch {
-        case e: Exception => {
+        case e: Exception =>
           argParser.usage
           return
-        }
       }
 
     val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
@@ -127,9 +125,6 @@ object USCLouvainRunner {
     List(0.0, 0.25, 0.5, 0.75, 1.0).foreach { r =>
       val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
 
-      // Set up a clustering statistics accumulator
-      val stats = sc.accumulableCollection(ListBuffer[ClusteringStatistics]())
-
       println("Randomness: "+r)
       subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
         graphs.map(graph => (partition, graph))
@@ -142,7 +137,7 @@ object USCLouvainRunner {
       }
     }
 
-    System.exit(0);
+    System.exit(0)
 
     val r = 0.5
     val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
@@ -161,7 +156,7 @@ object USCLouvainRunner {
       println("\tTimestamp: " + new Date())
     }
 
-    val resultGraph = doClustering(-1, 0.15, false)(subGraphs, stats)
+    val resultGraph = doClustering(-1, 0.15, randomize = false)(subGraphs, stats)
 
     println("Resultant graph:")
     println("\tnodes: " + resultGraph.numNodes)
@@ -179,7 +174,7 @@ object USCLouvainRunner {
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)
                    (input: RDD[SubGraph[Long]],
                     stats: Accumulable[_ <: Growable[ClusteringStatistics], ClusteringStatistics]) = {
-    println("Starting first pass on "+input.partitions.size+" partitions")
+    println("Starting first pass on "+input.partitions.length+" partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
       def logStat (stat: String, value: String) =
         println("\tpartition "+partition+": "+stat+": "+value+"\t\t"+new Date())
@@ -193,7 +188,7 @@ object USCLouvainRunner {
       logStat("external links 1", g1.numExternalLinks.toString)
       logStat("modularity 1", c1.modularity.toString)
       c1.one_level(randomize)
-      val result = c1.getReducedSubgraphWithVertexMap(true)
+      val result = c1.getReducedSubgraphWithVertexMap(getVertexMap = true)
       c1.clusteringStatistics.foreach(cs =>
         stats += cs.addLevelAndPartition(1, partition)
       )
@@ -234,9 +229,9 @@ object USCLouvainRunner {
         new_modularity = c.modularity
         level = level + 1
         logStat("consolidation", "clustered", level)
-        g2 = c.getReducedSubgraphWithVertexMap(false)._1
+        g2 = c.getReducedSubgraphWithVertexMap(getVertexMap = false)._1
         logStat("consolidation", "consolidated", level)
-        c.clusteringStatistics.map { cs =>
+        c.clusteringStatistics.foreach { cs =>
           val levelStats = cs.addLevelAndPartition(level, -1)
           println("\tLevel stats: "+levelStats)
           stats += levelStats

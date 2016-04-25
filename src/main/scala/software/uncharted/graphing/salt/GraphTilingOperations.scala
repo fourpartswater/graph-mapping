@@ -7,7 +7,6 @@ import java.lang.{Double => JavaDouble}
 
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
-import software.uncharted.salt.core.projection.numeric.CartesianProjection
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -308,7 +307,7 @@ object GraphTilingOperations {
     }
 
     // Write hbase tiles
-    val job = new Job(hbaseConfiguration)
+    val job = Job.getInstance(hbaseConfiguration)
     TableMapReduceUtil.initTableReducerJob(table, null, job)
     hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
   }

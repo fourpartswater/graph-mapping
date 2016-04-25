@@ -1,17 +1,15 @@
 package software.uncharted.graphing.salt
 
-import com.oculusinfo.tilegen.datasets.LineDrawingType
-import com.oculusinfo.tilegen.pipeline.OperationType
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, Column, SQLContext}
 import org.apache.spark.sql.types._
 import org.apache.spark.{SparkConf, SparkContext}
-import software.uncharted.graphing.salt.GraphTilingOperations._
 import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.sparkpipe.Pipe
 
-import scala.collection.immutable.Range.Inclusive
+
 
 object EdgeTilingPipeline {
 

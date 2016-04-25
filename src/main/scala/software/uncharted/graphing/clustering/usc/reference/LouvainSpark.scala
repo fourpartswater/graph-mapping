@@ -4,8 +4,7 @@ package software.uncharted.graphing.clustering.usc.reference
 
 import java.util.Date
 
-import scala.collection.mutable.Buffer
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.reflect.ClassTag
 import scala.util.Try
 
@@ -16,11 +15,10 @@ import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{Graph => SparkGraph, Edge, PartitionStrategy, PartitionID, VertexId}
 import org.apache.spark.rdd.RDD
 
-import com.oculusinfo.tilegen.util.ArgumentParser
 
 import software.uncharted.graphing.clustering.ClusteringStatistics
 import software.uncharted.spark.ExtendedRDDOpertations._
-import software.uncharted.graphing.utilities.GraphOperations
+import software.uncharted.graphing.utilities.{ArgumentParser, GraphOperations}
 import GraphOperations._
 
 
@@ -68,25 +66,24 @@ object LouvainSpark {
     val (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions):
     (Option[String], Option[String], String, Option[Int], String, Option[String], String, Int, Int, Option[Int], Int) =
       try {
-        val nodeFile = argParser.getStringOption("nodeFile", "The data file from which to get nodes")
-        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.")
-        val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", Some("\t"))
-        val nodeIdCol = argParser.getIntOption("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)")
+        val nodeFile = argParser.getStringOption("nodeFile", "The data file from which to get nodes", None)
+        val nodePrefix = argParser.getStringOption("nodePrefix", "A prefix required on every line of the node data file for a line to count as a node.", None)
+        val nodeSeparator = argParser.getString("nodeSeparator", "A separator string for breaking the node data file into columns", "\t")
+        val nodeIdCol = argParser.getIntOption("nodeIdCol", "The column number of the column of node lines containing the node ID (which must be parsable into a long)", None)
 
-        val edgeFile = argParser.getString("edgeFile", "The data file from which to get edges")
-        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.")
-        val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", Some("\t"))
-        val edgeSrcCol = argParser.getInt("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node")
-        val edgeDstCol = argParser.getInt("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node")
-        val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge")
+        val edgeFile = argParser.getStringOption("edgeFile", "The data file from which to get edges", None).get
+        val edgePrefix = argParser.getStringOption("edgePrefix", "A prefix required on every line of the edge data file for a line to count as a edge.", None)
+        val edgeSeparator = argParser.getString("edgeSeparator", "A separator string for breaking the edge data file into columns", "\t")
+        val edgeSrcCol = argParser.getIntOption("edgeSrcCol", "The column number of the column of edge lines containing the node ID of the source node", None).get
+        val edgeDstCol = argParser.getIntOption("edgeDstCol", "The column number of the column of edge lines containing the node ID of the destination node", None).get
+        val weightColOpt = argParser.getIntOption("edgeWeightCol", "The column number of the column of edge lines containing the weight of the edge", None)
 
-        val partitions = argParser.getInt("partitions", "The number of partitions into which to break the graph for first-round processing")
+        val partitions = argParser.getIntOption("partitions", "The number of partitions into which to break the graph for first-round processing", None).get
         (nodeFile, nodePrefix, nodeSeparator, nodeIdCol, edgeFile, edgePrefix, edgeSeparator, edgeSrcCol, edgeDstCol, weightColOpt, partitions)
       } catch {
-        case e: Exception => {
+        case e: Exception =>
           argParser.usage
           return
-        }
       }
 
     val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
@@ -126,7 +123,7 @@ object LouvainSpark {
       println("\tRemote links: " + graph.remoteLinks.map(_.size).getOrElse(0))
       println("\tTimestamp: "+new Date())
     }
-    val (resultGraph, stats) = doClustering(-1, 0.15, false)(uscGraph)
+    val (_, stats) = doClustering(-1, 0.15, randomize = false)(uscGraph)
     stats.foreach(println)
   }
 
@@ -135,7 +132,7 @@ object LouvainSpark {
    * @param input An RDD of graph objects, one per partition
    */
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)(input: RDD[Graph]) = {
-    println("Starting first pass on "+input.partitions.size+" partitions")
+    println("Starting first pass on "+input.partitions.length+" partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
       def logStat (stat: String, value: String) =
 	      println("\tpartition "+partition+": "+stat+": "+value+"\t\t"+new Date())
@@ -160,7 +157,7 @@ object LouvainSpark {
 	      println("\tlevel "+level+": "+stat+": "+value+"\t\t"+new Date())
 
       val precision = 0.000001
-      val stats = Buffer[ClusteringStatistics]()
+      val stats = MutableBuffer[ClusteringStatistics]()
       logStat("consolidation", "start", 0)
       val g = reconstructGraph(i, stats)
       logStat("consolidation", "reconstruction", 0)
@@ -205,8 +202,8 @@ object LouvainSpark {
     (graph, stats)
   }
 
-  def reconstructGraph (i: Iterator[(GraphMessage, Iterable[ClusteringStatistics])], stats: Buffer[ClusteringStatistics]): Graph = {
-    val messages = Buffer[GraphMessage]()
+  def reconstructGraph (i: Iterator[(GraphMessage, Iterable[ClusteringStatistics])], stats: MutableBuffer[ClusteringStatistics]): Graph = {
+    val messages = MutableBuffer[GraphMessage]()
     var msgId = 0
     i.foreach { case (message, msgStatsSeq) =>
       messages += message
@@ -219,9 +216,9 @@ object LouvainSpark {
 
     messages.foreach{gm =>
       if (gap > 0) {
-        for (i <- 0 until gm.links.size) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
-        for (i <- 0 until gm.nodeToCommunity.size) gm.nodeToCommunity(i) = gm.nodeToCommunity(i) + gap
-        for (i <- 0 until gm.degrees.size) gm.degrees(i) = gm.degrees(i) + degreeGap
+        for (i <- gm.links.indices) gm.links(i) = (gm.links(i)._1 + gap, gm.links(i)._2)
+        for (i <- gm.nodeToCommunity.indices) gm.nodeToCommunity(i) = gm.nodeToCommunity(i) + gap
+        for (i <- gm.degrees.indices) gm.degrees(i) = gm.degrees(i) + degreeGap
       }
 
       gap = gap + gm.numNodes
@@ -236,7 +233,7 @@ object LouvainSpark {
     )
 
     // Merge remote portions
-    val remoteLinks = MutableMap[Int, Buffer[(Int, Float)]]()
+    val remoteLinks = MutableMap[Int, MutableBuffer[(Int, Float)]]()
     messages.foreach{message =>
       val m = MutableMap[(Int, Int), Float]()
       message.remoteMaps.foreach{remoteMaps =>
@@ -246,18 +243,17 @@ object LouvainSpark {
               message.nodeToCommunity(remoteMap.source),
               messages(remoteMap.sinkPart).nodeToCommunity(remoteMap.sink)
               )
-		        m(key) = m.get(key).getOrElse(0.0f) + 1.0f
+		        m(key) = m.getOrElse(key, 0.0f) + 1.0f
 	        } catch {
-		        case e: Exception => {
+		        case e: Exception =>
 			        println("Error merging remote map")
-		        }
 	        }
         }
       }
 
       // set graph.numLinks to graph.numLinks + m.size
       m.foreach{case (key, w) =>
-        val linkBuffer = remoteLinks.get(key._1).getOrElse(Buffer[(Int, Float)]())
+        val linkBuffer = remoteLinks.getOrElse(key._1, MutableBuffer[(Int, Float)]())
         linkBuffer += ((key._2, w))
         remoteLinks(key._1) = linkBuffer
       }
@@ -296,13 +292,13 @@ object LouvainSpark {
     // EdgeRDD corresponding to the partition of the VertexRDD containing node X
     val repartitionedEdges = graph.partitionBy(
       new SourcePartitioner(partitionBoundaries),
-      repartitionedVertices.partitions.size
+      repartitionedVertices.partitions.length
     ).edges
 
     // Combine the two into an RDD of subgraphs, one per partition
-    repartitionedVertices.zipPartitions(repartitionedEdges, true) { case (vi, ei) =>
+    repartitionedVertices.zipPartitions(repartitionedEdges, preservesPartitioning = true) { case (vi, ei) =>
       val nodes = vi.toArray
-      val numNodes = nodes.size
+      val numNodes = nodes.length
       val newIdByOld = MutableMap[Long, Int]()
 
       // Renumber the nodes (so that the IDs are integers, since the BGLL algorithm doesn't work in scala with Long
@@ -312,11 +308,11 @@ object LouvainSpark {
       }
 
       // Separate edges into internal and external edges
-      val internalLinks = new Array[Buffer[(Int, Float)]](numNodes)
-      val externalLinks = new Array[(Int, Buffer[(VertexId, Float)])](numNodes)
+      val internalLinks = new Array[MutableBuffer[(Int, Float)]](numNodes)
+      val externalLinks = new Array[(Int, MutableBuffer[(VertexId, Float)])](numNodes)
       for (i <- 0 until numNodes) {
-        internalLinks(i) = Buffer[(Int, Float)]()
-        externalLinks(i) = (i, Buffer[(VertexId, Float)]())
+        internalLinks(i) = MutableBuffer[(Int, Float)]()
+        externalLinks(i) = (i, MutableBuffer[(VertexId, Float)]())
       }
 
       ei.foreach { edge =>
@@ -347,7 +343,7 @@ object LouvainSpark {
       val remoteLinks =
         externalLinks.flatMap { case (source, sinks) =>
           sinks.map { case (vertexId, weight) =>
-            val partition = partitionBoundaries.value.find { case (partition, (min, max)) =>
+            val partition = partitionBoundaries.value.find { case (p, (min, max)) =>
               min <= vertexId && vertexId <= max
             }.get._1
             val indexInPartition = (vertexId - partitionBoundaries.value(partition)._1).toInt
