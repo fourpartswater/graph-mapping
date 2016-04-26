@@ -22,8 +22,9 @@ class BruteForceLeaderLineReducer (maxBin: (Int, Int),
       val scale = 1 << level
       val usx = (x - bounds._1._1) / (bounds._2._1 - bounds._1._1)
       val usy = (y - bounds._1._2) / (bounds._2._2 - bounds._1._2)
+      val maxy = scale * (maxBin._2 + 1)
       val sx = usx * scale * (maxBin._1 + 1)
-      val sy = usy * scale * (maxBin._2 + 1)
+      val sy = maxy - usy * scale * (maxBin._2 + 1)
       (sx.floor.toInt, sy.floor.toInt)
     }
 
