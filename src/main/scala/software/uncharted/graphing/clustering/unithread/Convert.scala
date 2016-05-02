@@ -3,7 +3,8 @@ package software.uncharted.graphing.clustering.unithread
 
 import java.io._
 
-
+import scala.collection.mutable.{Buffer => MutableBuffer}
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
 
 
 object Convert {
@@ -13,12 +14,14 @@ object Convert {
   var edge_source_column = 0
   var edge_destination_column = 1
   var edge_weight_column: Option[Int] = None
+  var edge_analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
 
   var infile_node: Option[String] = None
   var node_filter: Option[String] = None
   var node_separator = "[ \t]+"
   var node_id_column = 0
   var node_metadata_column = 1
+  var node_analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
 
   var outfile: Option[String] = None
   var outfile_weight: Option[String] = None
@@ -34,6 +37,7 @@ object Convert {
     println("-ie filename\tinput edge file name")
     println("-fe string\tfilter lines in the edge file to ones that contain the specified string.")
     println("-ce string\tseparator character in edge file (defaults to \"[ \t]+\")")
+    println("-ae customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the edge data.  Multiple instances allowed, and performed in order.")
     println("-s column\tsource node id column")
     println("-d column\tdestination node id column")
     println("-w column\tweight column")
@@ -41,6 +45,7 @@ object Convert {
     println("-in filename\tinput node file name")
     println("-fn string\tfilter lines in the node file for those that contain the specified string.")
     println("-cn string\tseparator string in node file (defaults to \"[ \t]+\")")
+    println("-an customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
     println("-n column\tnode id column")
     println("-m column\tmeta-data column")
     println("-r\tnodes are renumbered from 0 to nb_nodes-1 (the order is kept).")
@@ -70,6 +75,10 @@ object Convert {
             i = i + 1
             edge_separator = args(i)
 
+          case "ae" =>
+            i = i + 1
+            edge_analytics += CustomGraphAnalytic(args(i))
+
           case "s" =>
             i = i + 1
             edge_source_column = args(i).toInt
@@ -95,6 +104,10 @@ object Convert {
           case "cn" =>
             i = i + 1
             node_separator = args(i)
+
+          case "an" =>
+            i = i + 1
+            node_analytics += CustomGraphAnalytic(args(i))
 
           case "n" =>
             i = i + 1
@@ -132,7 +145,7 @@ object Convert {
 //    val edgeReader = new BufferedReader(new InputStreamReader(new FileInputStream(infile_edge.get)))
 //    var g = GraphEdges(edgeReader, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
 //    edgeReader.close()
-    var g = GraphEdges(infile_edge.get, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
+    var g = GraphEdges(infile_edge.get, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column, edge_analytics)
 
     infile_node.foreach { nodeFile =>
       val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))

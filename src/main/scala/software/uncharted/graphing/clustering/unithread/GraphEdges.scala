@@ -1,15 +1,18 @@
 package software.uncharted.graphing.clustering.unithread
 
+
+
 import java.io._
 import java.util.Date
 
-import scala.collection.mutable.{Buffer, Map => MutableMap}
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
+
+import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.reflect.ClassTag
 
-/**
- * Created by nkronenfeld on 11/10/15.
- */
-class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
+
+
+class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[String]] = None
 
   def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String, id_column: Int, md_column: Int): Unit = {
@@ -29,27 +32,6 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
         line = metadataInput.readLine()
       }
     }
-  }
-
-  // Combine edges between the same nodes
-  def clean (weighted: Boolean): GraphEdges = {
-    val newLinks = new Array[Buffer[(Int, Float)]](links.length)
-
-    for (i <- links.indices) {
-      val m = MutableMap[Int, Float]()
-
-      for (j <- links(i).indices) {
-        val (dst, weight) = links(i)(j)
-        m(dst) =
-          if (weighted) m.getOrElse(dst, 0.0f) + weight
-          else m.getOrElse(dst, weight)
-      }
-
-      newLinks(i) = Buffer[(Int, Float)]()
-      newLinks(i).appendAll(m)
-    }
-
-    new GraphEdges(newLinks)
   }
 
   def renumber (weighted: Boolean): GraphEdges = {
@@ -75,15 +57,15 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
       }
     }
 
-    val newLinks = new Array[Buffer[(Int, Float)]](nb)
-    for (i <- 0 until nb) newLinks(i) = Buffer[(Int, Float)]()
+    val newLinks = new Array[MutableBuffer[(Int, Float, Seq[String])]](nb)
+    for (i <- 0 until nb) newLinks(i) = MutableBuffer[(Int, Float, Seq[String])]()
     for (i <- links.indices) {
       if (linked(i)) {
         val ir = renum(i)
         val nll = newLinks(ir)
         for (j <- links(i).indices) {
           val lle = links(i)(j)
-          nll.append((renum(lle._1), lle._2))
+          nll.append((renum(lle._1), lle._2, lle._3))
         }
       }
     }
@@ -101,11 +83,11 @@ class GraphEdges (val links: Array[Buffer[(Int, Float)]]) {
 
   def display (weighted: Boolean): Unit = {
     for (i <- links.indices; j <- links(i).indices) {
-      val (dest, weight) = links(i)(j)
+      val (dest, weight, analyticValues) = links(i)(j)
       if (weighted) {
-        println(i + " " + dest + " " + weight)
+        println(i + " " + dest + " " + weight + analyticValues.mkString(" ", " ", ""))
       } else {
-        println(i + " " + dest)
+        println(i + " " + dest + analyticValues.mkString(" ", " ", ""))
       }
     }
   }
@@ -158,7 +140,8 @@ object GraphEdges {
              edge_separator: String,
              source_column: Int,
              destination_column: Int,
-             weight_column: Option[Int]): GraphEdges = {
+             weight_column: Option[Int],
+             analytics: Seq[CustomGraphAnalytic[_, _]]): GraphEdges = {
     // First read through the file once, counting edges
     println("Counting nodes in graph")
     val countReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
@@ -194,20 +177,23 @@ object GraphEdges {
              source_column: Int,
              destination_column: Int,
              weight_column: Option[Int],
-             initialSize: Option[Int] = None): GraphEdges = {
-    var nb_links = 0
-    val edges = new GrowableArray[Buffer[(Int, Float)]](initialSize.getOrElse(0), () => Buffer[(Int, Float)]())
+             initialSize: Option[Int] = None,
+             analytics: Seq[CustomGraphAnalytic[_, _]] = Seq()): GraphEdges = {
+    val edges = new GrowableArray[MutableBuffer[(Int, Float, Seq[String])]](initialSize.getOrElse(0), () => MutableBuffer[(Int, Float, Seq[String])]())
     var line = edge_input.readLine()
     var n = 0
+    val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
     while (null != line) {
       val fields = line.split(edge_separator)
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
         val source = fields(source_column).toInt
         val destination = fields(destination_column).toInt
         val weight = weight_column.map(c => fields(c).toFloat)
-        edges(source).append((destination, weight.getOrElse(1.0f)))
+        val analyticValues = analyticColumns.map(c => fields(c))
+
+        edges(source).append((destination, weight.getOrElse(1.0f), analyticValues))
         if (source != destination)
-          edges(destination).append((source, weight.getOrElse(1.0f)))
+          edges(destination).append((source, weight.getOrElse(1.0f), analyticValues))
       }
 
       line = edge_input.readLine()
