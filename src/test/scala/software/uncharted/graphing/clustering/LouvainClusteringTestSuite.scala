@@ -17,11 +17,10 @@ import org.apache.log4j.{Level, Logger}
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
-import org.apache.spark.{SparkContext, SharedSparkContext}
-import org.apache.spark.graphx.{VertexId, Edge, Graph}
+import org.apache.spark.SharedSparkContext
+import org.apache.spark.graphx.{VertexId, Graph}
 
 import software.uncharted.graphing.clustering.experiments.{PathClustering, LouvainClustering4}
-import software.uncharted.graphing.clustering.sotera.{VertexState, LouvainHarness2}
 import software.uncharted.graphing.clustering.utilities.ClusterConsolidator
 import software.uncharted.graphing.utilities.TestUtilities._
 
@@ -50,30 +49,6 @@ class LouvainClusteringTestSuite extends FunSuite with SharedSparkContext with B
     e1.foreach(println)
     println("\nClusters:")
     c1.foreach(println)
-  }
-
-  ignore("Test old louvain clustering") {
-    val testGraph = standardBGLLGraph(sc, d => d)
-    var rlevel: Int = -1
-    var rq: Double = 0.0
-    var result: Graph[VertexState, Long] = null
-
-    val LC = new LouvainHarness2(0.15, 1) {
-      override def finalSave(sc:SparkContext,level:Int,q:Double,graph:Graph[VertexState,Long]) = {
-        rlevel = level
-        rq = q
-        result = graph
-      }
-    }
-    LC.run(sc, testGraph.mapEdges(edge => edge.attr.toLong))
-
-    val n1 = result.vertices.collect()
-    val e1 = result.edges.collect()
-
-    println("\nNodes:")
-    n1.foreach(println)
-    println("\nEdges:")
-    e1.foreach(println)
   }
 
   def showGraph[VD, ED] (name: String, graph: Graph[VD, ED])(implicit vOrd: Ordering[(VertexId, VD)]): Unit = {
