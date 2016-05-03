@@ -216,43 +216,57 @@ object Graph {
   }
 
 
-  def apply (filename: String, filename_w: Option[String], filename_m: Option[String],
+  def apply (filename: String, filename_w_opt: Option[String], filename_m_opt: Option[String],
              customAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
-    val nb_nodes = finput.readInt
+    val finput_w_opt = filename_w_opt.map(filename_w => new DataInputStream(new FileInputStream(filename_w)))
+    val finput_m_opt = filename_m_opt.map(filename_m => new DataInputStream(new FileInputStream(filename_m)))
+
+    val result = apply(finput, finput_w_opt, finput_m_opt, customAnalytics)
+
+    finput.close()
+    finput_w_opt.map(_.close())
+    finput_m_opt.map(_.close())
+
+    result
+  }
+
+  def apply (edgeDataStream: DataInputStream,
+             weightDataStreamOpt: Option[DataInputStream],
+             metadataInputStreamOpt: Option[DataInputStream],
+             customAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
+    val nb_nodes = edgeDataStream.readInt
 
     // Read cumulative degree sequence (long per node)
     // cum_degree[0] = degree(0), cum_degree[1] = degree(0)+degree(1), etc.
     val degrees = new Array[Int](nb_nodes)
-    for (i <- 0 until nb_nodes) degrees(i) = finput.readLong.toInt
+    for (i <- 0 until nb_nodes) degrees(i) = edgeDataStream.readLong.toInt
 
     // Read links (int per node)
     val nb_links = degrees(nb_nodes-1)
     val links = new Array[Int](nb_links)
-    for (i <- 0 until nb_links) links(i) = finput.readInt
+    for (i <- 0 until nb_links) links(i) = edgeDataStream.readInt
+
+
 
     val weights:Option[Array[Float]] =
-      filename_w.map { file =>
-      val finput_w = new DataInputStream(new FileInputStream(file))
-      val weightsInner = new Array[Float](nb_links)
-      for (i <- 0 until nb_links) weightsInner(i) = finput_w.readFloat
-      finput_w.close()
-      weightsInner
-    }
-    finput.close()
+      weightDataStreamOpt.map { weightDataStream =>
+        val weightsInner = new Array[Float](nb_links)
+        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat
+        weightsInner
+      }
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
-    if (filename_m.isDefined) {
+    if (metadataInputStreamOpt.isDefined) {
       def extractAnalyticValue[T] (aggregator: Aggregator[String, T, String], value: String) =
         aggregator.add(aggregator.default(), Some(value))
 
-      filename_m.foreach { file =>
-        val finput_m = new DataInputStream(new FileInputStream(file))
+      metadataInputStreamOpt.foreach { metadataInputStream =>
         for (i <- 0 until nb_nodes) {
-          val md = finput_m.readUTF()
-          val ad = new Array[Any](finput_m.readInt())
+          val md = metadataInputStream.readUTF()
+          val ad = new Array[Any](metadataInputStream.readInt())
           for (i <- ad.indices) {
-            ad(i) = extractAnalyticValue(customAnalytics(i).clusterAggregator, finput_m.readUTF())
+            ad(i) = extractAnalyticValue(customAnalytics(i).clusterAggregator, metadataInputStream.readUTF())
           }
           nodeInfos(i) = NodeInfo(i, 1, Some(md), ad, customAnalytics)
         }
