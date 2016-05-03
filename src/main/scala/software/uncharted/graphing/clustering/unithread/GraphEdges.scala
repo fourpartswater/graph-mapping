@@ -13,20 +13,25 @@ import scala.reflect.ClassTag
 
 
 class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
-  var metaData: Option[Array[String]] = None
+  var metaData: Option[Array[(String, Seq[String])]] = None
 
-  def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String, id_column: Int, md_column: Int): Unit = {
-    metaData = Some(new Array[String](links.length))
+  def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
+                    id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_, _]]): Unit = {
+    metaData = Some(new Array[(String, Seq[String])](links.length))
+    val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
     metaData.foreach{data =>
       var line = metadataInput.readLine()
       while (null != line) {
         val fields = line.split(separator)
         if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
           val edgeId = fields(id_column).toInt
-          if (fields.size <= md_column)
-            println("Too short")
+          if (fields.size <= md_column) println("Too short")
           val md = fields(md_column)
-          data(edgeId) = md
+          val analyticValues = analyticColumns.map { c =>
+            if (fields.size <= c) ""
+            else fields(c).trim
+          }
+          data(edgeId) = (md, analyticValues)
         }
 
         line = metadataInput.readLine()
@@ -72,7 +77,7 @@ class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
 
     val newGE = new GraphEdges(newLinks)
     metaData.foreach{md =>
-      val newMetaData = new Array[String](nb)
+      val newMetaData = new Array[(String, Seq[String])](nb)
       for (i <- links.indices)
         if (linked(i))
           newMetaData(renum(i)) = md(i)
@@ -125,8 +130,15 @@ class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
     metadataStream.foreach{stream =>
       metaData.foreach { data =>
         for (i <- 0 until s) {
-          if (null == data(i)) stream.writeUTF("")
-          else stream.writeUTF(data(i))
+          if (null == data(i)) {
+            stream.writeUTF("")
+            stream.writeInt(0)
+          } else {
+            val di = data(i)
+            stream.writeUTF(di._1)
+            stream.writeInt(di._2.length)
+            di._2.foreach(dias => stream.writeUTF(dias))
+          }
         }
       }
     }

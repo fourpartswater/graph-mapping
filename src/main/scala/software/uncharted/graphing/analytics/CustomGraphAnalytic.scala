@@ -45,15 +45,13 @@ trait CustomGraphAnalytic[CT, TT] {
     * The name of the analytic.  This will be used as the key under which the value is listed in the final tiled data.
     */
   val name: String
-  /** The columns input into the raw cluster aggregator */
-  val columns: Seq[Int]
+  /** The input column for the raw cluster aggregator */
+  val column: Int
   /**
-    * An aggregator that takes the values of the above columns, converts them to something meaningful, and aggregates
-    * them by cluster.
-    *
-    * Note that this may be run at several different points, so input type and output type should be identical
+    * An aggregator that takes the values of the above column, converts it into something meaningful, and aggregates
+    * the values by cluster.
     */
-  val clusterAggregator: Aggregator[Seq[String], CT, String]
+  val clusterAggregator: Aggregator[String, CT, String]
   /**
     * An aggregator that takes values output by the cluster aggregator, aggregates them, and outputs a JSON object that
     * can be added to the metadata tile.
@@ -79,13 +77,13 @@ object CustomGraphAnalytic {
     * Given a list of custom graph analytics, determine all columns needed by any of them
     */
   def determineColumns (analytics: Seq[CustomGraphAnalytic[_, _]]): Seq[Int] = {
-    analytics.flatMap(_.columns).distinct.sorted
+    analytics.map(_.column).distinct.sorted
   }
 
   /**
     * Figure out which columns, of the list of columns needed by all custom analytics, a given analytic needs
     */
-  def savedAnalyticColumns (allNeeded: Seq[Int], analytic: CustomGraphAnalytic[_, _]): Seq[Int] = {
-    analytic.columns.map(c => allNeeded.indexOf(c))
+  def savedAnalyticColumn (allNeeded: Seq[Int], analytic: CustomGraphAnalytic[_, _]): Int = {
+    allNeeded.indexOf(analytic.column)
   }
 }

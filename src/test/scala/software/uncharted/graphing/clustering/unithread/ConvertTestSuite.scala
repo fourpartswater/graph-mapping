@@ -19,11 +19,11 @@ class ConvertTestSuite extends FunSuite {
     val reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
     val edges = GraphEdges(reader, Some("edge"), "[ \t]+", 2, 3, None)
     assert(5 === edges.links.length)
-    assert(edges.links(0).toList === List((1, 1.0f), (2, 1.0f)))
-    assert(edges.links(1).toList === List((0, 1.0f), (3, 1.0f), (4, 1.0f)))
-    assert(edges.links(2).toList === List((0, 1.0f), (3, 1.0f), (4, 1.0f)))
-    assert(edges.links(3).toList === List((1, 1.0f), (2, 1.0f)))
-    assert(edges.links(4).toList === List((1, 1.0f), (2, 1.0f)))
+    assert(edges.links(0).toList === List((1, 1.0f, List()), (2, 1.0f, List())))
+    assert(edges.links(1).toList === List((0, 1.0f, List()), (3, 1.0f, List()), (4, 1.0f, List())))
+    assert(edges.links(2).toList === List((0, 1.0f, List()), (3, 1.0f, List()), (4, 1.0f, List())))
+    assert(edges.links(3).toList === List((1, 1.0f, List()), (2, 1.0f, List())))
+    assert(edges.links(4).toList === List((1, 1.0f, List()), (2, 1.0f, List())))
   }
 
   test("Test reading of edge files (with weights)") {
@@ -37,11 +37,11 @@ class ConvertTestSuite extends FunSuite {
     val reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
     val edges = GraphEdges(reader, Some("edge"), "[ \t]+", 2, 3, Some(5))
     assert(5 === edges.links.length)
-    assert(edges.links(0).toList === List((1, 0.7f), (2, 0.2f)))
-    assert(edges.links(1).toList === List((0, 0.7f), (3, 0.6f), (4, 0.3f)))
-    assert(edges.links(2).toList === List((0, 0.2f), (3, 0.5f), (4, 0.4f)))
-    assert(edges.links(3).toList === List((1, 0.6f), (2, 0.5f)))
-    assert(edges.links(4).toList === List((1, 0.3f), (2, 0.4f)))
+    assert(edges.links(0).toList === List((1, 0.7f, List()), (2, 0.2f, List())))
+    assert(edges.links(1).toList === List((0, 0.7f, List()), (3, 0.6f, List()), (4, 0.3f, List())))
+    assert(edges.links(2).toList === List((0, 0.2f, List()), (3, 0.5f, List()), (4, 0.4f, List())))
+    assert(edges.links(3).toList === List((1, 0.6f, List()), (2, 0.5f, List())))
+    assert(edges.links(4).toList === List((1, 0.3f, List()), (2, 0.4f, List())))
   }
 
   test("Test adding metadata to edges") {
@@ -60,12 +60,12 @@ class ConvertTestSuite extends FunSuite {
     val edgeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
     val edges = GraphEdges(edgeReader, Some("edge"), "[ \t]+", 2, 3, None)
     val nodeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    edges.readMetadata(nodeReader, Some("node"), "[ \t]+", 1, 3)
+    edges.readMetadata(nodeReader, Some("node"), "[ \t]+", 1, 3, Seq())
     assert(edges.metaData.get.length === 5)
-    assert("zero" === edges.metaData.get.apply(0))
-    assert("one" === edges.metaData.get.apply(1))
-    assert("two" === edges.metaData.get.apply(2))
-    assert("three" === edges.metaData.get.apply(3))
-    assert("four" === edges.metaData.get.apply(4))
+    assert(("zero", List()) === edges.metaData.get.apply(0))
+    assert(("one", List()) === edges.metaData.get.apply(1))
+    assert(("two", List()) === edges.metaData.get.apply(2))
+    assert(("three", List()) === edges.metaData.get.apply(3))
+    assert(("four", List()) === edges.metaData.get.apply(4))
   }
 }

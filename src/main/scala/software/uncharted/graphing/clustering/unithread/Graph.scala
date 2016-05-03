@@ -11,10 +11,34 @@ import java.io.{DataInputStream, FileInputStream, PrintStream}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph => SparkGraph, VertexId}
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.salt.core.analytic.Aggregator
 
-case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String]) {
-  def + (that: NodeInfo): NodeInfo =
-  NodeInfo(this.id, this.internalNodes + that.internalNodes, this.metaData)
+case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
+                     analyticData: Array[Any], analytics: Seq[CustomGraphAnalytic[_, _]]) {
+
+  def getCurrentValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) = rawValue.asInstanceOf[AIT]
+  def mergeCurrentValues[AIT] (left: Any, right: Any, analytic: CustomGraphAnalytic[AIT, _]): AIT = {
+    val typedLeft = getCurrentValue(left, analytic)
+    val typedRight = getCurrentValue(right, analytic)
+    analytic.clusterAggregator.merge(typedLeft, typedRight)
+  }
+
+  def +(that: NodeInfo): NodeInfo = {
+    val aggregatedAnalyticData = for (i <- analytics.indices) yield {
+      val a = analytics(i)
+      val left = if (this.analyticData.length <= i) this.analyticData(i) else null
+      val right = if (that.analyticData.length <= i) that.analyticData(i) else null
+      mergeCurrentValues(left, right, a)
+    }
+    NodeInfo(
+      this.id,
+      this.internalNodes + that.internalNodes,
+      this.metaData,
+      aggregatedAnalyticData.toArray,
+      analytics
+    )
+  }
 }
 
 /**
@@ -107,12 +131,38 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
 }
 
 object Graph {
-  def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED], getEdgeWeight: Option[ED => Float] = None): Graph = {
-    val nodes: Array[(VertexId, VD)] = source.vertices.collect.sortBy(_._1)
+  def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED],
+                     getEdgeWeight: Option[ED => Float] = None,
+                     extractMetadataValue: VD => String,
+                     extractAnalyticValues: Option[VD => Seq[String]],
+                     customGraphAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
+    def getAnalyticValues (node: VD): Array[Any] = {
+      val values = new Array[Any](customGraphAnalytics.length)
+      val inputValues = extractAnalyticValues.map(_(node)).getOrElse(Seq[String]())
+      def extractValue[T] (index: Int, analytic: CustomGraphAnalytic[T, _]): T = {
+        val a: Aggregator[String, T, String] = analytic.clusterAggregator
+        val default = a.default()
+        if (index < inputValues.length) {
+          a.add(default, Some(inputValues(index)))
+        } else {
+          a.add(default, None)
+        }
+      }
+      for (i <- customGraphAnalytics.indices) {
+        values(i) = extractValue(i, customGraphAnalytics(i))
+      }
+      values
+    }
+
+    val nodes: Array[(VertexId, String, Array[Any])] =
+      source.vertices.map(v => (v._1, extractMetadataValue(v._2), getAnalyticValues(v._2))).collect.sortBy(_._1)
     val edges = source.edges.collect.map(edge => (edge.srcId, edge.dstId, edge.attr))
     val minNode = nodes.map(_._1).min
     val maxNode = nodes.map(_._1).max
     val nb_nodes = (maxNode - minNode + 1).toInt
+
+    val defaultAnalyticValues = customGraphAnalytics.map(_.clusterAggregator.default()).toArray
+    val analyticColumns = CustomGraphAnalytic.determineColumns(customGraphAnalytics)
 
     // Note that, as in the original, a link between two nodes contributes its full weight (and degree) to both nodes,
     // whereas a self-link only contributes its weight to that one node once - hence seemingly being counted half as
@@ -128,7 +178,7 @@ object Graph {
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
     for (i <- 0 until nb_nodes) {
-      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2.toString))
+      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2), nodes(i)._3, customGraphAnalytics)
     }
 
     val links = new Array[Int](nb_links)
@@ -166,7 +216,8 @@ object Graph {
   }
 
 
-  def apply (filename: String, filename_w: Option[String], filename_m: Option[String]): Graph = {
+  def apply (filename: String, filename_w: Option[String], filename_m: Option[String],
+             customAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
     val nb_nodes = finput.readInt
 
@@ -192,13 +243,23 @@ object Graph {
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
     if (filename_m.isDefined) {
+      def extractAnalyticValue[T] (aggregator: Aggregator[String, T, String], value: String) =
+        aggregator.add(aggregator.default(), Some(value))
+
       filename_m.foreach { file =>
         val finput_m = new DataInputStream(new FileInputStream(file))
-        for (i <- 0 until nb_nodes)
-          nodeInfos(i) = NodeInfo(i, 1, Some(finput_m.readUTF()))
+        for (i <- 0 until nb_nodes) {
+          val md = finput_m.readUTF()
+          val ad = new Array[Any](finput_m.readInt())
+          for (i <- ad.indices) {
+            ad(i) = extractAnalyticValue(customAnalytics(i).clusterAggregator, finput_m.readUTF())
+          }
+          nodeInfos(i) = NodeInfo(i, 1, Some(md), ad, customAnalytics)
+        }
       }
     } else {
-      for (i <- 0 until nb_nodes) nodeInfos(i) = NodeInfo(i, 1, None)
+      for (i <- 0 until nb_nodes)
+        nodeInfos(i) = NodeInfo(i, 1, None, Array[Any](), customAnalytics)
     }
 
     new Graph(degrees, links, nodeInfos, weights)

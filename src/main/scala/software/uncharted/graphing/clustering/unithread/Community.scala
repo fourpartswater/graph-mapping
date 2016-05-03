@@ -10,6 +10,7 @@ package software.uncharted.graphing.clustering.unithread
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 import java.util.Date
 
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.utilities.SimpleProfiling
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
@@ -36,22 +37,35 @@ class UnlinkedNodeDegreeAlgorithm (val degreeLimits: Long*) extends AlgorithmMod
 class CommunitySizeAlgorithm (val maximumSize: Int) extends AlgorithmModification
 
 /**
- *
- * @param g The graph to cluster
- * @param nb_pass number of pass for one level computation
- *                if -1, compute as many pass as needed to increas modularity
- * @param min_modularity a new pass is computed if the last one has generated an increase greater than min_modularity
- *                       if 0, even a minor increase is enough to go for one more pass
- * @param algorithmMod The modification to apply to the baseline clustering algorithm.
- */
+  *
+  * @param g The graph to cluster
+  * @param nb_pass number of pass for one level computation
+  *                if -1, compute as many pass as needed to increas modularity
+  * @param min_modularity a new pass is computed if the last one has generated an increase greater than min_modularity
+  *                       if 0, even a minor increase is enough to go for one more pass
+  * @param algorithmMod The modification to apply to the baseline clustering algorithm.
+  */
 class Community (val g: Graph,
                  nb_pass: Int,
                  min_modularity: Double,
                  algorithmMod: AlgorithmModification = new BaselineAlgorithm) {
 
+  /**
+    *
+    * @param filename The base file from which to read edges
+    * @param filename_w The file from which to read edge weights
+    * @param filename_m The file from which to read node metadata
+    * @param nbp nb_pass in the base constructor
+    * @param minm min_modularity in the base constructor
+    * @param customAnalytics A sequence of custom analytics to apply to the data. Included is lists of other relevant
+    *                        columns to use.
+    * @param algorithmMod algorithmMod in the base constructor
+    * @return
+    */
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
-            nbp: Int, minm: Double, algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
-    this(Graph(filename, filename_w, filename_m), nbp, minm, algorithmMod)
+            nbp: Int, minm: Double, customAnalytics: Seq[CustomGraphAnalytic[_, _]],
+            algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
+    this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
 
 
@@ -420,6 +434,7 @@ object Community {
   var filename_part: Option[String] = None
   var verbose = false
   var randomize = true
+  var analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
   def usage (prog_name: String, more: String) = {
@@ -437,6 +452,7 @@ object Community {
     println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
     println("-h\tshow this usage message.")
     println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
+    println("-a customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
     println("-nd <base>\tUse the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.")
     println("-cs <size>\tUse the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd")
     System.exit(0)
@@ -472,6 +488,10 @@ object Community {
           case "k" =>
             i = i + 1
             k1 = args(i).toInt
+
+          case "a" =>
+            i = i + 1
+            analytics += CustomGraphAnalytic(args(i))
 
           case "v" =>
             verbose = true
@@ -529,7 +549,7 @@ object Community {
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
     SimpleProfiling.register("init.community")
-    var c = new Community(filename.get, filename_w, filename_m, -1, precision, algorithmByLevel(0))
+    var c = new Community(filename.get, filename_w, filename_m, -1, precision, analytics, algorithmByLevel(0))
     SimpleProfiling.finish("init.community")
 
     SimpleProfiling.register("init.partition")

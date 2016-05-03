@@ -25,7 +25,7 @@ class CommunityModificationsTestSuite extends FunSuite {
         8, 9, 10, 12,
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
       ),
-      (0 to 12).map(n => new NodeInfo(n.toLong, 1, None)).toArray
+      (0 to 12).map(n => new NodeInfo(n.toLong, 1, None, Array(), Seq())).toArray
     )
     val c = new Community(g, -1, 0.15, new NodeDegreeAlgorithm(5))
     c.one_level(false)

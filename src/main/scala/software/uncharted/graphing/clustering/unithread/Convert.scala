@@ -149,7 +149,7 @@ object Convert {
 
     infile_node.foreach { nodeFile =>
       val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))
-      g.readMetadata(nodeReader, node_filter, node_separator, node_id_column, node_metadata_column)
+      g.readMetadata(nodeReader, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
       nodeReader.close()
     }
 
