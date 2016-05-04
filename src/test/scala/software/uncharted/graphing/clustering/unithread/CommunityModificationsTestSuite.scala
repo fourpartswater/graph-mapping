@@ -1,12 +1,12 @@
 package software.uncharted.graphing.clustering.unithread
 
-import java.io.{DataInputStream, ByteArrayInputStream, ByteArrayOutputStream, DataOutputStream}
+import java.io._
 
 import org.scalatest.FunSuite
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.salt.{WrappingTileAggregator, WrappingClusterAggregator}
 import software.uncharted.salt.core.analytic.Aggregator
-import software.uncharted.salt.core.analytic.numeric.{SumAggregator, SumAggregatorSpec}
+import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator, SumAggregatorSpec}
 
 import scala.util.parsing.json.JSONObject
 
@@ -74,13 +74,37 @@ class CommunityModificationsTestSuite extends FunSuite {
 
     // Some analytics to use
     val analytics = Seq[CustomGraphAnalytic[_, _]](
-      new TestGraphAnalytic("abc", 1),
-      new TestGraphAnalytic("def", 2),
-      new TestGraphAnalytic("ghi", 3)
+      new TestGraphAnalytic("abc", 2, SumAggregator),
+      new TestGraphAnalytic("def", 3, MaxAggregator),
+      new TestGraphAnalytic("ghi", 4, MeanAggregator)
     )
 
     // Create some data
-    val ge: GraphEdges = null
+    // Contains some edge analytic data for now; may remove later.
+    val ge: GraphEdges = new GraphEdges(Array(
+      Seq(
+        (1, 1.0f, Seq("1.5", "1.6", "1.7")),
+        (2, 1.0f, Seq("2.5", "2.6", "2.7"))
+      ),
+      Seq(
+        (0, 1.0f, Seq("1.5", "1.6", "1.7")),
+        (2, 1.0f, Seq("3.5", "3.6", "3.7"))
+      ),
+      Seq(
+        (0, 1.0f, Seq("2.5", "2.6", "2.7")),
+        (1, 1.0f, Seq("3.5", "3.6", "3.7"))
+      )
+    ))
+    val metadata =
+      """
+        |0 zero 0.5 0.6 0.7
+        |1 one 1.5 1.6 1.7
+        |2 two 2.5 2.6 2.7
+      """.stripMargin
+    ge.readMetadata(
+      new BufferedReader(new InputStreamReader(new ByteArrayInputStream(metadata.getBytes))),
+      None, " ", 0, 1, analytics
+    )
 
     // Write out our gGraphEdges
     val edgeOStreamPair = openWriteStream
@@ -93,17 +117,26 @@ class CommunityModificationsTestSuite extends FunSuite {
     val metadataIStreamPair = openReadStream(closeWriteStream(metadataOStreamPair))
 
     // Read it back in as a full graph
-    val g = Graph(edgeIStreamPair._2, Some(weightIStreamPair._2), Some(metadataIStreamPair._2), Seq())
+    val g = Graph(edgeIStreamPair._2, Some(weightIStreamPair._2), Some(metadataIStreamPair._2), analytics)
 
     // Make sure metadata is correct
+    assert(0.5 == g.nodeInfo(0).analyticData(0))
+    assert(0.6 == g.nodeInfo(0).analyticData(1))
+    assert((1, 0.7) == g.nodeInfo(0).analyticData(2))
+    assert(1.5 == g.nodeInfo(1).analyticData(0))
+    assert(1.6 == g.nodeInfo(1).analyticData(1))
+    assert((1, 1.7) == g.nodeInfo(1).analyticData(2))
+    assert(2.5 == g.nodeInfo(2).analyticData(0))
+    assert(2.6 == g.nodeInfo(2).analyticData(1))
+    assert((1, 2.7) == g.nodeInfo(2).analyticData(2))
   }
 }
 
-class TestGraphAnalytic (_name: String, _column: Int) extends CustomGraphAnalytic[Double, Double] {
+class TestGraphAnalytic[T] (_name: String, _column: Int, aggregator: Aggregator[Double, T, Double]) extends CustomGraphAnalytic[T, T] {
   override val name: String = _name
   override val column: Int = _column
-  override val clusterAggregator: Aggregator[String, Double, String] =
-    new  WrappingClusterAggregator(SumAggregator, (s: String) => s.toDouble, (d: Double) => d.toString)
-  override val tileAggregator: Aggregator[String, Double, JSONObject] =
-    new WrappingTileAggregator(SumAggregator, (s: String) => s.toDouble, (value: Double) => new JSONObject(Map("value" -> value)))
+  override val clusterAggregator: Aggregator[String, T, String] =
+    new  WrappingClusterAggregator(aggregator, (s: String) => s.toDouble, (d: Double) => d.toString)
+  override val tileAggregator: Aggregator[String, T, JSONObject] =
+    new WrappingTileAggregator(aggregator, (s: String) => s.toDouble, (value: Double) => new JSONObject(Map("value" -> value)))
 }

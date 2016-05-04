@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
 
 
 
-class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
+class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[(String, Seq[String])]] = None
 
   def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
@@ -22,16 +22,18 @@ class GraphEdges (val links: Array[MutableBuffer[(Int, Float, Seq[String])]]) {
     metaData.foreach{data =>
       var line = metadataInput.readLine()
       while (null != line) {
-        val fields = line.split(separator)
-        if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
-          val edgeId = fields(id_column).toInt
-          if (fields.size <= md_column) println("Too short")
-          val md = fields(md_column)
-          val analyticValues = analyticColumns.map { c =>
-            if (fields.size <= c) ""
-            else fields(c).trim
+        if (!line.trim.isEmpty) {
+          val fields = line.split(separator)
+          if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+            val nodeId = fields(id_column).toInt
+            if (fields.size <= md_column) println("Too short")
+            val md = fields(md_column)
+            val analyticValues = analyticColumns.map { c =>
+              if (fields.size <= c) ""
+              else fields(c).trim
+            }
+            data(nodeId) = (md, analyticValues)
           }
-          data(edgeId) = (md, analyticValues)
         }
 
         line = metadataInput.readLine()
