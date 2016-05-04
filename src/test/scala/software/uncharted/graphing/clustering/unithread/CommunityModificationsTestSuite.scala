@@ -120,6 +120,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     val g = Graph(edgeIStreamPair._2, Some(weightIStreamPair._2), Some(metadataIStreamPair._2), analytics)
 
     // Make sure metadata is correct
+    assert(3 === g.nb_nodes)
     assert(0.5 == g.nodeInfo(0).analyticData(0))
     assert(0.6 == g.nodeInfo(0).analyticData(1))
     assert((1, 0.7) == g.nodeInfo(0).analyticData(2))
@@ -129,6 +130,18 @@ class CommunityModificationsTestSuite extends FunSuite {
     assert(2.5 == g.nodeInfo(2).analyticData(0))
     assert(2.6 == g.nodeInfo(2).analyticData(1))
     assert((1, 2.7) == g.nodeInfo(2).analyticData(2))
+
+    // Cluster that graph
+    val c= new Community(g, 1, 0.15)
+    c.one_level()
+    val g1 = c.partition2graph_binary
+
+    // Since the graph was fully connected, it should reduce to a single node.
+    // Check that it did so, and that analytics aggregated correctly.
+    assert(1 === g1.nb_nodes)
+    assert(4.5 === g1.nodeInfo(0).analyticData(0))
+    assert(2.6 === g1.nodeInfo(0).analyticData(1))
+    assert((3, 5.1) === g1.nodeInfo(0).analyticData(2))
   }
 }
 

@@ -27,8 +27,8 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
   def +(that: NodeInfo): NodeInfo = {
     val aggregatedAnalyticData = for (i <- analytics.indices) yield {
       val a = analytics(i)
-      val left = if (this.analyticData.length <= i) this.analyticData(i) else null
-      val right = if (that.analyticData.length <= i) that.analyticData(i) else null
+      val left = if (i < this.analyticData.length) this.analyticData(i) else null
+      val right = if (i < that.analyticData.length) that.analyticData(i) else null
       mergeCurrentValues(left, right, a)
     }
     NodeInfo(
