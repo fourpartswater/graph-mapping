@@ -63,7 +63,7 @@ class Community (val g: Graph,
     * @return
     */
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
-            nbp: Int, minm: Double, customAnalytics: Seq[CustomGraphAnalytic[_, _]],
+            nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_, _]],
             algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
@@ -298,7 +298,23 @@ class Community (val g: Graph,
 
     // write nodes to output file
     for (i <- 0 until size) {
-      out.println("node\t"+g.id(i)+"\t"+g.id(n2c(i))+"\t"+g.internalSize(i)+"\t"+g.weighted_degree(i).round.toInt+"\t"+g.metaData(i))
+      def escapeString (input: String): String =
+        input
+          .replaceAllLiterally("\\", "\\\\")
+          .replaceAllLiterally("\t", "\\t")
+          .replaceAllLiterally("\n", "\\n")
+          .replaceAllLiterally("\"", "\\\"")
+
+      val id = g.id(i)
+      val community = g.id(n2c(i))
+      val size = g.internalSize(i)
+      val weight = g.weighted_degree(i).round.toInt
+      val metadata = g.metaData(i)
+      val analyticData = g.nodeInfo(i).finishedAnalyticValues
+      val analytics =
+        if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
+        else ""
+      out.println("node\t"+id+"\t"+community+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
     }
     // write links to output file
     g.display_links(out)
@@ -332,7 +348,7 @@ class Community (val g: Graph,
           minCS = minCS min n
           maxCS = maxCS max n
 
-          val communityDiffFromIdeal = (n - idealCSize)
+          val communityDiffFromIdeal = n - idealCSize
           diffFromIdeal += communityDiffFromIdeal * communityDiffFromIdeal
         }
         if (n > 1) {
@@ -434,7 +450,7 @@ object Community {
   var filename_part: Option[String] = None
   var verbose = false
   var randomize = true
-  var analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
+  var analytics: Array[CustomGraphAnalytic[_, _]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
   def usage (prog_name: String, more: String) = {
@@ -461,6 +477,7 @@ object Community {
   def parse_args (args: Array[String]) = {
     if (args.length < 1) usage("community", "Bad arguments number")
 
+    val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_, _]]()
     var i = 0
     while (i < args.length) {
       if (args(i).startsWith("-")) {
@@ -491,7 +508,7 @@ object Community {
 
           case "a" =>
             i = i + 1
-            analytics += CustomGraphAnalytic(args(i))
+            tempAnalytics += CustomGraphAnalytic(args(i))
 
           case "v" =>
             verbose = true
@@ -521,6 +538,7 @@ object Community {
       i = i + 1
     }
 
+    analytics = tempAnalytics.toArray
   }
 
   def display_time (msg: String): Unit =
@@ -531,13 +549,12 @@ object Community {
 
     def algorithmByLevel (level: Int) = {
       algorithm match {
-        case und: UnlinkedNodeDegreeAlgorithm => {
+        case und: UnlinkedNodeDegreeAlgorithm =>
           if ((level + 1) > und.degreeLimits.length) new BaselineAlgorithm
           else {
             val maxDegree = und.degreeLimits.take(level + 1).product
             new NodeDegreeAlgorithm(maxDegree)
           }
-        }
         case nd: NodeDegreeAlgorithm => new NodeDegreeAlgorithm(math.pow(nd.degreeLimit, level + 1).toLong)
         case cs: CommunitySizeAlgorithm => algorithm
         case _ => algorithm

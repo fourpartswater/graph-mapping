@@ -6,7 +6,7 @@ import org.scalatest.FunSuite
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.salt.{WrappingTileAggregator, WrappingClusterAggregator}
 import software.uncharted.salt.core.analytic.Aggregator
-import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator, SumAggregatorSpec}
+import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator}
 
 import scala.util.parsing.json.JSONObject
 
@@ -33,7 +33,7 @@ class CommunityModificationsTestSuite extends FunSuite {
         8, 9, 10, 12,
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
       ),
-      (0 to 12).map(n => new NodeInfo(n.toLong, 1, None, Array(), Seq())).toArray
+      (0 to 12).map(n => new NodeInfo(n.toLong, 1, None, Array(), Array())).toArray
     )
     val c = new Community(g, -1, 0.15, new NodeDegreeAlgorithm(5))
     c.one_level(false)
@@ -73,7 +73,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     }
 
     // Some analytics to use
-    val analytics = Seq[CustomGraphAnalytic[_, _]](
+    val analytics = Array[CustomGraphAnalytic[_, _]](
       new TestGraphAnalytic("abc", 2, SumAggregator),
       new TestGraphAnalytic("def", 3, MaxAggregator),
       new TestGraphAnalytic("ghi", 4, MeanAggregator)
@@ -132,7 +132,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     assert((1, 2.7) == g.nodeInfo(2).analyticData(2))
 
     // Cluster that graph
-    val c= new Community(g, 1, 0.15)
+    val c= new Community(g, -1, 0.15)
     c.one_level()
     val g1 = c.partition2graph_binary
 
@@ -142,6 +142,31 @@ class CommunityModificationsTestSuite extends FunSuite {
     assert(4.5 === g1.nodeInfo(0).analyticData(0))
     assert(2.6 === g1.nodeInfo(0).analyticData(1))
     assert((3, 5.1) === g1.nodeInfo(0).analyticData(2))
+
+
+    // Check community clustering output for analytics
+    def getNodes (c: Community): Seq[String] = {
+      val baos = new ByteArrayOutputStream()
+      val outStream = new PrintStream(baos)
+      c.display_partition(0, outStream, None)
+      outStream.flush()
+      outStream.close()
+      baos.flush()
+      baos.close()
+      baos.toString.split("\n").filter(_.startsWith("node"))
+    }
+    // raw level
+    val clusterOutput0 = getNodes(c)
+    assert(3 === clusterOutput0.length)
+    assert("node\t0\t0\t1\t2\tzero\t0.5\t0.6\t0.7" === clusterOutput0(0))
+    assert("node\t1\t0\t1\t2\tone\t1.5\t1.6\t1.7" === clusterOutput0(1))
+    assert("node\t2\t0\t1\t2\ttwo\t2.5\t2.6\t2.7" === clusterOutput0(2))
+    // next level
+    val c1 = new Community(g1, -1, 0.15)
+    c1.one_level()
+    val clusterOutput1 = getNodes(c1)
+    assert(1 === clusterOutput1.length)
+    assert("node\t2\t2\t3\t6\ttwo\t4.5\t2.6\t1.7" === clusterOutput1(0))
   }
 }
 

@@ -15,10 +15,17 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.analytic.Aggregator
 
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
-                     analyticData: Array[Any], analytics: Seq[CustomGraphAnalytic[_, _]]) {
+                     analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_, _]]) {
+  private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) =
+    analytic.clusterAggregator.finish(rawValue.asInstanceOf[AIT])
+  def finishedAnalyticValues: Array[String] = {
+    (analyticData zip analytics).map{case (data, analytic) =>
+        finishValue(data, analytic)
+    }
+  }
 
-  def getCurrentValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) = rawValue.asInstanceOf[AIT]
-  def mergeCurrentValues[AIT] (left: Any, right: Any, analytic: CustomGraphAnalytic[AIT, _]): AIT = {
+  private def getCurrentValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) = rawValue.asInstanceOf[AIT]
+  private def mergeCurrentValues[AIT] (left: Any, right: Any, analytic: CustomGraphAnalytic[AIT, _]): AIT = {
     val typedLeft = getCurrentValue(left, analytic)
     val typedRight = getCurrentValue(right, analytic)
     analytic.clusterAggregator.merge(typedLeft, typedRight)
@@ -135,7 +142,7 @@ object Graph {
                      getEdgeWeight: Option[ED => Float] = None,
                      extractMetadataValue: VD => String,
                      extractAnalyticValues: Option[VD => Seq[String]],
-                     customGraphAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
+                     customGraphAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
     def getAnalyticValues (node: VD): Array[Any] = {
       val values = new Array[Any](customGraphAnalytics.length)
       val inputValues = extractAnalyticValues.map(_(node)).getOrElse(Seq[String]())
@@ -160,9 +167,6 @@ object Graph {
     val minNode = nodes.map(_._1).min
     val maxNode = nodes.map(_._1).max
     val nb_nodes = (maxNode - minNode + 1).toInt
-
-    val defaultAnalyticValues = customGraphAnalytics.map(_.clusterAggregator.default()).toArray
-    val analyticColumns = CustomGraphAnalytic.determineColumns(customGraphAnalytics)
 
     // Note that, as in the original, a link between two nodes contributes its full weight (and degree) to both nodes,
     // whereas a self-link only contributes its weight to that one node once - hence seemingly being counted half as
@@ -217,7 +221,7 @@ object Graph {
 
 
   def apply (filename: String, filename_w_opt: Option[String], filename_m_opt: Option[String],
-             customAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
+             customAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
     val finput_w_opt = filename_w_opt.map(filename_w => new DataInputStream(new FileInputStream(filename_w)))
     val finput_m_opt = filename_m_opt.map(filename_m => new DataInputStream(new FileInputStream(filename_m)))
@@ -225,8 +229,8 @@ object Graph {
     val result = apply(finput, finput_w_opt, finput_m_opt, customAnalytics)
 
     finput.close()
-    finput_w_opt.map(_.close())
-    finput_m_opt.map(_.close())
+    finput_w_opt.foreach(_.close())
+    finput_m_opt.foreach(_.close())
 
     result
   }
@@ -234,7 +238,7 @@ object Graph {
   def apply (edgeDataStream: DataInputStream,
              weightDataStreamOpt: Option[DataInputStream],
              metadataInputStreamOpt: Option[DataInputStream],
-             customAnalytics: Seq[CustomGraphAnalytic[_, _]]): Graph = {
+             customAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
     val nb_nodes = edgeDataStream.readInt
 
     // Read cumulative degree sequence (long per node)
