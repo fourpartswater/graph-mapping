@@ -118,17 +118,8 @@ class GraphCSVParser {
 					val internalNodes = tokens(internalNodesX).toLong
 					val degree = tokens(degreeX).toInt
 					val metaData = if (bKeepExtraAttributes) {
-						// extract node metaData (assumed to be any extra data appended to the end of each node record)
-						var str = ""
-						val len = tokens.length
-						for (n <- nAttrX until len) {
-							// get current metadata field, and remove any existing commas
-							val metadataField = tokens(n).replace(","," ")
-							str += metadataField
-							if (n < len-1)
-								str += ","	// use commas to de-limit multiple metadata fields, if present
-						}
-						str
+						// Preserve everything after our important attributes
+						(nAttrX until tokens.length).map(n => tokens(n)).mkString(delimiter)
 					} else {
 						""
 					}
