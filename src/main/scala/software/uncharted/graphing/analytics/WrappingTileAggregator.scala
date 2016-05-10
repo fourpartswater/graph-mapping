@@ -1,4 +1,4 @@
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.analytics
 
 import software.uncharted.salt.core.analytic.Aggregator
 

@@ -3,8 +3,7 @@ package software.uncharted.graphing.clustering.unithread
 import java.io._
 
 import org.scalatest.FunSuite
-import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.salt.{WrappingTileAggregator, WrappingClusterAggregator}
+import software.uncharted.graphing.analytics.{WrappingTileAggregator, WrappingClusterAggregator, CustomGraphAnalytic}
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator}
 

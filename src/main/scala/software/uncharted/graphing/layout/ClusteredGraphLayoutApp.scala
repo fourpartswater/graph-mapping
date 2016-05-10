@@ -32,7 +32,6 @@ import software.uncharted.graphing.utilities.ArgumentParser
 object ClusteredGraphLayoutApp {
 
 	def main(args: Array[String]) {
-
 		val argParser = new ArgumentParser(args)
 
 		val sc = new SparkContext(new SparkConf().setAppName("Node Tiling"))
