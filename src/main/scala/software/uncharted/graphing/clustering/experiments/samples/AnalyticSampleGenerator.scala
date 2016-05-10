@@ -243,12 +243,16 @@ object Entry {
 
   private def getNumber (entry: String, place: Int): Option[(String, Int)] = {
     def inRange (index: Int, start: Char, end: Char): Boolean = {
-      val value = entry.charAt(index)
-      start <= value && value <= end
+      if (index < entry.length) {
+        val value = entry.charAt(index)
+        start <= value && value <= end
+      } else false
     }
     def inSet (index: Int, possibilities: Char*): Boolean = {
-      val value = entry.charAt(index)
-      possibilities.map(_ == value).reduce(_ || _)
+      if (index < entry.length) {
+        val value = entry.charAt(index)
+        possibilities.map(_ == value).reduce(_ || _)
+      } else false
     }
 
     val start = place
