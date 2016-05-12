@@ -7,6 +7,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.types._
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
 
 import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.sparkpipe.Pipe
@@ -36,6 +37,8 @@ object NodeTilingPipeline {
     val familyName       = argParser.getString("column", "The column into which to write tiles", "tileData")
     val qualifierName    = argParser.getString("column-qualifier",
       "A qualifier to use on the tile column when writing tiles", "")
+    val customAnalytics  = argParser.getStrings("analytic", "Node analytics that are recorded on each node, needed to parse node lines")
+      .map(CustomGraphAnalytic.apply)
 
     // Initialize HBase and our table
     import GraphTilingOperations._
@@ -48,29 +51,31 @@ object NodeTilingPipeline {
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
       println(s"Tiling hierarchy level $g at tile levels $minT to $maxT")
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration, customAnalytics)
     }
 
     sc.stop()
   }
 
-  def getSchema: StructType = {
+  def getSchema (analytics: Seq[CustomGraphAnalytic[_, _]]): StructType = {
     // This schema must match that written by HierarchicalFDLayout.saveLayoutResult (the resultNodes variable)
     // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
-    StructType(Seq(
-      StructField("fieldType", StringType),
-      StructField("nodeId", LongType),
-      StructField("x", DoubleType),
-      StructField("y", DoubleType),
-      StructField("r", DoubleType),
-      StructField("parentId", LongType),
-      StructField("parentX", DoubleType),
-      StructField("parentY", DoubleType),
-      StructField("parentR", DoubleType),
-      StructField("internalNodes", LongType),
-      StructField("degree", IntegerType),
-      StructField("metadata", StringType)
-    ))
+    StructType(
+      Seq(
+        StructField("fieldType", StringType),
+        StructField("nodeId", LongType),
+        StructField("x", DoubleType),
+        StructField("y", DoubleType),
+        StructField("r", DoubleType),
+        StructField("parentId", LongType),
+        StructField("parentX", DoubleType),
+        StructField("parentY", DoubleType),
+        StructField("parentR", DoubleType),
+        StructField("internalNodes", LongType),
+        StructField("degree", IntegerType),
+        StructField("metadata", StringType)
+      ) ++ analytics.map(a => StructField(a.name, StringType))
+    )
   }
 
   def tileHierarchyLevel(sqlc: SQLContext)(
@@ -80,14 +85,15 @@ object NodeTilingPipeline {
                          tableName: String,
                          family: String,
                          qualifier: String,
-                         hbaseConfiguration: Configuration
+                         hbaseConfiguration: Configuration,
+                         analytics: Seq[CustomGraphAnalytic[_, _]]
   ): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
-    val schema = getSchema
+    val schema = getSchema(analytics)
 
     val tiles = Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))

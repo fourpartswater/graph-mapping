@@ -4,6 +4,7 @@ package software.uncharted.graphing.salt
 import java.io.ByteArrayOutputStream
 
 import org.apache.spark.rdd.RDD
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
@@ -42,6 +43,8 @@ object MetadataTilingPipeline {
     val tableName = argParser.getStringOption("name", "The name of the node tile set to produce", None).get
     val familyName = argParser.getString("column", "The column into which to write tiles", "tileData")
     val qualifierName = argParser.getString("column-qualifier", "A qualifier to use on the tile column when writing tiles", "")
+    val customAnalytics  = argParser.getStrings("analytic", "Node analytics that are recorded on each node, needed to parse node lines")
+      .map(CustomGraphAnalytic.apply)
 
 
     // Initialize HBase and our table
@@ -54,7 +57,7 @@ object MetadataTilingPipeline {
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration)
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration, customAnalytics)
     }
 
     sc.stop()
@@ -67,7 +70,8 @@ object MetadataTilingPipeline {
                          tableName: String,
                          familyName: String,
                          qualifierName: String,
-                         hbaseConfiguration: Configuration): Unit = {
+                         hbaseConfiguration: Configuration,
+                         analytics: Seq[CustomGraphAnalytic[_, _]]): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
@@ -93,7 +97,7 @@ object MetadataTilingPipeline {
     )
 
     // Get our VertexRDD
-    val nodeSchema = NodeTilingPipeline.getSchema
+    val nodeSchema = NodeTilingPipeline.getSchema(analytics)
     val nodeData = rawData
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
