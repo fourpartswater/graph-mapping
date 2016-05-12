@@ -8,7 +8,7 @@ apply plugin: 'distribution'
 apply plugin: 'idea'
 
 // Gradle/intellij don't work properly together with 1.8
-sourceCompatibility = '1.7'
+sourceCompatibility = '1.8'
 
 // maven repositories
 repositories {
@@ -23,9 +23,9 @@ repositories {
 ext {
 	dependencyScalaVersion = "2.10"
 	scalaVersion = "2.10.6"
-	sparkVersion = "1.6.0"
-	hbaseVersion = "1.0.0"
-	htraceVersion = "3.1.0-incubating"
+	sparkVersion = "1.5.0-cdh5.5.2"
+	hbaseVersion = "1.0.0-cdh5.5.2"
+	htraceVersion = "3.2.0-incubating"
 
 	// A shared function that adds hbase dependencies to the supplied project based on the build type.
 	// We can't use the DSL in this context, so we have to go through the lower level DependencyManager APIs.
