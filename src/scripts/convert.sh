@@ -58,6 +58,15 @@ case ${DATASET} in
 		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
 		;;
 
+	analytics)
+		echo Converting artificial analytics graph ${DATASET}
+		CONVERT_ARGS="-ie raw-data.tsv -fe edge -ce \\t -s 1 -d 2 -oe edges.bin"
+		CONVERT_ARGS="${CONVERT_ARGS} -in raw-data.tsv -fn node -cn \\t -n 1 -m 2"
+		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.SumAnalytic3"
+		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.MeanAnalytic4"
+		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.MinAnalytic5"
+		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
+		;;
 
 esac
 

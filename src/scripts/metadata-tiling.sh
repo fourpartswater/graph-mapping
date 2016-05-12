@@ -73,6 +73,9 @@ echo "drop '${DATATABLE}'" >> clear-hbase-table
 
 hbase shell < clear-hbase-table
 
+# Extra jars needed by tiling processes
+EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.jar:/opt/cloudera/parcels/CDH/lib/hbase/lib/hbase-client-1.0.0-cdh5.5.2.jar
+
 STARTTIME=$(date +%s)
 echo Starting tiling
 
@@ -80,9 +83,9 @@ echo spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
-    --driver-class-path /opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
-    --jars /opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
+    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+    --driver-class-path ${EXTRA_JARS} \
+    --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
 	${MAIN_JAR} \
 	-base ${BASE_LOCATION}/${DATASET}/layout/ \
@@ -96,9 +99,9 @@ spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
-    --driver-class-path /opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
-    --jars /opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.1.0-incubating.jar \
+    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+    --driver-class-path ${EXTRA_JARS} \
+    --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
 	${MAIN_JAR} \
 	-base ${BASE_LOCATION}/${DATASET}/layout/ \

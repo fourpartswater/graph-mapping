@@ -35,15 +35,23 @@ else
 	ARGS="edges.bin -l -1 -v"
 fi
 
-if [ "${DATASET}" = "affinity-nd" ]
-then
-	ARGS="${ARGS} -nd 10"
-fi
+case ${DATASET} in
 
-if [ "${DATASET}" = "affinity-cs" ]
-then
-	ARGS="${ARGS} -cs 20"
-fi
+	affinity-nd)
+		ARGS="${ARGS} -nd 10"
+		;;
+
+	affinity-cs)
+		ARGS="${ARGS} -cs 20"
+
+	analytics)
+		ARGS="${ARGS} -a software.uncharted.graphing.analytics.SumAnalytic3"
+		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MeanAnalytic4"
+		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MinAnalytic5"
+		;;
+
+esac
+
 
 
 echo
