@@ -74,7 +74,7 @@ object NodeTilingPipeline {
         StructField("internalNodes", LongType),
         StructField("degree", IntegerType),
         StructField("metadata", StringType)
-      ) ++ analytics.map(a => StructField(a.name, StringType))
+      ) ++ analytics.map(a => StructField(a.name.replace(' ', '_'), StringType))
     )
   }
 
