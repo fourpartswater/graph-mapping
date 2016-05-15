@@ -187,7 +187,7 @@ object MetadataTilingPipeline {
     val parentRExtractor = new DoubleExtractor(rawData, "parentR", Some(0.0))
     val analyticExtractors = analytics.map { a =>
       new StringExtractor(rawData, a.getColumnName, Some(getDefaultAnalyticValue(a)))
-    }
+    }.toArray.toSeq
     rawData.rdd.flatMap { row =>
       Try {
         val id = idExtractor.getValue(row)
