@@ -37,7 +37,7 @@ import software.uncharted.salt.core.analytic.Aggregator
   *
   * @tparam T The intermediate type of data being aggregated during cluster aggregation
   */
-trait CustomGraphAnalytic[T] {
+trait CustomGraphAnalytic[T] extends Serializable {
   /**
     * The name of the analytic.  This will be used as the key under which the value is listed in the final tiled data.
     */
