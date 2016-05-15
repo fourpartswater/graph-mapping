@@ -71,7 +71,7 @@ object MetadataTilingPipeline {
                          familyName: String,
                          qualifierName: String,
                          hbaseConfiguration: Configuration,
-                         analytics: Seq[CustomGraphAnalytic[_, _]]): Unit = {
+                         analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
@@ -103,8 +103,10 @@ object MetadataTilingPipeline {
       .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(nodeSchema)))
       .to(countDFRowsOp("Parsed node data: "))
-      .to(parseNodes(hierarchyLevel))
-      .to(countRDDRowsOp("Graph nodes: "))
+      .to(parseNodes(hierarchyLevel, analytics))
+
+
+//      .to(countRDDRowsOp("Graph nodes: "))
 
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
@@ -118,7 +120,7 @@ object MetadataTilingPipeline {
 
     // Combine them into communities
     val communityData = Pipe(nodeData, edgeData)
-      .to(consolidateCommunities)
+      .to(consolidateCommunities(analytics))
       .to(countRDDRowsOp("Communities: "))
 
     // Tile the communities
@@ -167,7 +169,10 @@ object MetadataTilingPipeline {
       .run()
   }
 
-  def parseNodes(hierarchyLevel: Int)(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
+  def parseNodes(hierarchyLevel: Int, analytics: Seq[CustomGraphAnalytic[_]])(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
+    def getDefaultAnalyticValue[T] (analytic: CustomGraphAnalytic[T]): String =
+      analytic.aggregator.finish(analytic.aggregator.default())
+
     // Names must match those in NodeTilingPipeline schema
     val idExtractor = new LongExtractor(rawData, "nodeId", None)
     val xExtractor = new DoubleExtractor(rawData, "x", None)
@@ -180,6 +185,9 @@ object MetadataTilingPipeline {
     val parentXExtractor = new DoubleExtractor(rawData, "parentX", Some(-1.0))
     val parentYExtractor = new DoubleExtractor(rawData, "parentY", Some(-1.0))
     val parentRExtractor = new DoubleExtractor(rawData, "parentR", Some(0.0))
+    val analyticExtractors = analytics.map { a =>
+      new StringExtractor(rawData, a.getColumnName, Some(getDefaultAnalyticValue(a)))
+    }
     rawData.rdd.flatMap { row =>
       Try {
         val id = idExtractor.getValue(row)
@@ -193,8 +201,11 @@ object MetadataTilingPipeline {
         val px = parentXExtractor.getValue(row)
         val py = parentYExtractor.getValue(row)
         val pr = parentRExtractor.getValue(row)
+        val analyticValues = analyticExtractors.map { extractor =>
+          extractor.getValue(row)
+        }
 
-        (id, new GraphCommunity(hierarchyLevel, id, (x, y), r, degree, numNodes, metadata, id == pId, pId, (px, py), pr))
+        (id, new GraphCommunity(hierarchyLevel, id, (x, y), r, degree, numNodes, metadata, id == pId, pId, (px, py), pr, analyticValues))
       }.toOption
     }
   }
@@ -237,7 +248,8 @@ object MetadataTilingPipeline {
     }
   }
 
-  def consolidateCommunities(input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
+  def consolidateCommunities (analytics: Seq[CustomGraphAnalytic[_]])
+                             (input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
   RDD[((Double, Double), GraphCommunity)] = {
     val (vertices, edges) = input
     type EdgeListOption = Option[MutableBuffer[GraphEdge]]
@@ -274,6 +286,7 @@ object MetadataTilingPipeline {
         community.parentId,
         community.parentCoordinates,
         community.parentRadius,
+        community.analyticValues,
         edgesOption.map(_._1).getOrElse(None),
         edgesOption.map(_._2).getOrElse(None)
       )
