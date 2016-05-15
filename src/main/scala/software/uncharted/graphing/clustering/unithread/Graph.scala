@@ -15,20 +15,20 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.analytic.Aggregator
 
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
-                     analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_, _]]) {
-  private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) =
-    analytic.clusterAggregator.finish(rawValue.asInstanceOf[AIT])
+                     analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
+  private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
+    analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
   def finishedAnalyticValues: Array[String] = {
     (analyticData zip analytics).map{case (data, analytic) =>
         finishValue(data, analytic)
     }
   }
 
-  private def getCurrentValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT, _]) = rawValue.asInstanceOf[AIT]
-  private def mergeCurrentValues[AIT] (left: Any, right: Any, analytic: CustomGraphAnalytic[AIT, _]): AIT = {
+  private def getCurrentValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) = rawValue.asInstanceOf[AIT]
+  private def mergeCurrentValues[AIT] (left: Any, right: Any, analytic: CustomGraphAnalytic[AIT]): AIT = {
     val typedLeft = getCurrentValue(left, analytic)
     val typedRight = getCurrentValue(right, analytic)
-    analytic.clusterAggregator.merge(typedLeft, typedRight)
+    analytic.aggregator.merge(typedLeft, typedRight)
   }
 
   def +(that: NodeInfo): NodeInfo = {
@@ -142,12 +142,12 @@ object Graph {
                      getEdgeWeight: Option[ED => Float] = None,
                      extractMetadataValue: VD => String,
                      extractAnalyticValues: Option[VD => Seq[String]],
-                     customGraphAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
+                     customGraphAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
     def getAnalyticValues (node: VD): Array[Any] = {
       val values = new Array[Any](customGraphAnalytics.length)
       val inputValues = extractAnalyticValues.map(_(node)).getOrElse(Seq[String]())
-      def extractValue[T] (index: Int, analytic: CustomGraphAnalytic[T, _]): T = {
-        val a: Aggregator[String, T, String] = analytic.clusterAggregator
+      def extractValue[T] (index: Int, analytic: CustomGraphAnalytic[T]): T = {
+        val a: Aggregator[String, T, String] = analytic.aggregator
         val default = a.default()
         if (index < inputValues.length) {
           a.add(default, Some(inputValues(index)))
@@ -221,7 +221,7 @@ object Graph {
 
 
   def apply (filename: String, filename_w_opt: Option[String], filename_m_opt: Option[String],
-             customAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
+             customAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
     val finput_w_opt = filename_w_opt.map(filename_w => new DataInputStream(new FileInputStream(filename_w)))
     val finput_m_opt = filename_m_opt.map(filename_m => new DataInputStream(new FileInputStream(filename_m)))
@@ -238,7 +238,7 @@ object Graph {
   def apply (edgeDataStream: DataInputStream,
              weightDataStreamOpt: Option[DataInputStream],
              metadataInputStreamOpt: Option[DataInputStream],
-             customAnalytics: Array[CustomGraphAnalytic[_, _]]): Graph = {
+             customAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
     val nb_nodes = edgeDataStream.readInt
 
     // Read cumulative degree sequence (long per node)
@@ -270,7 +270,7 @@ object Graph {
           val md = metadataInputStream.readUTF()
           val ad = new Array[Any](metadataInputStream.readInt())
           for (i <- ad.indices) {
-            ad(i) = extractAnalyticValue(customAnalytics(i).clusterAggregator, metadataInputStream.readUTF())
+            ad(i) = extractAnalyticValue(customAnalytics(i).aggregator, metadataInputStream.readUTF())
           }
           nodeInfos(i) = NodeInfo(i, 1, Some(md), ad, customAnalytics)
         }

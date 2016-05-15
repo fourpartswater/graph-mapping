@@ -24,6 +24,7 @@ class MetadataAnalyticTestSuite extends FunSuite {
         |  "parentID": 2,
         |  "parentCoords": [2.1, 1.4],
         |  "parentRadius": 4.5,
+        |  "analyticValues": [],
         |  "interEdges": [{"dstId": 3, "dstCoords": [4.1, 4.2], "weight": 4},{"dstId": 4, "dstCoords": [5.1, 5.3], "weight": 6}],
         |  "intraEdges": []
         |},{
@@ -38,17 +39,20 @@ class MetadataAnalyticTestSuite extends FunSuite {
         |  "parentID": 2,
         |  "parentCoords": [2.2, 1.5],
         |  "parentRadius": 4.6,
+        |  "analyticValues": [],
         |  "interEdges": [],
         |  "intraEdges": [{"dstId": 2, "dstCoords": [2.1, 1.3], "weight": 5}]
         |}]
         |}""".stripMargin
     val c1 = new GraphCommunity(
       3, 2, (2.1, 1.3), 4.4, 2, 3, "\"abc\\def\"", true, 2, (2.1, 1.4), 4.5,
+      Array[String](),
       Some(MutableBuffer(new GraphEdge(3, (4.1, 4.2), 4), new GraphEdge(4, (5.1, 5.3), 6))),
       None
     )
     val c2 = new GraphCommunity(
       4, 3, (1.2, 3.1), 4.5, 1, 2, "aa \"abc\\def\" ff", false, 2, (2.2, 1.5), 4.6,
+      Array[String](),
       Some(MutableBuffer[GraphEdge]()),
       Some(MutableBuffer(GraphEdge(2, (2.1, 1.3), 5)))
     )
@@ -103,18 +107,22 @@ class MetadataAnalyticTestSuite extends FunSuite {
 
     val c1 = new GraphCommunity(
       3, 2, (2.1, 1.3), 4.4, 2, 3, "\"abc\\def\"", true, 2, (2.1, 1.4), 4.5,
+      Array[String](),
       Some(MutableBuffer(new GraphEdge(3, (4.1, 4.2), 4), new GraphEdge(4, (5.1, 5.3), 6))),
       Some(MutableBuffer[GraphEdge]())
     )
 
     val c2 = new GraphCommunity(
       4, 3, (1.2, 3.1), 4.5, 1, 2, "aa \"abc\\def\" ff", false, 2, (2.2, 1.5), 4.6,
+      Array[String](),
       Some(MutableBuffer[GraphEdge]()),
       Some(MutableBuffer(GraphEdge(2, (2.1, 1.3), 5)))
     )
     assert(4 === r.numCommunities)
 
     val beginning = 0
+    val r1 = r.communities.get.apply(beginning + 0)
+    val foo = c1.equals(r1)
     assert(c1 === r.communities.get.apply(beginning + 0))
     assert(c2 === r.communities.get.apply(beginning + 1))
   }
@@ -123,7 +131,7 @@ class MetadataAnalyticTestSuite extends FunSuite {
 
   test("Adding records, hierarchy level 0") {
     def mkCommunity(degree: Int) =
-      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0)
+      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0, Array[String]())
 
     val list = Seq(7, 6, 5, 3, 2, 1).map(n => mkCommunity(n))
     assert(GraphRecord.addCommunity(list, mkCommunity(8)).map(_.degree) === List(8, 7, 6, 5, 3, 2, 1))
@@ -147,7 +155,7 @@ class MetadataAnalyticTestSuite extends FunSuite {
 
   test("Adding records, hierarchy level > 0") {
     def mkCommunity(numNodes: Int) =
-      new GraphCommunity(1, 1L, (0.0, 0.0), 0.0, 0, numNodes.toLong, "", false, 1L, (0.0, 0.0), 0.0)
+      new GraphCommunity(1, 1L, (0.0, 0.0), 0.0, 0, numNodes.toLong, "", false, 1L, (0.0, 0.0), 0.0, Array[String]())
 
     val list = Seq(7, 6, 5, 3, 2, 1).map(n => mkCommunity(n))
     assert(GraphRecord.addCommunity(list, mkCommunity(4)).map(_.numNodes.toInt) === List(7, 6, 5, 4, 3, 2, 1))
@@ -171,7 +179,7 @@ class MetadataAnalyticTestSuite extends FunSuite {
 
   test("Merge communities, hierarch level 0") {
     def mkCommunity(degree: Int) =
-      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0)
+      new GraphCommunity(0, 1L, (0.0, 0.0), 0.0, degree, 0L, "", false, 1L, (0.0, 0.0), 0.0, Array[String]())
 
     assert(
       GraphRecord.mergeCommunities(

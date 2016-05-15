@@ -4,8 +4,6 @@ package software.uncharted.graphing.analytics
 
 import software.uncharted.salt.core.analytic.Aggregator
 
-import scala.util.parsing.json.JSONObject
-
 
 /**
   * A custom analytic, that can be run on either nodes or edges.
@@ -37,26 +35,36 @@ import scala.util.parsing.json.JSONObject
   *        We will need some simple conversion aggregators to making writing the conversion parts easier. </li>
   * </ul>
   *
-  * @tparam CT The type of data being aggregated during cluster aggregation
-  * @tparam TT The type of data being aggregated during tile aggregation
+  * @tparam T The intermediate type of data being aggregated during cluster aggregation
   */
-trait CustomGraphAnalytic[CT, TT] {
+trait CustomGraphAnalytic[T] {
   /**
     * The name of the analytic.  This will be used as the key under which the value is listed in the final tiled data.
     */
   val name: String
+
+  /**
+    * Get the name, but altered so it can be used as the name of a column in a SQL table
+    */
+  def getColumnName = name.replace(' ', '_')
+
   /** The input column for the raw cluster aggregator */
   val column: Int
   /**
     * An aggregator that takes the values of the above column, converts it into something meaningful, and aggregates
     * the values by cluster.
     */
-  val clusterAggregator: Aggregator[String, CT, String]
+  val aggregator: Aggregator[String, T, String]
+
   /**
-    * An aggregator that takes values output by the cluster aggregator, aggregates them, and outputs a JSON object that
-    * can be added to the metadata tile.
+    * Take two processed, aggregated values, and determine the minimum value of the pair.
     */
-  val tileAggregator: Aggregator[String, TT, JSONObject]
+  def min (left: String, right: String): String
+
+  /**
+    * Take two processed, aggregated values, and determine the maximum value of the pair.
+    */
+  def max (left: String, right: String): String
 }
 object CustomGraphAnalytic {
   /**
@@ -65,25 +73,25 @@ object CustomGraphAnalytic {
     * @param className The class name of the custom graph analytic to construct
     * @return An instance of the named analytic.
     */
-  def apply (className: String): CustomGraphAnalytic[_, _] = {
+  def apply (className: String): CustomGraphAnalytic[_] = {
     val rawClass = this.getClass.getClassLoader.loadClass(className)
-    if (!classOf[CustomGraphAnalytic[_, _]].isAssignableFrom(rawClass))
+    if (!classOf[CustomGraphAnalytic[_]].isAssignableFrom(rawClass))
       throw new IllegalArgumentException(s"$className is not a CustomGraphAnalytic")
-    val analyticClass = rawClass.asInstanceOf[Class[CustomGraphAnalytic[_, _]]]
+    val analyticClass = rawClass.asInstanceOf[Class[CustomGraphAnalytic[_]]]
     analyticClass.getConstructor().newInstance()
   }
 
   /**
     * Given a list of custom graph analytics, determine all columns needed by any of them
     */
-  def determineColumns (analytics: Seq[CustomGraphAnalytic[_, _]]): Seq[Int] = {
+  def determineColumns (analytics: Seq[CustomGraphAnalytic[_]]): Seq[Int] = {
     analytics.map(_.column).distinct.sorted
   }
 
   /**
     * Figure out which columns, of the list of columns needed by all custom analytics, a given analytic needs
     */
-  def savedAnalyticColumn (allNeeded: Seq[Int], analytic: CustomGraphAnalytic[_, _]): Int = {
+  def savedAnalyticColumn (allNeeded: Seq[Int], analytic: CustomGraphAnalytic[_]): Int = {
     allNeeded.indexOf(analytic.column)
   }
 }

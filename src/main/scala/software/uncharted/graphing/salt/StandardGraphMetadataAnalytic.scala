@@ -1,7 +1,7 @@
 package software.uncharted.graphing.salt
 
 
-
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.utilities.{JSONParserUtils, StringParser}
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
@@ -208,6 +208,19 @@ object GraphCommunity {
       .map(t => Seq(t))
   }
 
+  private def maxAnalytics (a: Seq[String], b: Seq[String], analytics: Seq[CustomGraphAnalytic[_]]) ={
+    val results = MutableBuffer[String]()
+    for (i <- analytics.indices) results(i) = analytics(i).max(a(i), b(i))
+    results
+  }
+
+  private def minAnalytics (a: Seq[String], b: Seq[String], analytics: Seq[CustomGraphAnalytic[_]]) ={
+    val results = MutableBuffer[String]()
+    for (i <- analytics.indices) results(i) = analytics(i).min(a(i), b(i))
+    results
+  }
+
+
   def fromJSON (json: Map[String, Any]): GraphCommunity = {
     import JSONParserUtils._
     def tupleFromSeq[T] (s: Seq[T], offset: Int = 0): (T, T) = (s(offset), s(offset+1))
@@ -225,10 +238,49 @@ object GraphCommunity {
     val parentRadius = getDouble(json, "parentRadius").get
     val externalEdges = getSeq(json, "interEdges", a => GraphEdge.fromJSON(a.asInstanceOf[Map[String, Any]]))
     val internalEdges = getSeq(json, "intraEdges", a => GraphEdge.fromJSON(a.asInstanceOf[Map[String, Any]]))
+    val customAnalytics = getSeq(json, "analytics", _.toString).getOrElse(Seq[String]())
 
     GraphCommunity(hierarchyLevel, id, coordinates, radius, degree, numNodes, metadata, isPrimaryNode,
-      parentId, parentCoordinates, parentRadius, externalEdges, internalEdges)
+      parentId, parentCoordinates, parentRadius, customAnalytics, externalEdges, internalEdges)
   }
+
+  def min(a: GraphCommunity, b: GraphCommunity, analytics: Seq[CustomGraphAnalytic[_]]): GraphCommunity =
+    GraphCommunity(
+      a.hierarchyLevel min b.hierarchyLevel,
+      a.id min b.id,
+      minPair(a.coordinates, b.coordinates),
+      a.radius min b.radius,
+      a.degree min b.degree,
+      a.numNodes min b.numNodes,
+      "",
+      isPrimaryNode = false,
+      a.parentId min b.parentId,
+      minPair(a.parentCoordinates, b.parentCoordinates),
+      a.parentRadius min b.parentRadius,
+      GraphCommunity.minAnalytics(a.analyticValues, b.analyticValues, analytics),
+      reduceOptionalBuffers[GraphEdge](a.externalEdges, b.externalEdges, _ min _),
+      reduceOptionalBuffers[GraphEdge](a.internalEdges, b.internalEdges, _ min _)
+    )
+
+  def max(a: GraphCommunity, b: GraphCommunity, analytics: Seq[CustomGraphAnalytic[_]]): GraphCommunity =
+    GraphCommunity(
+      a.hierarchyLevel max b.hierarchyLevel,
+      a.id max b.id,
+      maxPair(a.coordinates, b.coordinates),
+      a.radius max b.radius,
+      a.degree max b.degree,
+      a.numNodes max b.numNodes,
+      "",
+      isPrimaryNode = false,
+      a.parentId max b.parentId,
+      maxPair(a.parentCoordinates, b.parentCoordinates),
+      a.parentRadius max b.parentRadius,
+
+      GraphCommunity.maxAnalytics(a.analyticValues, b.analyticValues, analytics),
+      reduceOptionalBuffers[GraphEdge](a.externalEdges, b.externalEdges, _ max _),
+      reduceOptionalBuffers[GraphEdge](a.internalEdges, b.internalEdges, _ max _)
+    )
+
 }
 
 case class GraphCommunity (
@@ -243,49 +295,15 @@ case class GraphCommunity (
                             parentId: Long,
                             parentCoordinates: (Double, Double),
                             parentRadius: Double,
+                            analyticValues: Seq[String],
                             externalEdges: Option[Seq[GraphEdge]] = None,
                             internalEdges: Option[Seq[GraphEdge]] = None
                           ) {
-  import GraphCommunity._
-
-  def min(that: GraphCommunity): GraphCommunity =
-    GraphCommunity(
-      this.hierarchyLevel min that.hierarchyLevel,
-      this.id min that.id,
-      minPair(this.coordinates, that.coordinates),
-      this.radius min that.radius,
-      this.degree min that.degree,
-      this.numNodes min that.numNodes,
-      "",
-      isPrimaryNode = false,
-      this.parentId min that.parentId,
-      minPair(this.parentCoordinates, that.parentCoordinates),
-      this.parentRadius min that.parentRadius,
-      reduceOptionalBuffers[GraphEdge](this.externalEdges, that.externalEdges, _ min _),
-      reduceOptionalBuffers[GraphEdge](this.internalEdges, that.internalEdges, _ min _)
-    )
-
-  def max(that: GraphCommunity): GraphCommunity =
-    GraphCommunity(
-      this.hierarchyLevel max that.hierarchyLevel,
-      this.id max that.id,
-      maxPair(this.coordinates, that.coordinates),
-      this.radius max that.radius,
-      this.degree max that.degree,
-      this.numNodes max that.numNodes,
-      "",
-      isPrimaryNode = false,
-      this.parentId max that.parentId,
-      maxPair(this.parentCoordinates, that.parentCoordinates),
-      this.parentRadius max that.parentRadius,
-      reduceOptionalBuffers[GraphEdge](this.externalEdges, that.externalEdges, _ max _),
-      reduceOptionalBuffers[GraphEdge](this.internalEdges, that.internalEdges, _ max _)
-    )
-
   override def toString: String = {
     val (x, y) = coordinates
     val (px, py) = parentCoordinates
     val escapedMetaData = StringParser.escapeString(metadata)
+    val escapedAnalytics = analyticValues.map(StringParser.escapeString).mkString("[", ",", "]")
     val externalEdgeList = externalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
     val internalEdgeList = internalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
     s"""{
@@ -300,6 +318,7 @@ case class GraphCommunity (
        |  "parentID": $parentId,
        |  "parentCoords": [$px, $py],
        |  "parentRadius": $parentRadius,
+       |  "analyticValues": $escapedAnalytics,
        |  "interEdges": $externalEdgeList,
        |  "intraEdges": $internalEdgeList
        |}""".stripMargin

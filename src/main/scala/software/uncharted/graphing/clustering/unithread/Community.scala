@@ -63,7 +63,7 @@ class Community (val g: Graph,
     * @return
     */
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
-            nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_, _]],
+            nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_]],
             algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
@@ -320,7 +320,7 @@ class Community (val g: Graph,
     g.display_links(out)
 
     // write stats to stats file
-    stats.map{statsStream =>
+    stats.foreach{statsStream =>
 
       var nodes = 0.0
       var minCS = Int.MaxValue
@@ -450,7 +450,7 @@ object Community {
   var filename_part: Option[String] = None
   var verbose = false
   var randomize = true
-  var analytics: Array[CustomGraphAnalytic[_, _]] = Array()
+  var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
   def usage (prog_name: String, more: String) = {
@@ -477,7 +477,7 @@ object Community {
   def parse_args (args: Array[String]) = {
     if (args.length < 1) usage("community", "Bad arguments number")
 
-    val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_, _]]()
+    val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_]]()
     var i = 0
     while (i < args.length) {
       if (args(i).startsWith("-")) {

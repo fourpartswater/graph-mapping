@@ -16,7 +16,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[(String, Seq[String])]] = None
 
   def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
-                    id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_, _]]): Unit = {
+                    id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     metaData = Some(new Array[(String, Seq[String])](links.length))
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
     metaData.foreach{data =>
@@ -155,7 +155,7 @@ object GraphEdges {
              source_column: Int,
              destination_column: Int,
              weight_column: Option[Int],
-             analytics: Seq[CustomGraphAnalytic[_, _]]): GraphEdges = {
+             analytics: Seq[CustomGraphAnalytic[_]]): GraphEdges = {
     // First read through the file once, counting edges
     println("Counting nodes in graph")
     val countReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
@@ -192,7 +192,7 @@ object GraphEdges {
              destination_column: Int,
              weight_column: Option[Int],
              initialSize: Option[Int] = None,
-             analytics: Seq[CustomGraphAnalytic[_, _]] = Seq()): GraphEdges = {
+             analytics: Seq[CustomGraphAnalytic[_]] = Seq()): GraphEdges = {
     val edges = new GrowableArray[MutableBuffer[(Int, Float, Seq[String])]](initialSize.getOrElse(0), () => MutableBuffer[(Int, Float, Seq[String])]())
     var line = edge_input.readLine()
     var n = 0

@@ -57,7 +57,7 @@ object NodeTilingPipeline {
     sc.stop()
   }
 
-  def getSchema (analytics: Seq[CustomGraphAnalytic[_, _]]): StructType = {
+  def getSchema (analytics: Seq[CustomGraphAnalytic[_]]): StructType = {
     // This schema must match that written by HierarchicalFDLayout.saveLayoutResult (the resultNodes variable)
     // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
     StructType(
@@ -74,7 +74,7 @@ object NodeTilingPipeline {
         StructField("internalNodes", LongType),
         StructField("degree", IntegerType),
         StructField("metadata", StringType)
-      ) ++ analytics.map(a => StructField(a.name.replace(' ', '_'), StringType))
+      ) ++ analytics.map(a => StructField(a.getColumnName, StringType))
     )
   }
 
@@ -86,7 +86,7 @@ object NodeTilingPipeline {
                          family: String,
                          qualifier: String,
                          hbaseConfiguration: Configuration,
-                         analytics: Seq[CustomGraphAnalytic[_, _]]
+                         analytics: Seq[CustomGraphAnalytic[_]]
   ): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._

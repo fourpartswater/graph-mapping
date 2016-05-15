@@ -14,14 +14,14 @@ object Convert {
   var edge_source_column = 0
   var edge_destination_column = 1
   var edge_weight_column: Option[Int] = None
-  var edge_analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
+  var edge_analytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
 
   var infile_node: Option[String] = None
   var node_filter: Option[String] = None
   var node_separator = "[ \t]+"
   var node_id_column = 0
   var node_metadata_column = 1
-  var node_analytics: MutableBuffer[CustomGraphAnalytic[_, _]] = MutableBuffer()
+  var node_analytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
 
   var outfile: Option[String] = None
   var outfile_weight: Option[String] = None

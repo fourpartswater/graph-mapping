@@ -7,7 +7,7 @@ import software.uncharted.graphing.analytics.{WrappingTileAggregator, WrappingCl
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator}
 
-import scala.util.parsing.json.JSONObject
+import scala.language.implicitConversions
 
 /**
   * Created by nkronenfeld on 2016-02-01.
@@ -72,7 +72,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     }
 
     // Some analytics to use
-    val analytics = Array[CustomGraphAnalytic[_, _]](
+    val analytics = Array[CustomGraphAnalytic[_]](
       new TestGraphAnalytic("abc", 2, SumAggregator),
       new TestGraphAnalytic("def", 3, MaxAggregator),
       new TestGraphAnalytic("ghi", 4, MeanAggregator)
@@ -157,23 +157,39 @@ class CommunityModificationsTestSuite extends FunSuite {
     // raw level
     val clusterOutput0 = getNodes(c)
     assert(3 === clusterOutput0.length)
-    assert("node\t0\t0\t1\t2\tzero\t0.5\t0.6\t0.7" === clusterOutput0(0))
-    assert("node\t1\t0\t1\t2\tone\t1.5\t1.6\t1.7" === clusterOutput0(1))
-    assert("node\t2\t0\t1\t2\ttwo\t2.5\t2.6\t2.7" === clusterOutput0(2))
+    def checkOutput (expected: Seq[Either[String, Seq[String]]], actual: String, delimiter: String = "\t"): Unit = {
+      println(s"Full actual string: $actual")
+      actual.split(delimiter).zipAll(expected, "", Left("")).foreach { case (a, es) =>
+        println(s"expected: $es, actual: $a")
+        es match {
+          case Left(s) => assert(s === a)
+          case Right(ss) => assert(ss.contains(a))
+        }
+      }
+    }
+    implicit def stringToLeftString        (s: String):      Either[String, Seq[String]] = Left(s)
+    implicit def stringSeqToRightStringSeq (s: Seq[String]): Either[String, Seq[String]] = Right(s)
+    checkOutput(Seq("node", "0", Seq("0", "1", "2"), "1", "2", "zero", "0.5", "0.6", "0.7"), clusterOutput0(0))
+    checkOutput(Seq("node", "1", Seq("0", "1", "2"), "1", "2", "one", "1.5", "1.6", "1.7"), clusterOutput0(1))
+    checkOutput(Seq("node", "2", Seq("0", "1", "2"), "1", "2", "two", "2.5", "2.6", "2.7"), clusterOutput0(2))
+
     // next level
     val c1 = new Community(g1, -1, 0.15)
     c1.one_level()
     val clusterOutput1 = getNodes(c1)
     assert(1 === clusterOutput1.length)
-    assert("node\t2\t2\t3\t6\ttwo\t4.5\t2.6\t1.7" === clusterOutput1(0))
+    checkOutput(
+      Seq("node", Seq("0", "1", "2"), Seq("0", "1", "2"), "3", "6", Seq("zero", "one", "two"), "4.5", "2.6", "1.7"),
+      clusterOutput1(0)
+    )
   }
 }
 
-class TestGraphAnalytic[T] (_name: String, _column: Int, aggregator: Aggregator[Double, T, Double]) extends CustomGraphAnalytic[T, T] {
+class TestGraphAnalytic[T] (_name: String, _column: Int, baseAggregator: Aggregator[Double, T, Double]) extends CustomGraphAnalytic[T] {
   override val name: String = _name
   override val column: Int = _column
-  override val clusterAggregator: Aggregator[String, T, String] =
-    new  WrappingClusterAggregator(aggregator, (s: String) => s.toDouble, (d: Double) => d.toString)
-  override val tileAggregator: Aggregator[String, T, JSONObject] =
-    new WrappingTileAggregator(aggregator, (s: String) => s.toDouble, (value: Double) => new JSONObject(Map("value" -> value)))
+  override val aggregator: Aggregator[String, T, String] =
+    new  WrappingClusterAggregator(baseAggregator, (s: String) => s.toDouble, (d: Double) => d.toString)
+  override def min(left: String, right: String): String = (left.toDouble min right.toDouble).toString
+  override def max(left: String, right: String): String = (left.toDouble max right.toDouble).toString
 }

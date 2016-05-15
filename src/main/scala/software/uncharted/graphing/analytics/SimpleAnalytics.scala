@@ -1,25 +1,29 @@
 package software.uncharted.graphing.analytics
 
 import software.uncharted.salt.core.analytic.Aggregator
-import software.uncharted.salt.core.analytic.numeric.{MaxAggregator, MinAggregator, SumAggregator}
+import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, MinAggregator, SumAggregator}
 
 import scala.util.parsing.json.JSONObject
 
-class AggregatorBasedAnalytic (base: Aggregator[Double, Double, Double], c: Int) extends CustomGraphAnalytic[Double, Double] {
+class AggregatorBasedAnalytic[T] (base: Aggregator[Double, T, Double], c: Int) extends CustomGraphAnalytic[T] {
   override val name: String = s"sum column $c"
   override val column: Int = c
-  override val clusterAggregator: Aggregator[String, Double, String] =
+  override val aggregator: Aggregator[String, T, String] =
     new WrappingClusterAggregator(
       base,
       (input: String) => input.toDouble,
       (output: Double) => output.toString
     )
-  override val tileAggregator: Aggregator[String, Double, JSONObject] =
-    new WrappingTileAggregator(
-      base,
-      (input: String) => input.toDouble,
-      (output: Double) => new JSONObject(Map("value" -> output))
-    )
+
+  /**
+    * Take two processed, aggregated values, and determine the minimum value of the pair.
+    */
+  override def min(left: String, right: String): String = (left.toDouble min right.toDouble).toString
+
+  /**
+    * Take two processed, aggregated values, and determine the maximum value of the pair.
+    */
+  override def max(left: String, right: String): String = (left.toDouble max right.toDouble).toString
 }
 
 class SumAnalytic0 extends AggregatorBasedAnalytic(SumAggregator, 0)
@@ -59,3 +63,14 @@ class MaxAnalytic9 extends AggregatorBasedAnalytic(MaxAggregator, 9)
 class MaxAnalytic10 extends AggregatorBasedAnalytic(MaxAggregator, 10)
 
 
+class MeanAnalytic0 extends AggregatorBasedAnalytic(MeanAggregator, 0)
+class MeanAnalytic1 extends AggregatorBasedAnalytic(MeanAggregator, 1)
+class MeanAnalytic2 extends AggregatorBasedAnalytic(MeanAggregator, 2)
+class MeanAnalytic3 extends AggregatorBasedAnalytic(MeanAggregator, 3)
+class MeanAnalytic4 extends AggregatorBasedAnalytic(MeanAggregator, 4)
+class MeanAnalytic5 extends AggregatorBasedAnalytic(MeanAggregator, 5)
+class MeanAnalytic6 extends AggregatorBasedAnalytic(MeanAggregator, 6)
+class MeanAnalytic7 extends AggregatorBasedAnalytic(MeanAggregator, 7)
+class MeanAnalytic8 extends AggregatorBasedAnalytic(MeanAggregator, 8)
+class MeanAnalytic9 extends AggregatorBasedAnalytic(MeanAggregator, 9)
+class MeanAnalytic10 extends AggregatorBasedAnalytic(MeanAggregator, 10)
