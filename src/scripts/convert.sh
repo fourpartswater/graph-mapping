@@ -30,7 +30,7 @@ pushd ${DATASET}
 
 case ${DATASET} in
 
-	affinity)
+	affinity*)
 		echo Converting affinity graph
 		CONVERT_ARGS="-ie graph.txt -fe edge -ce \\t -s 1 -d 2"
 		CONVERT_ARGS="${CONVERT_ARGS} -in graph.txt -fn node -cn \\t -m 5 -n 1"
