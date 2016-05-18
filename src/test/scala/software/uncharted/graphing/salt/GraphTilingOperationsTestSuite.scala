@@ -90,7 +90,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 4.0, 0.0, 0.0),
       Coordinates(0.0, 0.0, 4.0, 0.0)
     )))
-    val tiles = cartesianTiling("x", "y", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(data).collect
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(addOnesColumn("count")(data)).collect
 
     assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }
@@ -104,7 +104,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 3.5, 1.5, 0.0),
       Coordinates(0.0, 4.0, 4.0, 0.0)
     )))
-    val tiles = cartesianTiling("x", "y", Seq(0), None, 4)(data).collect
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data)).collect
 
     assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }

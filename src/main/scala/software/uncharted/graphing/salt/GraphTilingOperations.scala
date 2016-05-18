@@ -1,9 +1,8 @@
 package software.uncharted.graphing.salt
 
 
-import java.io.{FileOutputStream, File, ByteArrayOutputStream}
+import java.io.{ByteArrayOutputStream, File, FileOutputStream}
 import java.lang.{Double => JavaDouble}
-
 
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
@@ -11,26 +10,24 @@ import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 import scala.language.implicitConversions
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.Job
-import org.apache.hadoop.hbase.client.{Admin, Put, ConnectionFactory}
+import org.apache.hadoop.hbase.client.{Admin, ConnectionFactory, Put}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, HBaseConfiguration, TableName}
+import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Column, DataFrame, SQLContext}
-
 import com.databricks.spark.csv.CsvParser
-
+import org.apache.spark.sql.catalyst.expressions.Literal
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.output.SeriesData
-import software.uncharted.salt.core.generation.request.{TileRequest, TileLevelRequest}
+import software.uncharted.salt.core.generation.request.{TileLevelRequest, TileRequest}
 import software.uncharted.salt.core.util.SparseArray
-import software.uncharted.sparkpipe.ops.salt.zxy.CartesianOp
+import software.uncharted.sparkpipe.ops.community.salt.zxy.CartesianOp
 
 
 
@@ -148,6 +145,17 @@ object GraphTilingOperations {
   }
 
   /**
+    * Add a column containing the value 1 on every row, to be used for count tiling.
+    * @param countColumnName The name of the column to use.  The caller is responsible for making sure this name is
+    *                        unique in the columns of the DataFrame
+    * @param input The DataFrame to which to add a ones column
+    * @return A new DataFrame, with the old data, plus a ones column
+    */
+  def addOnesColumn (countColumnName: String)(input: DataFrame): DataFrame = {
+    input.withColumn(countColumnName, new Column(Literal(1)))
+  }
+
+  /**
     * Tile a dataset using a cartesian projection and a simple count aggregation
     *
     * @param xCol The column in which to find the X coordinate of the data
@@ -158,7 +166,7 @@ object GraphTilingOperations {
     * @param input The input data
     * @return An RDD of tiles
     */
-  def cartesianTiling (xCol: String, yCol: String, levels: Seq[Int],
+  def cartesianTiling (xCol: String, yCol: String, vCol: String, levels: Seq[Int],
                        boundsOpt: Option[(Double, Double, Double, Double)] = None,
                        tileSize: Int = 256)(input: DataFrame): RDD[SeriesData[(Int, Int, Int), (Int, Int), Double, Double]] = {
     val bounds = boundsOpt.getOrElse {
@@ -176,7 +184,7 @@ object GraphTilingOperations {
 
 
     CartesianOp(
-      yCol, xCol, bounds, levels, r => Some(1), CountAggregator, tileAggregation, tileSize
+      tileSize, yCol, xCol, vCol, bounds, levels, CountAggregator, tileAggregation
     )(
       new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
     )(input)

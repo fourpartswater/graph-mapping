@@ -103,7 +103,8 @@ object NodeTilingPipeline {
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(schema)))
       .to(countDFRowsOp("Parsed data: "))
-      .to(cartesianTiling("x", "y", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
+      .to(addOnesColumn("count"))
+      .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
       .to(saveSparseTilesToHBase((255, 255), tableName, family, qualifier, hbaseConfiguration))
       .run()
