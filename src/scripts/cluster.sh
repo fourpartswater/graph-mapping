@@ -43,6 +43,7 @@ case ${DATASET} in
 
 	affinity-cs)
 		ARGS="${ARGS} -cs 20"
+		;;
 
 	analytics)
 		ARGS="${ARGS} -a software.uncharted.graphing.analytics.SumAnalytic3"

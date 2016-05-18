@@ -56,6 +56,16 @@ do
 done
 DATATABLE="graph-metadata-${DATASET}-salt"
 
+OTHER_ARGS=
+case ${DATASET} in 
+
+	analytics)
+		OTHER_ARGS="${OTHER_ARGS} -analytic software.uncharted.graphing.analytics.SumAnalytic3"
+		OTHER_ARGS="${OTHER_ARGS} -analytic software.uncharted.graphing.analytics.MeanAnalytic4"
+		OTHER_ARGS="${OTHER_ARGS} -analytic software.uncharted.graphing.analytics.MinAnalytic5"
+		;;
+esac
+
 echo MAX_LEVEL: ${MAX_LEVEL}
 echo PARTITIONS: ${PARTITIONS}
 echo EXECUTORS: ${EXECUTORS}
