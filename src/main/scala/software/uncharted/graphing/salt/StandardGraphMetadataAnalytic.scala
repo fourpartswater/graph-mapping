@@ -172,6 +172,13 @@ case class GraphRecord (communities: Option[Seq[GraphCommunity]], numCommunities
        |  "communities": $communityList
        |}""".stripMargin
   }
+  def toString (keep: Int): String = {
+    val communityList = communities.map(_.sortBy(-_.numNodes).take(keep).mkString("[", ",", "]")).getOrElse("[]")
+    s"""{
+        |  "numCommunities": $numCommunities,
+        |  "communities": $communityList
+        |}""".stripMargin
+  }
 }
 
 
@@ -306,6 +313,7 @@ case class GraphCommunity (
     val escapedAnalytics = analyticValues.map(StringParser.escapeString).mkString("[", ",", "]")
     val externalEdgeList = externalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
     val internalEdgeList = internalEdges.map(_.mkString("[", ",", "]")).getOrElse("[]")
+
     s"""{
        |  "hierLevel": $hierarchyLevel,
        |  "id": $id,

@@ -1,8 +1,6 @@
 package software.uncharted.graphing.salt
 
 
-import java.io.ByteArrayOutputStream
-
 import org.apache.spark.rdd.RDD
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.generation.Series
@@ -50,6 +48,7 @@ object MetadataTilingPipeline {
     // Initialize HBase and our table
     import GraphTilingOperations._
     val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
+    hbaseConfiguration.set("hbase.client.keyvalue.maxsize", "0")
     initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
@@ -127,39 +126,13 @@ object MetadataTilingPipeline {
     val getZoomLevel: ((Int, Int, Int)) => Int = _._1
 
     val encodeTile: SparseArray[GraphRecord] => Array[Byte] = tileData => {
-      val baos = new ByteArrayOutputStream()
-
-      def writeInt(value: Int): Unit = {
-        for (i <- 0 to 3) {
-          val bi = (value >> (i * 8)) & 0xff
-          baos.write(bi)
-        }
+      // The input array should really only have one bin
+      tileData.length() match {
+        case 0 => new Array[Byte](0)
+        case 1 => tileData.apply(0).toString(10).getBytes
+        case _ => throw new Exception("Expected tiles with a single record only, got a tile with "+
+	                                  tileData.length()+" records")
       }
-
-      def writeRecord(record: GraphRecord): Unit = {
-        if (null == record) {
-          writeInt(0)
-        } else {
-          val recordString = record.toString
-          writeInt(recordString.length)
-          baos.write(recordString.toCharArray.map(_.toByte))
-        }
-      }
-
-      val default = tileData.default
-      val nonDefaultCount = tileData.filter(_ != default).length()
-      writeRecord(default)
-      writeInt(nonDefaultCount)
-      for (i <- 0 until tileData.length()) {
-        if (tileData(i) != default) {
-          writeInt(i)
-          writeRecord(tileData(i))
-        }
-      }
-
-      baos.flush()
-      baos.close()
-      baos.toByteArray
     }
 
     communityData
