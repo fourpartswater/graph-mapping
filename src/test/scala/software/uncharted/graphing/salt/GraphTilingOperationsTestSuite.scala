@@ -1,12 +1,16 @@
 package software.uncharted.graphing.salt
 
 
+import java.io.ByteArrayInputStream
+import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
+
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
-import org.scalatest.FunSuite
-
+import org.scalatest.{Tag, FunSuite}
+import software.uncharted.graphing.utilities.S3Client
+import software.uncharted.salt.core.util.SparseArray
 
 
 /**
@@ -107,6 +111,62 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
     val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data)).collect
 
     assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
+  }
+
+  object S3Test extends Tag("s3.test")
+
+  test("save s3 sparse data", S3Test) {
+    val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0, 0.0, 0.0, 0.0),
+      Coordinates(0.0, 0.5, 0.5, 0.0),
+      Coordinates(0.0, 1.5, 3.5, 0.0),
+      Coordinates(0.0, 2.5, 2.5, 0.0),
+      Coordinates(0.0, 3.5, 1.5, 0.0),
+      Coordinates(0.0, 4.0, 4.0, 0.0)
+    )))
+
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data))
+    val awsCredentials = (sys.env("AWS_ACCESS_KEY"), sys.env("AWS_SECRET_KEY"))
+    saveSparseTilesToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "sparse_test_layer")(tiles)
+    val client = S3Client(awsCredentials._1, awsCredentials._2)
+
+    client.download("uncharted-s3-client-test", "sparse_test_layer/0/0/0.bin").map { bytes =>
+      val byteBuffer = ByteBuffer.wrap(bytes.toArray).order(ByteOrder.LITTLE_ENDIAN)
+      assertResult(5)(byteBuffer.getInt)
+      assertResult(0.0)(byteBuffer.getDouble)
+      val tileData = for (i <- 0 until (byteBuffer.remaining / (8 + 4))) yield (byteBuffer.getInt, byteBuffer.getDouble)
+      val sparse = tileData.foldLeft(new SparseArray(16, 0d)) { (curr, elem) => curr.update(elem._1, elem._2); curr }
+      assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === sparse.seq)
+      client.delete("uncharted-s3-client-test", "sparse_test_layer/0/0/0.bin")
+    }.getOrElse {
+      fail("Failed to fetch tile from S3 bucket")
+    }
+  }
+
+  test("save s3 dense data", S3Test) {
+    val data = toDataFrame(sqlc)(sc.parallelize(Seq(
+      Coordinates(0.0, 0.0, 0.0, 0.0),
+      Coordinates(0.0, 0.5, 0.5, 0.0),
+      Coordinates(0.0, 1.5, 3.5, 0.0),
+      Coordinates(0.0, 2.5, 2.5, 0.0),
+      Coordinates(0.0, 3.5, 1.5, 0.0),
+      Coordinates(0.0, 4.0, 4.0, 0.0)
+    )))
+
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data))
+    val awsCredentials = (sys.env("AWS_ACCESS_KEY"), sys.env("AWS_SECRET_KEY"))
+    saveDenseTilesToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "dense_test_layer")(tiles)
+    val client = S3Client(awsCredentials._1, awsCredentials._2)
+
+    client.download("uncharted-s3-client-test", "dense_test_layer/0/0/0.bin").map { bytes =>
+      val doubleBuffer = DoubleBuffer.allocate(bytes.length / 8)
+      doubleBuffer.put(ByteBuffer.wrap(bytes.toArray).order(ByteOrder.LITTLE_ENDIAN).asDoubleBuffer())
+      val data = doubleBuffer.array
+      assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === data)
+      client.delete("uncharted-s3-client-test", "dense_test_layer/0/0/0.bin")
+    }.getOrElse {
+      fail("Failed to fetch tile from S3 bucket")
+    }
   }
 }
 

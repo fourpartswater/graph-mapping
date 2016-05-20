@@ -3,7 +3,9 @@ package software.uncharted.graphing.salt
 
 import java.io.{ByteArrayOutputStream, File, FileOutputStream}
 import java.lang.{Double => JavaDouble}
+import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
 
+import software.uncharted.graphing.utilities.S3Client
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
 
@@ -330,19 +332,30 @@ object GraphTilingOperations {
     }
   }
 
-  private val BytesPerDouble = 8
-  private val doubleTileToByteArrayDense: SparseArray[Double] => Array[Byte] = sparseData => {
-    val data = sparseData.seq
-    val result = new Array[Byte](data.length * BytesPerDouble)
-    var resultIndex = 0
-    for (i <- data.indices) {
-      val datum = JavaDouble.doubleToLongBits(data(i).doubleValue())
-      for (i <- 0 to 7) {
-        result(resultIndex) = ((datum >> (i * 8)) & 0xff).asInstanceOf[Byte]
-        resultIndex += 1
+  // val key = s"$layerName/${coord._1}/${coord._2}/${coord._3}.bin"
+  def saveToS3[TC, BC, V, X](accessKey: String, secretKey: String, bucketName: String,
+                             encodeKey: TC => String, encodeTile: SparseArray[V] => Array[Byte])
+                            (tileData: RDD[SeriesData[TC, BC, V, X]]) = {
+    // Upload tiles to S3 using the supplied bucket and layer.  Use foreachPartition to avoid incurring
+    // the cost of initializing the S3Client per record.  This can't be done outside the RDD closure
+    // because the Amazon S3 API classes are not marked serializable.
+    tileData.foreachPartition { tileDataIter =>
+      val s3Client = S3Client(accessKey, secretKey)
+      tileDataIter.foreach { tile =>
+        val data = encodeTile(tile.bins)
+        val key = encodeKey(tile.coords)
+        s3Client.upload(data, bucketName, key)
       }
     }
-    result
+  }
+
+  private val BytesPerDouble = 8
+  private val BytesPerInt = 4
+  private val doubleTileToByteArrayDense: SparseArray[Double] => Array[Byte] = sparseData => {
+    val data = sparseData.seq.toArray
+    val byteBuffer = ByteBuffer.allocate(data.length * BytesPerDouble).order(ByteOrder.LITTLE_ENDIAN)
+    byteBuffer.asDoubleBuffer().put(DoubleBuffer.wrap(data))
+    byteBuffer.array()
   }
   private val doubleTileToByteArraySparse: SparseArray[Double] => Array[Byte] = sparseData => {
     val defaultValue = sparseData.default
@@ -350,36 +363,17 @@ object GraphTilingOperations {
     for (i <- 0 until sparseData.length())
       if (defaultValue != sparseData(i)) nonDefaultCount += 1
 
-    val baos = new ByteArrayOutputStream()
-
-    def writeInt (value: Int): Unit = {
-      for (i <- 0 to 3) {
-        val bi = (value >> (i*8)) & 0xff
-        baos.write(bi)
-      }
-    }
-
-    def writeLong (value: Long): Unit = {
-      for (i <- 0 to 7) {
-        val bi: Int = ((value >> (i*8)) & 0xff).toInt
-        baos.write(bi)
-      }
-    }
-
-    def writeDouble (value: Double): Unit = {
-      writeLong(JavaDouble.doubleToLongBits(value))
-    }
-
-    writeInt(nonDefaultCount)
-    writeDouble(defaultValue)
-    for (i <- 0 until sparseData.length())
+    val buffer = ByteBuffer.allocate(BytesPerInt + BytesPerDouble + nonDefaultCount * (BytesPerInt + BytesPerDouble))
+      .order(ByteOrder.LITTLE_ENDIAN)
+    buffer.putInt(nonDefaultCount)
+    buffer.putDouble(defaultValue)
+    for (i <- 0 until sparseData.length()) {
       if (defaultValue != sparseData(i)) {
-        writeInt(i)
-        writeDouble(sparseData(i))
+        buffer.putInt(i)
+        buffer.putDouble(sparseData(i))
       }
-    baos.flush()
-    baos.close()
-    baos.toByteArray
+    }
+    buffer.array()
   }
 
   val getHBaseRowIndex: ((Int, Int, Int)) => String = tileIndex => {
@@ -393,6 +387,10 @@ object GraphTilingOperations {
     val xDir = new File(levelDir, ""+tileIndex._2)
     xDir.mkdirs()
     new File(xDir, tileIndex._3 + ".tile")
+  }
+
+  private def getS3RowIndex(layerName: String)(coords: (Int, Int, Int)) = {
+    s"$layerName/${coords._1}/${coords._2}/${coords._3}.bin"
   }
 
   /**
@@ -435,5 +433,15 @@ object GraphTilingOperations {
 
   def saveSparseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
     saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArrayDense)(tileData)
+  }
+
+  def saveDenseTilesToS3[BC, X] (accessKey: String, secretKey: String, bucketName: String, layerName: String)
+                                (tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToS3(accessKey, secretKey, bucketName, getS3RowIndex(layerName), doubleTileToByteArrayDense)(tileData)
+  }
+
+  def saveSparseTilesToS3[BC, X] (accessKey: String, secretKey: String, bucketName: String, layerName: String)
+                                 (tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
+    saveToS3(accessKey, secretKey, bucketName, getS3RowIndex(layerName), doubleTileToByteArraySparse)(tileData)
   }
 }
