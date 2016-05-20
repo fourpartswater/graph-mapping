@@ -73,6 +73,9 @@ test << {
         }
 	ant.scalatest(runpath: testClassesDir, haltonfailure: 'true', fork: 'false') {
 		reporter(type: 'file', filename: 'test-output')
+    tagsToExclude {
+      's3.test' // disable s3 tests by default since it requires valid credentials
+    }
 	}
 }
 
