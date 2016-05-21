@@ -135,10 +135,14 @@ object MetadataTilingPipeline {
       }
     }
 
+    val awsAccessKey = System.getenv("AWS_ACCESS_KEY")
+    val awsSecretKey = System.getenv("AWS_SECRET_KEY")
+
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(countRDDRowsOp("Tiles: "))
-      .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
+      .to(saveToS3(awsAccessKey, awsSecretKey, "0", getS3RowIndex(tableName), encodeTile))
+//      .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
       .run()
   }
 

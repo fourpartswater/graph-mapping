@@ -95,6 +95,9 @@ object NodeTilingPipeline {
 
     val schema = getSchema(analytics)
 
+    val awsAccessKey = System.getenv("AWS_ACCESS_KEY")
+    val awsSecretKey = System.getenv("AWS_SECRET_KEY")
+
     val tiles = Pipe(sqlc)
       .to(RDDIO.read(path + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
@@ -106,7 +109,8 @@ object NodeTilingPipeline {
       .to(addOnesColumn("count"))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-      .to(saveSparseTilesToHBase((255, 255), tableName, family, qualifier, hbaseConfiguration))
+      .to(saveDenseTilesToS3(awsAccessKey, awsSecretKey, "0", tableName))
+//      .to(saveSparseTilesToHBase((255, 255), tableName, family, qualifier, hbaseConfiguration))
       .run()
   }
 }
