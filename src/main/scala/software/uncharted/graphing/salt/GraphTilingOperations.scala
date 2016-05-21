@@ -389,7 +389,7 @@ object GraphTilingOperations {
     new File(xDir, tileIndex._3 + ".tile")
   }
 
-  private def getS3RowIndex(layerName: String)(coords: (Int, Int, Int)) = {
+  def getS3RowIndex(layerName: String)(coords: (Int, Int, Int)) = {
     s"$layerName/${coords._1}/${coords._2}/${coords._3}.bin"
   }
 
