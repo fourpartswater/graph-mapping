@@ -1,6 +1,8 @@
 package software.uncharted.graphing.salt
 
 
+import java.io.File
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, Column, SQLContext}
@@ -52,15 +54,15 @@ object EdgeTilingPipeline {
 
     // Initialize HBase and our table
     import GraphTilingOperations._
-    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
-    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
+//    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
+//    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
     val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, lineType, edgeType, minSegLen, maxSegLen, tableName, familyName, qualifierName, hbaseConfiguration)
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, lineType, edgeType, minSegLen, maxSegLen, tableName, familyName, qualifierName, /* hbaseConfiguration */ null)
     }
 
     sc.stop()
@@ -116,6 +118,7 @@ object EdgeTilingPipeline {
       .to(countDFRowsOp("Required edges: " ))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
+//      .to(saveSparseTilesToFS(new File(tableName)))
       .to(saveDenseTilesToS3(awsAccessKey, awsSecretKey, "0", tableName))
 //      .to(saveSparseTilesToHBase((255, 255), tableName, familyName, qualifierName, hbaseConfiguration))
       .run()

@@ -1,6 +1,8 @@
 package software.uncharted.graphing.salt
 
 
+import java.io.File
+
 import org.apache.spark.rdd.RDD
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.generation.Series
@@ -47,16 +49,16 @@ object MetadataTilingPipeline {
 
     // Initialize HBase and our table
     import GraphTilingOperations._
-    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
-    hbaseConfiguration.set("hbase.client.keyvalue.maxsize", "0")
-    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
+//    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
+//    hbaseConfiguration.set("hbase.client.keyvalue.maxsize", "0")
+//    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
     val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds.head, bounds.last - 1)).toList.reverse.zipWithIndex.reverse
 
     // calculate and save our tiles
     clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, hbaseConfiguration, customAnalytics)
+      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, /* hbaseConfiguration */ null, customAnalytics)
     }
 
     sc.stop()
@@ -141,6 +143,7 @@ object MetadataTilingPipeline {
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(countRDDRowsOp("Tiles: "))
+//      .to(saveToFileSystem(getFileSystemRowIndex(new File(tableName)), encodeTile))
       .to(saveToS3(awsAccessKey, awsSecretKey, "0", getS3RowIndex(tableName), encodeTile))
 //      .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
       .run()
