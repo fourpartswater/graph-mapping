@@ -186,7 +186,7 @@ object GraphTilingOperations {
 
 
     CartesianOp(
-      tileSize, yCol, xCol, vCol, bounds, levels, CountAggregator, tileAggregation
+      tileSize, xCol, yCol, vCol, bounds, levels, CountAggregator, tileAggregation
     )(
       new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
     )(input)
@@ -324,12 +324,13 @@ object GraphTilingOperations {
 
   def saveToFileSystem[TC, BC, V, X] (encodeKey: TC => File,
                                       encodeTile: SparseArray[V] => Array[Byte])(tileData: RDD[SeriesData[TC, BC, V, X]]) = {
-    tileData.map{ tile =>
+    tileData.foreach{ tile =>
       val fos = new FileOutputStream(encodeKey(tile.coords))
       fos.write(encodeTile(tile.bins))
       fos.flush()
       fos.close()
     }
+    tileData
   }
 
   // val key = s"$layerName/${coord._1}/${coord._2}/${coord._3}.bin"
@@ -382,7 +383,7 @@ object GraphTilingOperations {
     ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
   }
 
-  private def getFileSystemRowIndex (baseLocation: File)(tileIndex: (Int, Int, Int)): File = {
+  def getFileSystemRowIndex (baseLocation: File)(tileIndex: (Int, Int, Int)): File = {
     val levelDir = new File(baseLocation, ""+tileIndex._1)
     val xDir = new File(levelDir, ""+tileIndex._2)
     xDir.mkdirs()
@@ -432,7 +433,7 @@ object GraphTilingOperations {
   }
 
   def saveSparseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArrayDense)(tileData)
+    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArraySparse)(tileData)
   }
 
   def saveDenseTilesToS3[BC, X] (accessKey: String, secretKey: String, bucketName: String, layerName: String)
