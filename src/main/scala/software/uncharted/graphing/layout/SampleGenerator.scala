@@ -5,7 +5,7 @@ import java.io._
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Make a sample dataset that is easy to debug
+  * Make a sample dataset for tiling that is easy to debug
   */
 object SampleGenerator {
   def writeNode(out: Writer, node: Node): Unit = {
