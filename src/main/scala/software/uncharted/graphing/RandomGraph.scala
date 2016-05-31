@@ -1,17 +1,18 @@
 /**
- * Copyright © 2014-2015 Uncharted Software Inc. All rights reserved.
- *
- * Property of Uncharted™, formerly Oculus Info Inc.
- * http://uncharted.software/
- *
- * This software is the confidential and proprietary information of
- * Uncharted Software Inc. ("Confidential Information"). You shall not
- * disclose such Confidential Information and shall use it only in
- * accordance with the terms of the license agreement you entered into
- * with Uncharted Software Inc.
- */
-
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing
+
+
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, EdgeRDD, Graph, VertexRDD}
@@ -22,9 +23,6 @@ import scala.util.Random
 
 
 
-/**
- * Created by nkronenfeld on 10/26/15.
- */
 class RandomGraph (sc: SparkContext) {
   /**
    * Create an RDD of a fixed size

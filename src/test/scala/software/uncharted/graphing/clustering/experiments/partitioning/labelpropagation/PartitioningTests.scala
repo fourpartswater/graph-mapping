@@ -1,4 +1,18 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.clustering.experiments.partitioning.labelpropagation
+
+
 
 import scala.collection.mutable.{Map => MutableMap}
 import org.apache.spark.SharedSparkContext
@@ -10,9 +24,8 @@ import software.uncharted.graphing.utilities.TestUtilities
 
 import scala.reflect.ClassTag
 
-/**
- * Created by nkronenfeld on 12/9/2015.
- */
+
+
 class PartitioningTests extends FunSuite with SharedSparkContext with BeforeAndAfter {
 
   import TestUtilities._

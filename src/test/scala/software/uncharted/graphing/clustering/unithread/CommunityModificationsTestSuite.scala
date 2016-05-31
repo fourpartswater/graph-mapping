@@ -1,4 +1,18 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.clustering.unithread
+
+
 
 import java.io._
 
@@ -9,9 +23,8 @@ import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggrega
 
 import scala.language.implicitConversions
 
-/**
-  * Created by nkronenfeld on 2016-02-01.
-  */
+
+
 class CommunityModificationsTestSuite extends FunSuite {
   test("Test node degree modification") {
     // 3 3-node stars, with a central node (node 0) connected to everything

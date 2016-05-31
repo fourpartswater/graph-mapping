@@ -1,11 +1,24 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.clustering.unithread.reference
+
+
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.Matchers._
 
-/**
- * Created by nkronenfeld on 11/3/2015.
- */
+
+
 class CommunityClusteringTestSuite extends FunSuite with BeforeAndAfter {
   val epsilon = 1E-12
   var graph: Graph = null

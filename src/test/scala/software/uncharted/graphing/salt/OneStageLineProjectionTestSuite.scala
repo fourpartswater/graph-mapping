@@ -1,12 +1,25 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.salt
+
+
 
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import software.uncharted.graphing.geometry.{ArcToPoints, Line}
 
-/**
-  * Created by nkronenfeld on 08/03/16.
-  */
+
+
 class OneStageLineProjectionTestSuite extends FunSuite {
   test("Test lots of possible leader lines") {
     val maxBin = (3, 3)

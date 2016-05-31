@@ -7,6 +7,8 @@
  */
 package software.uncharted.graphing.clustering.unithread.reference
 
+
+
 import java.io.{DataInputStream, FileInputStream}
 
 import org.apache.spark.SparkContext
@@ -15,6 +17,8 @@ import org.apache.spark.graphx.VertexId
 import org.apache.spark.graphx.{Graph => SparkGraph}
 
 import scala.collection.mutable.Buffer
+
+
 
 /**
  * based on graph_binary.h and graph_binary.cpp from Blondel et al

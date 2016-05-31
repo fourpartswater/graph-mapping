@@ -1,32 +1,22 @@
-/*
- * Copyright (c) 2014 Oculus Info Inc.
- * http://www.oculusinfo.com/
- *
- * Released under the MIT License.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is furnished to do
- * so, subject to the following conditions:
-
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
-
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.layout
+
+
 
 import org.apache.spark.{SparkConf, SparkContext}
 import software.uncharted.graphing.utilities.ArgumentParser
+
 
 
 object ClusteredGraphLayoutApp {
@@ -50,12 +40,12 @@ object ClusteredGraphLayoutApp {
 		val gravity = argParser.getDouble("g", "Amount of gravitational force to use for Force-Directed layout to prevent outer nodes from spreading out too far. Default = 0 (no gravity)", 0.0)
 		val isolatedDegreeThres = argParser.getInt("degreeThres", "Degree threshold used to define 'leaf communities'. Such leaf communities are automatically laid out in an outer radial/spiral pattern. Default = 0", 0)
 		val communitySizeThres = argParser.getInt("commSizeThres", "Community size threshold used to exclude communities with < communitySizeThres nodes from layout. Default = 0", 0)
- 		
+
 		val fileStartTime = System.currentTimeMillis()
-		
+
 		// Hierarchical Force-Directed layout scheme
 		val layouter = new HierarchicFDLayout()
-		
+
 		layouter.determineLayout(sc,
 		                         maxIterations,
 		                         maxHierarchyLevel,
@@ -71,12 +61,12 @@ object ClusteredGraphLayoutApp {
 		                         isolatedDegreeThres,
 		                         communitySizeThres,
 		                         outputDir)
-		
+
 		val fileEndTime = System.currentTimeMillis()
 		println("Finished hierarchic graph layout job in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")
-		
+
 		println("DONE!!")
 	}
-	
-	
+
+
 }

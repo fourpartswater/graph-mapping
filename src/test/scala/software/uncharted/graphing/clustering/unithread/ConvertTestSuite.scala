@@ -1,12 +1,25 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.clustering.unithread
+
+
 
 import java.io.{ByteArrayInputStream, InputStreamReader, BufferedReader}
 
 import org.scalatest.FunSuite
 
-/**
-  * Created by nkronenfeld on 2016-01-07.
-  */
+
+
 class ConvertTestSuite extends FunSuite {
   test("Test reading of edge files (no weights)") {
     val rawData =

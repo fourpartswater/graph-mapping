@@ -1,28 +1,15 @@
-/*
- * Copyright (c) 2014 Oculus Info Inc.
- * http://www.oculusinfo.com/
- *
- * Released under the MIT License.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is furnished to do
- * so, subject to the following conditions:
-
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
-
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.layout
 
 
@@ -35,7 +22,7 @@ import org.apache.spark.graphx._
 
 /**
  *  Hierarchical Force-Directed layout algorithm
- *  
+ *
  *  sc = spark context
  *  maxIterations = max iterations to use for force-directed layout algorithm. Default = 500
  *  partitions = The number of partitions into which to read the raw data. Default = 0 (automatically chosen by Spark)
@@ -50,8 +37,8 @@ import org.apache.spark.graphx._
  *  isolatedDegreeThres = degree threshold used to define 'leaf communities'.  Such leaf communities are automatically laid out in an outer radial/spiral pattern.  Default = 0
  *  communitySizeThres = community size threshold used to exclude communities with < communitySizeThres nodes from layout, in order to speed up layout of very large parent communities.
  *  					 Only used for hierarchy level > 0.  Default = 0
- *  
- **/ 
+ *
+ **/
 class HierarchicFDLayout extends Serializable {
 
 	def determineLayout(sc: SparkContext,
@@ -69,16 +56,16 @@ class HierarchicFDLayout extends Serializable {
 	                    isolatedDegreeThres: Int = 0,
 	                    communitySizeThres: Int = 0,
 	                    outputDir: String) = {
-		
+
 		//TODO -- this class assumes edge weights are Longs.  If this becomes an issue for some datasets, then change expected edge weights to Doubles?
-	  		
+
 		if (maxHierarchyLevel < 0) throw new IllegalArgumentException("maxLevel parameter must be >= 0")
 		if (nodeAreaPercent < 10 || nodeAreaPercent > 90) throw new IllegalArgumentException("nodeAreaPercent parameter must be between 10 and 90")
-		
+
 		val forceDirectedLayouter = new ForceDirected()	//force-directed layout scheme
-		
+
 		val levelStats = new Array[(Long, Long, Double, Double, Double, Double, Int)](maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
-		
+
 		//Array of RDDs for storing all node results.  Format is (id, (x, y, radius, parentID, numInternalNodes, metaData))
 		//var nodeResultsAllLevels = new Array[(RDD[(Long, (Double, Double, Double, Long, Long, String))])](maxHierarchyLevel+1)
 		//Array of RDDs for storing all edge results.
@@ -89,18 +76,18 @@ class HierarchicFDLayout extends Serializable {
 
 		//var localLastLevelLayout = Seq(-1L -> (0.0,0.0,layoutDimensions._1,layoutDimensions._2))
 		var lastLevelLayout = sc.parallelize(Seq(-1L -> (0.0,0.0,layoutDimensions._1,layoutDimensions._2)))
-		
+
 		var level = maxHierarchyLevel
 		while (level >= 0) {
 			println("Starting Force Directed Layout for hierarchy level " + level)
 
 			//val lastLevelLayout = sc.parallelize(localLastLevelLayout)
-			
+
 			// For each hierarchical level > 0, get community ID's, community degree (num outgoing edges),
 			// and num internal nodes, and the parent community ID.
 			// Group by parent community, and do Group-in-Box layout once for each parent community.
 			// Then consolidate results and save in format (community id, rectangle in 'global coordinates')
-			
+
 			// parse edge data
 			val gparser = new GraphCSVParser
 			val rawData = if (partitions <= 0) {
@@ -109,7 +96,7 @@ class HierarchicFDLayout extends Serializable {
 				sc.textFile( sourceDir + "/level_" + level, partitions)
 			}
 			val edges0 = gparser.parseEdgeData(sc, rawData, partitions, delimiter, 1, 2, 3)
-			
+
 			// parse node data ... format is (nodeID, parent community ID, internal number of nodes, degree, metadata)
 			val parsedNodeData0 =  if (level == maxHierarchyLevel) {
 				val ndata = gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
@@ -118,21 +105,21 @@ class HierarchicFDLayout extends Serializable {
 				//(and reset the 'lastLevelLayout' variable accordingly)
 				val topParentID = ndata.map(n => (n._1, n._2._2)).top(1)(Ordering.by(_._2))(0)._1
 				lastLevelLayout = sc.parallelize(Seq(topParentID -> (0.0,0.0,layoutDimensions._1,layoutDimensions._2)))
-				
+
 				ndata.map(node => (node._1, (topParentID, node._2._2, node._2._3, node._2._4)))	// force parentID = topParentID for top level group
 			}
 			else {
 				gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
 			}
-			
+
 			// now create graph of parsed nodes and edges for this hierarchy, and discard any nodes/communities that ==null or are too small
 			val graph = Graph(parsedNodeData0, edges0).subgraph(vpred = (id, attr) => {
 				if ((attr != null) && (attr._2 > communitySizeThres || level == 0)) true else false
-			})	
+			})
 			val parsedNodeData = graph.vertices
 			val edges = graph.edges
 			edges.cache
-			
+
 			// find all intra-community edges and store with parent ID as map key
 			val edgesByParent = graph.triplets.flatMap(et =>
 				{
@@ -149,20 +136,20 @@ class HierarchicFDLayout extends Serializable {
 					}
 				}
 			)
-			
+
 			val groupedEdges = if (consolidationPartitions==0) {	// group intra-community edges by parent ID
 				edgesByParent.groupByKey()
 			} else {
 				edgesByParent.groupByKey(consolidationPartitions)
 			}
-			
+
 			// now re-map nodes by (parent ID, (node ID, numInternalNodes, degree, metaData)) and group by parent rectangle
 			val groupedNodes = if (consolidationPartitions==0) {
 				parsedNodeData.map(n => (n._2._1, (n._1, n._2._2, n._2._3, n._2._4))).groupByKey()
 			} else {
 				parsedNodeData.map(n => (n._2._1, (n._1, n._2._2, n._2._3, n._2._4))).groupByKey(consolidationPartitions)
 			}
-			
+
 			//join raw nodes with intra-community edges (key is parent ID), AND join with lastLevelLayout so have access to parent rectangle coords too
 			val joinedData = groupedNodes.leftOuterJoin(groupedEdges).map{case (parentID, (nodeData, edgesOption)) =>
 				// create a dummy edge for any communities without intra-cluster edges
@@ -170,7 +157,7 @@ class HierarchicFDLayout extends Serializable {
 				val edgeResults = edgesOption.getOrElse(Iterable( (-1L, -1L, 0L) ))
 				(parentID, (nodeData, edgeResults))
 			}.join(lastLevelLayout)
-			
+
 			val bUseNodeSizes = true //(level > 0)
 			val g = if (level > 0) gravity else 0
 			//val currAreaPercent = Math.max(nodeAreaPercent - (maxHierarchyLevel-level)*5, 10)	// use less area for communities at lower hierarchical levels
@@ -231,7 +218,7 @@ class HierarchicFDLayout extends Serializable {
 
 			// save layout results for this hierarchical level
 			saveLayoutResults(graphForThisLevel, outputDir, level, level == maxHierarchyLevel)
-			
+
 			if (level > 0) {
 				val levelLayout = nodeDataAll.map(data =>
 					{
@@ -241,7 +228,7 @@ class HierarchicFDLayout extends Serializable {
 						rect
 					}
 				)
-				
+
 				//localLastLevelLayout = levelLayout.collect
 				levelLayout.cache
 				levelLayout.count
@@ -252,9 +239,9 @@ class HierarchicFDLayout extends Serializable {
 			edges.unpersist(blocking=false)
 			level -= 1
 		}
-		
+
 		saveLayoutStats(sc, levelStats, outputDir)	// save layout stats for all hierarchical levels
-		
+
 		//---- For each hierarchy level, append the raw coords for the 'primary node' of each community
 		//		val rawNodeCoords = nodeResultsAllLevels(0).map(n => (n._1, (n._2._1, n._2._2)))	//store (id (x,y)) of all raw nodes
 		//		rawNodeCoords.cache
@@ -305,7 +292,7 @@ class HierarchicFDLayout extends Serializable {
 	//		                             })
 	//		squares
 	//	}
-	
+
 	private def circleToRectangle(nodeCoords: (Long, Double, Double, Double)): (Long, (Double, Double, Double, Double)) = {
 		val (id, x, y, r) = nodeCoords
 		// calc coords of bounding box with same centre as the circle, and width = height = sqrt(2)*r
@@ -313,19 +300,19 @@ class HierarchicFDLayout extends Serializable {
 		val squareCoords = (x - rSqrt2, y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
 		(id, squareCoords)
 	}
-	
+
 	private def calcLayoutStats(numNodes: Long,
 	                            numEdges: Long,
 	                            radii: RDD[Double],
 	                            parentRadii: RDD[Double],
 	                            totalLayoutLength: Double,
 	                            bMaxHierarchyLevel: Boolean): (Long, Long, Double, Double, Double, Double, Int) = {
-		
+
 		val maxR = radii.reduce(_ max _)	// calc min and max radii
 		val minR = radii.reduce(_ min _)
 		val maxParentR = parentRadii.reduce(_ max _)	// calc min and max parent radii
 		val minParentR = parentRadii.reduce(_ min _)
-		
+
 		val minRecommendedZoomLevel = if (bMaxHierarchyLevel) {
 			0
 		}
@@ -338,11 +325,11 @@ class HierarchicFDLayout extends Serializable {
 		//output format is (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
 		(numNodes, numEdges, minR, maxR, minParentR, maxParentR, minRecommendedZoomLevel)
 	}
-	
+
 	private def saveLayoutResults(graphWithCoords: Graph[(Double, Double, Double, Long, Double, Double, Double, Long, Int, String), Long],
 	                              outputDir: String,
 	                              level: Int, bIsMaxLevel: Boolean) =	{
-		
+
 		// re-format results into tab-delimited strings for saving to text file
 		val resultsNodes = graphWithCoords.vertices.map(node =>
 			{
