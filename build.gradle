@@ -2,10 +2,37 @@ description = "A research library for graph processing"
 group = "software.uncharted"
 version = "0.1-SNAPSHOT"
 
+// Project-level shared variables
+ext {
+	dependencyScalaVersion = "2.10"
+	scalaVersion = "2.10.6"
+	sparkVersion = "1.5.0-cdh5.5.2"
+	hbaseVersion = "1.0.0-cdh5.5.2"
+	htraceVersion = "3.2.0-incubating"
+	cdhVersion="1.0.0-cdh5.5.2"
+}
+
+// Extra setup needed for plugins
+buildscript {
+	repositories {
+		mavenCentral()
+		jcenter()
+	}
+	
+	dependencies {
+		classpath "com.github.maiflai:gradle-scalatest:0.10"
+		classpath 'org.scoverage:gradle-scoverage:1.0.9'
+		classpath "org.github.ngbinh.scalastyle:gradle-scalastyle-plugin_2.10:0.8.2"
+	}
+}
+
 apply plugin: 'scala'
 apply plugin: 'maven'
 apply plugin: 'distribution'
 apply plugin: 'idea'
+apply plugin: 'com.github.maiflai.scalatest'
+
+
 
 // Gradle/intellij don't work properly together with 1.8
 sourceCompatibility = '1.7'
@@ -19,68 +46,33 @@ repositories {
 	}
 }
 
-// shared version variables
-ext {
-	dependencyScalaVersion = "2.10"
-	scalaVersion = "2.10.6"
-	sparkVersion = "1.5.0-cdh5.5.2"
-	hbaseVersion = "1.0.0-cdh5.5.2"
-	htraceVersion = "3.2.0-incubating"
-
-	// A shared function that adds hbase dependencies to the supplied project based on the build type.
-	// We can't use the DSL in this context, so we have to go through the lower level DependencyManager APIs.
-	addHBaseDependencies = { config ->
-		if (config == null || config == "") {
-			config = "compile"
-		}
-		getDependencies().add(config, "org.apache.hbase:hbase-common:$hbaseVersion", {
-			exclude group: "asm", module: "asm"
-			exclude group: "org.slf4j", module: "slf4j-api"
-			exclude group: "org.slf4j", module: "slf4j-log4j12"
-			exclude group: "org.jboss.netty", module: "netty"
-			exclude group: "io.netty", module: "netty"
-		})
-		getDependencies().add(config, "org.apache.hbase:hbase-client:$hbaseVersion", {
-			exclude group: "asm", module: "asm"
-			exclude group: "org.slf4j", module: "slf4j-api"
-			exclude group: "org.slf4j", module: "slf4j-log4j12"
-			exclude group: "org.jboss.netty", module: "netty"
-			exclude group: "io.netty", module: "netty"
-		})
-		getDependencies().add(config, "org.apache.hbase:hbase-server:$hbaseVersion", {
-			exclude group: "asm", module: "asm"
-			exclude group: "org.slf4j", module: "slf4j-api"
-			exclude group: "org.slf4j", module: "slf4j-log4j12"
-			exclude group: "org.mortbay.jetty", module: "servlet-api-2.5"
-			exclude group: "org.jboss.netty", module: "netty"
-			exclude group: "io.netty", module: "netty"
-		})
-		getDependencies().add(config, "org.apache.htrace:htrace-core:$htraceVersion", {
-			exclude group: "asm", module: "asm"
-			exclude group: "org.slf4j", module: "slf4j-api"
-			exclude group: "org.slf4j", module: "slf4j-log4j12"
-			exclude group: "org.mortbay.jetty", module: "servlet-api-2.5"
-			exclude group: "org.jboss.netty", module: "netty"
-			exclude group: "io.netty", module: "netty"
-		})
-	}
-}
-
-// appends scala test functionality to the baseline test task
-test << {
-	ant.taskdef(name: 'scalatest', classname: 'org.scalatest.tools.ScalaTestAntTask', classpath: classpath.asPath) {
-            jvmarg = '-Dfile.encoding=UTF-8'
-        }
-	ant.scalatest(runpath: testClassesDir, haltonfailure: 'true', fork: 'false') {
-		reporter(type: 'file', filename: 'test-output')
-    tagsToExclude {
-      's3.test' // disable s3 tests by default since it requires valid credentials
-    }
-	}
-}
-
+// Task to update the gradle wrapper
 task wrapper(type: Wrapper) {
-  gradleVersion = '2.4'
+	gradleVersion = '2.9'
+}
+
+// Test and scoverage tests should be forced to single threaded execution
+// since Spark can't run multiple contexts within in a single JVM.  We ignore
+// tests relying on external systems (HBase + S3) by default, but they can be
+// include by adding -PincludeExternalTests to the command line.  Running tests on
+// a closed build environment like Bamboo block all IO, so an option is provided
+// to block those via -PexcludeIoTests.
+test {
+	maxParallelForks = 1
+	jvmArgs += ["-XX:MaxPermSize=512m", "-Xmx1000m"]
+	if (project.hasProperty('excludeIoTests')) {
+		tags {
+			exclude 's3.test'
+			exclude 'hbc.test'
+			exclude 'fileio.test'
+		}
+	} else if (!project.hasProperty('includeExternalTests')) {
+		tags {
+			exclude 's3.test'
+			exclude 'hbc.test'
+		}
+	}
+	
 }
 
 // Configure a jar task to build a fat jar that includes dependencies added ot the assemblyJarReq config.
@@ -102,16 +94,20 @@ configurations {
 	// below in order to run test cases from within IntelliJ.  Command line is fine.
 	compile.exclude group: "org.jboss.netty", module: "netty"
 	compile.exclude group: "org.apache.hadoop", module: "hadoop-client"
-
+	
 	// Create a configuration to hold jars that we need to roll into our fat jar.  Disable transitive dependency
 	// resolution, since we only want the jars we specifically list.
 	assemblyJarDepends {
 		transitive = false
 	}
-
+	// Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
+	// the impl of the servlet api, which ends up generating a security exception.  We force exclude
+	// the signed api jar here, and force include the unsigned api jar below.
+	compile.exclude group: "org.eclipse.jetty.orbit", module: "javax.servlet"
+	
 	provided
 	compile.extendsFrom provided
-
+	
 	dist
 }
 
@@ -120,33 +116,97 @@ artifacts {
 	dist assemblyJar
 }
 
+// Common dependency functions
+ext {
+	// A function to exclude various HBase dependencies we don't want.
+	hbaseDependency = {dependencyName, config="compile" ->
+		println("Dealing with hbase dependency "+dependencyName+" for "+config)
+		getDependencies().add(config, "org.apache.hbase:"+dependencyName+":$hbaseVersion", {
+			exclude group: "asm", module: "asm"
+			exclude group: "org.slf4j", module: "slf4j-api"
+			exclude group: "org.slf4j", module: "slf4j-log4j12"
+			exclude group: "org.mortbay.jetty"
+			exclude group: "org.jboss.netty", module: "netty"
+			exclude group: "io.netty", module: "netty"
+		})
+	}
+
+
+	// A function that defines a dependence on another project, if it's there, or a maven repo, if
+	// the project is not there.  The project name defaults to the name of the maven dependency (as
+	// opposed to the group or version).
+	projectDependency = { dependencyName, projectName="" ->
+		boolean projectExists = false
+		
+		// See what we can find out from the dependency name
+		if (projectName == "") {
+			depends = getDependencies()
+			projectName = ":"+depends.create(dependencyName).getName()
+		}
+		
+		if (null != project(projectName)
+		    && null != project(projectName).projectDir
+		    && project(projectName).projectDir instanceof java.io.File) {
+			
+			java.io.File projectDir = project(projectName).projectDir
+			if (projectDir.exists() && projectDir.isDirectory()) {
+				java.io.File buildFile = new java.io.File(projectDir, "build.gradle")
+				if (buildFile.exists()) {
+					projectExists = true
+				}
+			}
+		}
+		
+		if (projectExists) {
+			println "Depending on " + projectName +" directly"
+			dependencies {
+				compile project(projectName)
+				assemblyJarDepends project(projectName)
+			}
+		} else {
+			println projectName +" isn't present locally; using maven repository version"
+			dependencies {
+				compile dependencyname
+				assemblyJarDepends mavenDependencyName
+			}
+		}
+	}
+}
+
 // Jars / projects this project depends on.
 dependencies {
-	compile project(":salt")
-	compile project(":sparkpipe-core")
-	compile project(":sparkpipe-salt-ops")
-
+	projectDependency("software.uncharted.salt:salt-core:3.0.0")
+	projectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
+	projectDependency("software.uncharted.sparkpip:sparkpipe-salt-ops:3.0.0")
+	projectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
+	
 	// Compile config - needed to build
 	compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
 	compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 	compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
-  compile "com.amazonaws:aws-java-sdk:1.3.11"
+	compile "com.amazonaws:aws-java-sdk:1.3.11"
 	compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
-	addHBaseDependencies()
-
+	hbaseDependency("hbase-client")
+	hbaseDependency("hbase-common")
+	hbaseDependency("hbase-server")
+	
 	provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
-
+	// Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
+	// the impl of the servlet api, which ends up generating a security exception.  We force include
+	// the unsigned api jar here, and force include the unsigned api jar above.
+	compile "javax.servlet:javax.servlet-api:3.0.1"
+	
 	testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
-
-	assemblyJarDepends project(":salt")
-	assemblyJarDepends project(":sparkpipe-core")
-	assemblyJarDepends project(":sparkpipe-salt-ops")
+	testRuntime 'org.pegdown:pegdown:1.1.0'
+	
 	assemblyJarDepends "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
 	assemblyJarDepends "org.apache.commons:commons-csv:1.1"
 	assemblyJarDepends "com.univocity:univocity-parsers:1.5.1"
-	addHBaseDependencies("assemblyJarDepends")
+	hbaseDependency("hbase-client", "assemblyJarDepends")
+	hbaseDependency("hbase-common", "assemblyJarDepends")
+	hbaseDependency("hbase-server", "assemblyJarDepends")
 }
 
 // Creation of a distribution jar
@@ -159,7 +219,7 @@ distributions {
 				from("src/scripts")
 				fileMode 0755
 			}
-
+			
 			// Copy assembly jar, stripping off the version info.
 			into("lib") {
 				from configurations.dist.artifacts.files.filter {

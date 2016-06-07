@@ -1,29 +1,31 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.salt
 
 
-import java.io.{ByteArrayOutputStream, File, FileOutputStream}
-import java.lang.{Double => JavaDouble}
+
 import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
 
-import software.uncharted.graphing.utilities.S3Client
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 import scala.language.implicitConversions
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.mapreduce.Job
-import org.apache.hadoop.hbase.client.{Admin, ConnectionFactory, Put}
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
-import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Column, DataFrame, SQLContext}
 import com.databricks.spark.csv.CsvParser
-import org.apache.spark.sql.catalyst.expressions.Literal
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.output.SeriesData
@@ -147,17 +149,6 @@ object GraphTilingOperations {
   }
 
   /**
-    * Add a column containing the value 1 on every row, to be used for count tiling.
-    * @param countColumnName The name of the column to use.  The caller is responsible for making sure this name is
-    *                        unique in the columns of the DataFrame
-    * @param input The DataFrame to which to add a ones column
-    * @return A new DataFrame, with the old data, plus a ones column
-    */
-  def addOnesColumn (countColumnName: String)(input: DataFrame): DataFrame = {
-    input.withColumn(countColumnName, new Column(Literal(1)))
-  }
-
-  /**
     * Tile a dataset using a cartesian projection and a simple count aggregation
     *
     * @param xCol The column in which to find the X coordinate of the data
@@ -244,121 +235,16 @@ object GraphTilingOperations {
     generator.generate(data, series, request).flatMap(t => series(t))
   }
 
-  /**
-    * Helper function for initializing an HBase connection
-    *
-    * Get a configuration with which to connect to HBase
-    *
-    * @param hbaseConfigurationFiles A list of configuration files with which to initialize the configuration
-    * @return A fully initialized configuration object
-    */
-  def getHBaseConfiguration (hbaseConfigurationFiles: Seq[String]): Configuration = {
-    val hbaseConfiguration = HBaseConfiguration.create()
-    hbaseConfigurationFiles.foreach{configFile =>
-      hbaseConfiguration.addResource(new Path(configFile))
-    }
-    hbaseConfiguration
-  }
-
-  /**
-    * Helper function for initializing an HBase connection
-    *
-    * Create an HBase admin object with which to initialize tables
-    *
-    * @param hbaseConfiguration A configuration object specifying how to connect to HBase
-    * @return An admin object with which to initialize tables
-    */
-  def getHBaseAdmin (hbaseConfiguration: Configuration) = {
-    val hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration)
-    hbaseConnection.getAdmin
-  }
-
-  /**
-    * Helper function for initializing an HBase connection
-    *
-    * Initialize a table for writing, with a given column.
-    *
-    * @param hbaseAdmin An HBase admin object, capable of examining and creating tables.
-    * @param table The table to create
-    * @param family A column that the table must have
-    */
-  def initializeHBaseTable (hbaseAdmin: Admin, table: String, family: String) = {
-    val tableName = TableName.valueOf(table)
-    // Check if the table exists
-    if (!hbaseAdmin.tableExists(tableName)) {
-      // Table doesn't exist; create it.
-      val tableDescriptor = new HTableDescriptor(tableName)
-      val familyDescriptor = new HColumnDescriptor(family.getBytes)
-      tableDescriptor.addFamily(familyDescriptor)
-      hbaseAdmin.createTable(tableDescriptor)
-    } else {
-      // Table exists; make sure it has the given column
-      val tableDescriptor = hbaseAdmin.getTableDescriptor(tableName)
-      if (!tableDescriptor.hasFamily(family.getBytes())) {
-        // Column isn't there; create it.
-        val familyDescriptor = new HColumnDescriptor(family.getBytes)
-        hbaseAdmin.addColumn(tableName, familyDescriptor)
-      }
-    }
-  }
-
-  def saveToHBase[TC, BC, V, X] (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration,
-                                 encodeKey: TC => String,
-                                 encodeTile: SparseArray[V] => Array[Byte])(tileData: RDD[SeriesData[TC, BC, V, X]]) = {
-    val familyBytes = family.getBytes
-    val qualifierBytes = qualifier.getBytes
-
-    val hbaseFormattedTiles = tileData.map { tile =>
-      val rowIndex = encodeKey(tile.coords)
-      val data = encodeTile(tile.bins)
-      val put = new Put(rowIndex.getBytes())
-      put.addColumn(familyBytes, qualifierBytes, data)
-      (new ImmutableBytesWritable, put)
-    }
-
-    // Write hbase tiles
-    val job = Job.getInstance(hbaseConfiguration)
-    TableMapReduceUtil.initTableReducerJob(table, null, job)
-    hbaseFormattedTiles.saveAsNewAPIHadoopDataset(job.getConfiguration)
-  }
-
-  def saveToFileSystem[TC, BC, V, X] (encodeKey: TC => File,
-                                      encodeTile: SparseArray[V] => Array[Byte])(tileData: RDD[SeriesData[TC, BC, V, X]]) = {
-    tileData.foreach{ tile =>
-      val fos = new FileOutputStream(encodeKey(tile.coords))
-      fos.write(encodeTile(tile.bins))
-      fos.flush()
-      fos.close()
-    }
-    tileData
-  }
-
-  // val key = s"$layerName/${coord._1}/${coord._2}/${coord._3}.bin"
-  def saveToS3[TC, BC, V, X](accessKey: String, secretKey: String, bucketName: String,
-                             encodeKey: TC => String, encodeTile: SparseArray[V] => Array[Byte])
-                            (tileData: RDD[SeriesData[TC, BC, V, X]]) = {
-    // Upload tiles to S3 using the supplied bucket and layer.  Use foreachPartition to avoid incurring
-    // the cost of initializing the S3Client per record.  This can't be done outside the RDD closure
-    // because the Amazon S3 API classes are not marked serializable.
-    tileData.foreachPartition { tileDataIter =>
-      val s3Client = S3Client(accessKey, secretKey)
-      tileDataIter.foreach { tile =>
-        val data = encodeTile(tile.bins)
-        val key = encodeKey(tile.coords)
-        s3Client.upload(data, bucketName, key)
-      }
-    }
-  }
-
   private val BytesPerDouble = 8
   private val BytesPerInt = 4
-  private val doubleTileToByteArrayDense: SparseArray[Double] => Array[Byte] = sparseData => {
+  private val doubleTileToByteArrayDense: SparseArray[Double] => Seq[Byte] = sparseData => {
     val data = sparseData.seq.toArray
     val byteBuffer = ByteBuffer.allocate(data.length * BytesPerDouble).order(ByteOrder.LITTLE_ENDIAN)
     byteBuffer.asDoubleBuffer().put(DoubleBuffer.wrap(data))
-    byteBuffer.array()
+    byteBuffer.array().toSeq
   }
-  private val doubleTileToByteArraySparse: SparseArray[Double] => Array[Byte] = sparseData => {
+
+  private val doubleTileToByteArraySparse: SparseArray[Double] => Seq[Byte] = sparseData => {
     val defaultValue = sparseData.default
     var nonDefaultCount = 0
     for (i <- 0 until sparseData.length())
@@ -374,75 +260,19 @@ object GraphTilingOperations {
         buffer.putDouble(sparseData(i))
       }
     }
-    buffer.array()
+    buffer.array().toSeq
   }
 
-  val getHBaseRowIndex: ((Int, Int, Int)) => String = tileIndex => {
-    val (z, x, y) = tileIndex
-    val digits = math.log10(1 << z).floor.toInt + 1
-    ("%02d,%0"+digits+"d,%0"+digits+"d").format(z, x, y)
+  def serializeTiles[TC, BC, V, X] (serializationFcn: SparseArray[V] => Seq[Byte])(input: RDD[SeriesData[TC, BC, V, X]]): RDD[(TC, Seq[Byte])] = {
+    input.map { tile =>
+      (tile.coords, serializationFcn(tile.bins))
+    }
   }
 
-  def getFileSystemRowIndex (baseLocation: File)(tileIndex: (Int, Int, Int)): File = {
-    val levelDir = new File(baseLocation, ""+tileIndex._1)
-    val xDir = new File(levelDir, ""+tileIndex._2)
-    xDir.mkdirs()
-    new File(xDir, tileIndex._3 + ".tile")
+  def serializeTilesDense[TC, BC, X] (input: RDD[SeriesData[TC, BC, Double, X]]): RDD[(TC, Seq[Byte])] = {
+    serializeTiles[TC, BC, Double, X](doubleTileToByteArrayDense)(input)
   }
-
-  def getS3RowIndex(layerName: String)(coords: (Int, Int, Int)) = {
-    s"$layerName/${coords._1}/${coords._2}/${coords._3}.bin"
-  }
-
-  /**
-    * Save a tile set of simple Double-valued tiles out to HBase as dense arrays
-    *
-    * The table should be already initialized (see initializeHBaseTable, above)
-    *
-    * This will be superceded (I hope) by what Ahilan is writing.
-    *
-    * @param table The name of the table into which to save the tiles
-    * @param family The family name of the column in which to save tiles
-    * @param qualifier A qualifier to use with the column in which to save tiles
-    * @param hbaseConfiguration A fully loaded HBase configuration object
-    * @param tileData An RDD of simple double-valued tiles.
-    */
-  def saveDenseTilesToHBase[BC, X] (table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToHBase(table, family, qualifier, hbaseConfiguration, getHBaseRowIndex, doubleTileToByteArrayDense)(tileData)
-  }
-
-  /**
-    * Save a tile set of simple Double-valued tiles out to HBase as sparse arrays
-    *
-    * The table should be already initialized (see initializeHBaseTable, above)
-    *
-    * This will be superceded (I hope) by what Ahilan is writing.
-    *
-    * @param table The name of the table into which to save the tiles
-    * @param family The family name of the column in which to save tiles
-    * @param qualifier A qualifier to use with the column in which to save tiles
-    * @param hbaseConfiguration A fully loaded HBase configuration object
-    * @param tileData An RDD of simple double-valued tiles.
-    */
-  def saveSparseTilesToHBase[BC, X] (maxBin: (Int, Int), table: String, family: String, qualifier: String, hbaseConfiguration: Configuration)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToHBase(table, family, qualifier, hbaseConfiguration, getHBaseRowIndex, doubleTileToByteArraySparse)(tileData)
-  }
-
-  def saveDenseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArrayDense)(tileData)
-  }
-
-  def saveSparseTilesToFS[BC, X] (baseLocation: File)(tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToFileSystem(getFileSystemRowIndex(baseLocation), doubleTileToByteArraySparse)(tileData)
-  }
-
-  def saveDenseTilesToS3[BC, X] (accessKey: String, secretKey: String, bucketName: String, layerName: String)
-                                (tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToS3(accessKey, secretKey, bucketName, getS3RowIndex(layerName), doubleTileToByteArrayDense)(tileData)
-  }
-
-  def saveSparseTilesToS3[BC, X] (accessKey: String, secretKey: String, bucketName: String, layerName: String)
-                                 (tileData: RDD[SeriesData[(Int, Int, Int), BC, Double, X]]) = {
-    saveToS3(accessKey, secretKey, bucketName, getS3RowIndex(layerName), doubleTileToByteArraySparse)(tileData)
+  def serializeTilesSparse[TC, BC, X] (input: RDD[SeriesData[TC, BC, Double, X]]): RDD[(TC, Seq[Byte])] = {
+    serializeTiles[TC, BC, Double, X](doubleTileToByteArraySparse)(input)
   }
 }

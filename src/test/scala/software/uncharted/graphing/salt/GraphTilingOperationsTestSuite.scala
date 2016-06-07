@@ -1,24 +1,33 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.salt
 
 
-import java.io.ByteArrayInputStream
 import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.scalatest.{Tag, FunSuite}
 import software.uncharted.graphing.utilities.S3Client
 import software.uncharted.salt.core.util.SparseArray
+import software.uncharted.xdata.ops.{numeric => XDataNum}
 
 
-/**
-  * Created by nkronenfeld on 2/18/2016.
-  */
 class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
   Logger.getRootLogger.setLevel(Level.WARN)
   import GraphTilingOperations._
+  import software.uncharted.xdata.ops.{io => XDataIO}
 
   test("filter operation") {
     val data = sc.parallelize(1 to 20)
@@ -94,7 +103,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 4.0, 0.0, 0.0),
       Coordinates(0.0, 0.0, 4.0, 0.0)
     )))
-    val tiles = cartesianTiling("x", "y", "count", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(addOnesColumn("count")(data)).collect
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), Some((0.0, 0.0, 4.0, 4.0)), 4)(XDataNum.addConstantColumn("count", 1)(data)).collect
 
     assert(List(0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }
@@ -108,7 +117,7 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 3.5, 1.5, 0.0),
       Coordinates(0.0, 4.0, 4.0, 0.0)
     )))
-    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data)).collect
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(XDataNum.addConstantColumn("count", 1)(data)).collect
 
     assert(List(0.0, 1.0, 0.0, 1.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0,  2.0, 0.0, 0.0, 0.0) === tiles(0).bins.seq.toList)
   }
@@ -125,9 +134,10 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 4.0, 4.0, 0.0)
     )))
 
-    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data))
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(XDataNum.addConstantColumn("count", 1)(data))
+    val encodedTiles = serializeTilesSparse(tiles)
     val awsCredentials = (sys.env("AWS_ACCESS_KEY"), sys.env("AWS_SECRET_KEY"))
-    saveSparseTilesToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "sparse_test_layer")(tiles)
+    XDataIO.writeToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "sparse_test_layer")(encodedTiles)
     val client = S3Client(awsCredentials._1, awsCredentials._2)
 
     client.download("uncharted-s3-client-test", "sparse_test_layer/0/0/0.bin").map { bytes =>
@@ -153,9 +163,10 @@ class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
       Coordinates(0.0, 4.0, 4.0, 0.0)
     )))
 
-    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(addOnesColumn("count")(data))
+    val tiles = cartesianTiling("x", "y", "count", Seq(0), None, 4)(XDataNum.addConstantColumn("count", 1)(data))
+    val encodedTiles = serializeTilesSparse(tiles)
     val awsCredentials = (sys.env("AWS_ACCESS_KEY"), sys.env("AWS_SECRET_KEY"))
-    saveDenseTilesToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "dense_test_layer")(tiles)
+    XDataIO.writeToS3(awsCredentials._1, awsCredentials._2, "uncharted-s3-client-test", "dense_test_layer")(encodedTiles)
     val client = S3Client(awsCredentials._1, awsCredentials._2)
 
     client.download("uncharted-s3-client-test", "dense_test_layer/0/0/0.bin").map { bytes =>

@@ -1,7 +1,18 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.salt
 
 
-import java.io.File
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.{Level, Logger}
@@ -46,16 +57,9 @@ object EdgeTilingPipeline {
     val minSegLen = argParser.getIntOption("minLength", """The minimum segment length to draw (used when lineType="line" or "arc")""", None)
     val maxSegLen = argParser.getIntOption("maxLength", """When lineType="line" or "arc", the maximum segment length to draw.  When lineType="leader", the maximum leader length to draw""", None)
 
-    val hbaseConfigFiles = argParser.getStrings("hbaseConfig",
-      "Configuration files with which to initialize HBase.  Multiple instances are permitted")
     val tableName        = argParser.getStringOption("name", "The name of the node tile set to produce", None).get
     val familyName       = argParser.getString("column", "The column into which to write tiles", "tileData")
     val qualifierName    = argParser.getString("column-qualifier", "A qualifier to use on the tile column when writing tiles", "")
-
-    // Initialize HBase and our table
-    import GraphTilingOperations._
-//    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
-//    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
     val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
@@ -98,6 +102,7 @@ object EdgeTilingPipeline {
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
+    import software.uncharted.xdata.ops.{io => XDataIO}
 
     val edgeFcn: Option[DataFrame => DataFrame] = edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
@@ -118,9 +123,8 @@ object EdgeTilingPipeline {
       .to(countDFRowsOp("Required edges: " ))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-//      .to(saveSparseTilesToFS(new File(tableName)))
-      .to(saveDenseTilesToS3(awsAccessKey, awsSecretKey, "0", tableName))
-//      .to(saveSparseTilesToHBase((255, 255), tableName, familyName, qualifierName, hbaseConfiguration))
+      .to(serializeTilesDense)
+      .to(XDataIO.writeToS3(awsAccessKey, awsSecretKey, "", tableName))
       .run()
   }
 }

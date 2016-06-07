@@ -1,7 +1,18 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.salt
 
 
-import java.io.File
 
 import org.apache.spark.rdd.RDD
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
@@ -21,6 +32,7 @@ import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.sparkpipe.Pipe
 
 
+
 object MetadataTilingPipeline {
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
@@ -38,20 +50,11 @@ object MetadataTilingPipeline {
         | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
         | level 0 will be used for tiling levels 7 and 8.""".stripMargin, None)
 
-    val hbaseConfigFiles = argParser.getStrings("hbaseConfig",
-      "Configuration files with which to initialize HBase.  Multiple instances are permitted")
     val tableName = argParser.getStringOption("name", "The name of the node tile set to produce", None).get
     val familyName = argParser.getString("column", "The column into which to write tiles", "tileData")
     val qualifierName = argParser.getString("column-qualifier", "A qualifier to use on the tile column when writing tiles", "")
-    val customAnalytics  = argParser.getStrings("analytic", "Node analytics that are recorded on each node, needed to parse node lines")
+    val customAnalytics = argParser.getStrings("analytic", "Node analytics that are recorded on each node, needed to parse node lines")
       .map(CustomGraphAnalytic.apply)
-
-
-    // Initialize HBase and our table
-    import GraphTilingOperations._
-//    val hbaseConfiguration = getHBaseConfiguration(hbaseConfigFiles)
-//    hbaseConfiguration.set("hbase.client.keyvalue.maxsize", "0")
-//    initializeHBaseTable(getHBaseAdmin(hbaseConfiguration), tableName, familyName)
 
     // Get the tiling levels corresponding to each hierarchy level
     val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds.head, bounds.last - 1)).toList.reverse.zipWithIndex.reverse
@@ -65,17 +68,18 @@ object MetadataTilingPipeline {
   }
 
   def tileHierarchyLevel(sqlc: SQLContext)(
-                         path: String,
-                         hierarchyLevel: Int,
-                         zoomLevels: Seq[Int],
-                         tableName: String,
-                         familyName: String,
-                         qualifierName: String,
-                         hbaseConfiguration: Configuration,
-                         analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
+    path: String,
+    hierarchyLevel: Int,
+    zoomLevels: Seq[Int],
+    tableName: String,
+    familyName: String,
+    qualifierName: String,
+    hbaseConfiguration: Configuration,
+    analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
+    import software.uncharted.xdata.ops.{io => XDataIO}
     import RDDIO.mutateContextFcn
 
     val rawData = Pipe(sqlc)
@@ -107,7 +111,7 @@ object MetadataTilingPipeline {
       .to(parseNodes(hierarchyLevel, analytics))
 
 
-//      .to(countRDDRowsOp("Graph nodes: "))
+    //      .to(countRDDRowsOp("Graph nodes: "))
 
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
@@ -127,13 +131,13 @@ object MetadataTilingPipeline {
     // Tile the communities
     val getZoomLevel: ((Int, Int, Int)) => Int = _._1
 
-    val encodeTile: SparseArray[GraphRecord] => Array[Byte] = tileData => {
+    val encodeTile: SparseArray[GraphRecord] => Seq[Byte] = tileData => {
       // The input array should really only have one bin
       tileData.length() match {
-        case 0 => new Array[Byte](0)
+        case 0 => Seq[Byte]()
         case 1 => tileData.apply(0).toString(10).getBytes
-        case _ => throw new Exception("Expected tiles with a single record only, got a tile with "+
-	                                  tileData.length()+" records")
+        case _ => throw new Exception("Expected tiles with a single record only, got a tile with " +
+          tileData.length() + " records")
       }
     }
 
@@ -143,14 +147,13 @@ object MetadataTilingPipeline {
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(countRDDRowsOp("Tiles: "))
-//      .to(saveToFileSystem(getFileSystemRowIndex(new File(tableName)), encodeTile))
-      .to(saveToS3(awsAccessKey, awsSecretKey, "0", getS3RowIndex(tableName), encodeTile))
-//      .to(saveToHBase(tableName, familyName, qualifierName, hbaseConfiguration, getHBaseRowIndex, encodeTile))
+      .to(serializeTiles(encodeTile))
+      .to(XDataIO.writeToS3(awsAccessKey, awsSecretKey, "", tableName))
       .run()
   }
 
   def parseNodes(hierarchyLevel: Int, analytics: Seq[CustomGraphAnalytic[_]])(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
-    def getDefaultAnalyticValue[T] (analytic: CustomGraphAnalytic[T]): String =
+    def getDefaultAnalyticValue[T](analytic: CustomGraphAnalytic[T]): String =
       analytic.aggregator.finish(analytic.aggregator.default())
 
     // Names must match those in NodeTilingPipeline schema
@@ -228,8 +231,8 @@ object MetadataTilingPipeline {
     }
   }
 
-  def consolidateCommunities (analytics: Seq[CustomGraphAnalytic[_]])
-                             (input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
+  def consolidateCommunities(analytics: Seq[CustomGraphAnalytic[_]])
+                            (input: (RDD[(Long, GraphCommunity)], RDD[(Long, (GraphEdge, Boolean))])):
   RDD[((Double, Double), GraphCommunity)] = {
     val (vertices, edges) = input
     type EdgeListOption = Option[MutableBuffer[GraphEdge]]

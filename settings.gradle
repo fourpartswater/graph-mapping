@@ -1,5 +1,5 @@
-include ':salt'
-project(':salt').projectDir = new File(settingsDir, '../salt')
+include ':salt-core'
+project(':salt-core').projectDir = new File(settingsDir, '../salt')
 
 include ':sparkpipe-core'
 project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core')
@@ -7,3 +7,5 @@ project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core
 include ':sparkpipe-salt-ops'
 project(':sparkpipe-salt-ops').projectDir = new File(settingsDir, '../sparkpipe-salt-ops')
 
+include ':xdata-pipeline-ops'
+project(':xdata-pipeline-ops').projectDir = new File(settingsDir, '../xdata-pipeline-ops')
