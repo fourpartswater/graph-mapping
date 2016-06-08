@@ -13,63 +13,48 @@
 package software.uncharted.graphing.salt
 
 
-
-import org.apache.hadoop.conf.Configuration
+import com.typesafe.config.Config
+import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, Column, SQLContext}
 import org.apache.spark.sql.types._
-import org.apache.spark.{SparkConf, SparkContext}
-import software.uncharted.graphing.utilities.ArgumentParser
+import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
+import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 
-
-object EdgeTilingPipeline {
+object EdgeTilingPipeline extends Logging {
 
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
     Logger.getRootLogger.setLevel(Level.WARN)
 
-    val argParser = new ArgumentParser(args)
+    // load properties file from supplied URI
+    val config = GraphConfig.getFullConfiguration(args, this.logger)
 
-    val sc = new SparkContext(new SparkConf().setAppName("Edge Tiling Pipeline"))
-    val sqlc = new SQLContext(sc)
+    execute(config)
+  }
 
-
-    val base             = argParser.getStringOption("base", "The base location of graph layout information", None).get
-    val levels           = argParser.getIntSeq("levels",
-      """The number of levels per hierarchy level.  These will be applied in reverse order -
-        | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
-        | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
-        | level 0 will be used for tiling levels 7 and 8.""".stripMargin, None)
-    val lineType = argParser.getStringOption("lineType", """The type of line to draw (leader, arc, or line)""", None).map(_.toLowerCase.trim match {
-      case "leaderline" => ArcTypes.LeaderLine
-      case "line" => ArcTypes.FullLine
-      case "leaderarc" => ArcTypes.LeaderArc
-      case "arc" => ArcTypes.FullArc
-      case lt => throw new IllegalArgumentException("Illegal line type "+lt)
-    })
-    val edgeType = argParser.getString("edgeType", "The type of edge to plot.  Case-insensitive, possible values are intra, inter, or all.  Default is all.", "all").toLowerCase.trim match {
-      case "inter" => Some(1)
-      case "intra" => Some(0)
-      case _ => None
+  def execute (config: Config): Unit = {
+    val sqlc = SparkConfig(config)
+    try {
+      execute(sqlc, config)
+    } finally {
+      sqlc.sparkContext.stop()
     }
-    val minSegLen = argParser.getIntOption("minLength", """The minimum segment length to draw (used when lineType="line" or "arc")""", None)
-    val maxSegLen = argParser.getIntOption("maxLength", """When lineType="line" or "arc", the maximum segment length to draw.  When lineType="leader", the maximum leader length to draw""", None)
+  }
 
-    val tableName        = argParser.getStringOption("name", "The name of the node tile set to produce", None).get
-    val familyName       = argParser.getString("column", "The column into which to write tiles", "tileData")
-    val qualifierName    = argParser.getString("column-qualifier", "A qualifier to use on the tile column when writing tiles", "")
-
-    // Get the tiling levels corresponding to each hierarchy level
-    val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds(0), bounds(1) - 1)).toList.reverse.zipWithIndex.reverse
+  def execute (sqlc: SQLContext, config: Config): Unit = {
+    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
+    val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
+    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
 
     // calculate and save our tiles
-    clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, lineType, edgeType, minSegLen, maxSegLen, tableName, familyName, qualifierName, /* hbaseConfiguration */ null)
+    graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
+      tileHierarchyLevel(sqlc, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
-
-    sc.stop()
   }
 
   def getSchema: StructType = {
@@ -86,25 +71,19 @@ object EdgeTilingPipeline {
     ))
   }
 
-  def tileHierarchyLevel(sqlc: SQLContext)(
-                         path: String,
-                         hierarchyLevel: Int,
-                         zoomLevels: Seq[Int],
-                         lineType: Option[ArcTypes.Value],
-                         edgeType: Option[Int],
-                         minSegLen: Option[Int],
-                         maxSegLen: Option[Int],
-                         tableName: String,
-                         familyName: String,
-                         qualifierName: String,
-                         hbaseConfiguration: Configuration): Unit = {
+  def tileHierarchyLevel (sqlc: SQLContext,
+                          hierarchyLevel: Int,
+                          zoomLevels: Seq[Int],
+                          tileConfig: TilingConfig,
+                          graphConfig: GraphConfig,
+                          outputOperation: OutputOperation): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
     import software.uncharted.xdata.ops.{io => XDataIO}
 
-    val edgeFcn: Option[DataFrame => DataFrame] = edgeType.map {value =>
+    val edgeFcn: Option[DataFrame => DataFrame] = graphConfig.edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
     }
 
@@ -112,7 +91,7 @@ object EdgeTilingPipeline {
     val awsSecretKey = System.getenv("AWS_SECRET_KEY")
 
     Pipe(sqlc)
-      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
@@ -121,10 +100,15 @@ object EdgeTilingPipeline {
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
       .to(countDFRowsOp("Required edges: " ))
-      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, lineType, minSegLen, maxSegLen, Some((0.0, 0.0, 256.0, 256.0))))
+      .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, graphConfig.formatType, graphConfig.minSegLength, graphConfig.maxSegLength, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
       .to(serializeTilesDense)
-      .to(XDataIO.writeToS3(awsAccessKey, awsSecretKey, "", tableName))
+      .to(outputOperation)
       .run()
+  }
+
+  private def errorOut (errorMsg: String) = {
+    error(errorMsg)
+    sys.exit(-1)
   }
 }

@@ -13,69 +13,65 @@
 package software.uncharted.graphing.salt
 
 
-
+import com.typesafe.config.Config
+import grizzled.slf4j.Logging
 import org.apache.spark.rdd.RDD
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
+import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
+import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{Row, DataFrame, SQLContext}
-import org.apache.spark.{SparkConf, SparkContext}
 
-import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.sparkpipe.Pipe
 
 
 
-object MetadataTilingPipeline {
+object MetadataTilingPipeline extends Logging {
   def main(args: Array[String]): Unit = {
     // Reduce log clutter
     Logger.getRootLogger.setLevel(Level.WARN)
 
-    val argParser = new ArgumentParser(args)
+    // load properties file from supplied URI
+    val config = GraphConfig.getFullConfiguration(args, this.logger)
 
-    val sc = new SparkContext(new SparkConf().setAppName("MetaData Tiling Pipeline"))
-    val sqlc = new SQLContext(sc)
-
-    val base = argParser.getStringOption("base", "The base location of graph layout information", None).get
-    val levels = argParser.getIntSeq("levels",
-      """The number of levels per hierarchy level.  These will be applied in reverse order -
-        | so that a value of "4,3,2" means that hierarchy level 2 will be used for tiling
-        | levels 0-3, hierarcy level 1 will be used for tiling levels 4-6, and hierarchy
-        | level 0 will be used for tiling levels 7 and 8.""".stripMargin, None)
-
-    val tableName = argParser.getStringOption("name", "The name of the node tile set to produce", None).get
-    val familyName = argParser.getString("column", "The column into which to write tiles", "tileData")
-    val qualifierName = argParser.getString("column-qualifier", "A qualifier to use on the tile column when writing tiles", "")
-    val customAnalytics = argParser.getStrings("analytic", "Node analytics that are recorded on each node, needed to parse node lines")
-      .map(CustomGraphAnalytic.apply)
-
-    // Get the tiling levels corresponding to each hierarchy level
-    val clusterAndGraphLevels = levels.scanLeft(0)(_ + _).sliding(2).map(bounds => (bounds.head, bounds.last - 1)).toList.reverse.zipWithIndex.reverse
-
-    // calculate and save our tiles
-    clusterAndGraphLevels.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc)(base, g, minT to maxT, tableName, familyName, qualifierName, /* hbaseConfiguration */ null, customAnalytics)
-    }
-
-    sc.stop()
+    execute(config)
   }
 
-  def tileHierarchyLevel(sqlc: SQLContext)(
-    path: String,
-    hierarchyLevel: Int,
-    zoomLevels: Seq[Int],
-    tableName: String,
-    familyName: String,
-    qualifierName: String,
-    hbaseConfiguration: Configuration,
-    analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
+  def execute (config: Config): Unit = {
+    val sqlc = SparkConfig(config)
+    try {
+      execute(sqlc, config)
+    } finally {
+      sqlc.sparkContext.stop()
+    }
+  }
+
+  def execute (sqlc: SQLContext, config: Config): Unit = {
+    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
+    val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
+    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
+
+    // calculate and save our tiles
+    graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
+      tileHierarchyLevel(sqlc, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
+    }
+  }
+
+  def tileHierarchyLevel(sqlc: SQLContext,
+                         hierarchyLevel: Int,
+                         zoomLevels: Seq[Int],
+                         tilingConfig: TilingConfig,
+                         graphConfig: GraphConfig,
+                         outputOperation: OutputOperation): Unit = {
     import GraphTilingOperations._
     import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
@@ -83,7 +79,7 @@ object MetadataTilingPipeline {
     import RDDIO.mutateContextFcn
 
     val rawData = Pipe(sqlc)
-      .to(RDDIO.read(path + "/level_" + hierarchyLevel))
+      .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Input data for hierarchy level $hierarchyLevel: "))
 
     //                      RT = row type                       DC = data c.      TC - tile c.     BC = Bin c.
@@ -102,13 +98,13 @@ object MetadataTilingPipeline {
     )
 
     // Get our VertexRDD
-    val nodeSchema = NodeTilingPipeline.getSchema(analytics)
+    val nodeSchema = NodeTilingPipeline.getSchema(graphConfig.analytics)
     val nodeData = rawData
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(nodeSchema)))
       .to(countDFRowsOp("Parsed node data: "))
-      .to(parseNodes(hierarchyLevel, analytics))
+      .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
 
     //      .to(countRDDRowsOp("Graph nodes: "))
@@ -125,7 +121,7 @@ object MetadataTilingPipeline {
 
     // Combine them into communities
     val communityData = Pipe(nodeData, edgeData)
-      .to(consolidateCommunities(analytics))
+      .to(consolidateCommunities(graphConfig.analytics))
       .to(countRDDRowsOp("Communities: "))
 
     // Tile the communities
@@ -141,14 +137,11 @@ object MetadataTilingPipeline {
       }
     }
 
-    val awsAccessKey = System.getenv("AWS_ACCESS_KEY")
-    val awsSecretKey = System.getenv("AWS_SECRET_KEY")
-
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(countRDDRowsOp("Tiles: "))
       .to(serializeTiles(encodeTile))
-      .to(XDataIO.writeToS3(awsAccessKey, awsSecretKey, "", tableName))
+      .to(outputOperation)
       .run()
   }
 
@@ -275,6 +268,11 @@ object MetadataTilingPipeline {
       )
       (coordinates, newCommunity)
     }
+  }
+
+  private def errorOut (errorMsg: String) = {
+    error(errorMsg)
+    sys.exit(-1)
   }
 }
 

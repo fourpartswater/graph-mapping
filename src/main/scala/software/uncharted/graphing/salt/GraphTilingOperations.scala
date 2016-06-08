@@ -184,7 +184,7 @@ object GraphTilingOperations {
   }
 
   def segmentTiling (x1Col: String, y1Col: String, x2Col: String, y2Col: String, levels: Seq[Int],
-                     arcTypeOpt: Option[ArcTypes.Value] = None,
+                     arcType: ArcTypes.Value,
                      minSegLen: Option[Int] = None,
                      maxSegLen: Option[Int] = None,
                      boundsOpt: Option[(Double, Double, Double, Double)] = None,
@@ -212,7 +212,7 @@ object GraphTilingOperations {
     val tileAggregation: Option[Aggregator[Double, Double, Double]] = None
 
     CartesianSegmentOp(
-      arcTypeOpt.getOrElse(ArcTypes.LeaderLine), minSegLen, maxSegLen,
+      arcType, minSegLen, maxSegLen,
       x1Col, y1Col, x2Col, y2Col,
       bounds, (levels.min, levels.max),
       row => Some(1),
