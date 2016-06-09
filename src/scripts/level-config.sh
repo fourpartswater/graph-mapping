@@ -97,6 +97,27 @@ function relativeToSource {
 	echo "${BASE_LOCATION}/${*}"
 }
 
+function checkConfigFile {
+	SOURCE=$1
+	DESTINATION=$2
+	if [ -e ${DESTINATION} ]; then
+		echo no
+	else
+		cp ${SOURCE} ${DESTINATION}
+		echo yes
+	fi
+}
+
+function cleanupConfigFile {
+	COPIED=$1
+	FILE=$2
+	if [ "yes" == "${COPIED}" ]; then
+		echo Removing default configuration file ${FILE}
+		rm ${FILE}
+	fi
+}
+	
+
 # #######################################################################################
 # Examples of how to use the above functions
 # #######################################################################################

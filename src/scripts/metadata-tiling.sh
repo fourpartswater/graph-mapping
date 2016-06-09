@@ -1,13 +1,28 @@
 #!/bin/bash
 
-MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-MAIN_CLASS=software.uncharted.graphing.salt.MetadataTilingPipeline
-BASE_LOCATION=/user/nkronenfeld/graphing/timing
 
+
+# Include any needed common scripts
+SOURCE_LOCATION=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
+. ${SOURCE_LOCATION}/level-config.sh
+
+
+
+# Set up default parameters
+MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
 TOP_LEVEL=3
 NEXT_LEVELS=2
-DATASET=
 
+# Set up application-specific parameters
+# Switch main classes in order to debug configuration
+MAIN_CLASS=software.uncharted.graphing.salt.MetadataTilingPipeline
+# MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
+APPLICATION_NAME="Graph metadata tiling pipeline"
+
+
+
+# Set up our dataset
+DATASET=
 while [ "$1" != "" ]; do
 	case $1 in 
 		-d | --dataset )
@@ -31,30 +46,33 @@ if [ "${DATASET}" == "" ]; then
 	exit
 fi
 
+
+
+# copy our config files into the dataset, if they're not already there
+OUTPUT_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-output.conf ${DATASET}/output.conf)
+TILING_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-tiling.conf ${DATASET}/tiling.conf)
+GRAPH__COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-graph.conf  ${DATASET}/graph.conf)
+
+
+
+# Move to where our dataset is stored
 pushd ${DATASET}
 
+
+
+
 echo
+echo Running ${APPLICATION_NAME}
 echo Running in `pwd`
 echo Starting at `date`
 
-MAX_LEVEL=`hdfs dfs -ls ${BASE_LOCATION}/${DATASET}/layout | awk '{print $8}' | awk -F / '{print $NF}' | grep level_ | awk -F'_' '{print $2}' | sort -nr | head -n1`
-PARTITIONS=`hdfs dfs -ls ${BASE_LOCATION}/${DATASET}/layout/level_0 | wc -l`
-EXECUTORS=$(expr $(expr ${PARTITIONS} + 7) / 8)
-LEVELS=
-for level in `hdfs dfs -ls ${BASE_LOCATION}/${DATASET}/layout | awk '{print $8}' | awk -F '/' '{print $NF}' | grep level_ | awk -F '_' '{print $2}' | sort`
-do
-	if [ $level -eq 0 ]; then
-		curLevels=${TOP_LEVEL}
-	else
-		curLevels=${NEXT_LEVELS}
-	fi
-	if [ -z ${LEVELS} ]; then
-		LEVELS=${curLevels}
-	else
-		LEVELS=${LEVELS},${curLevels}
-	fi
-done
-DATATABLE="graph-metadata-${DATASET}-salt"
+# Determine parameters about our dataset
+MAX_LEVEL=$(getMaxLevel ${DATASET})
+PARTITIONS=$(getPartitions ${DATASET})
+EXECUTORS=$(getExecutors ${DATASET})
+LEVELS=($(hardCodedLevels ${DATASET} ${TOP_LEVEL} ${NEXT_LEVELS}))
+# We need to export this so that the config file can pull it in.
+export DATATABLE="graph-metadata-${DATASET}-salt"
 
 OTHER_ARGS=
 case ${DATASET} in 
@@ -66,15 +84,22 @@ case ${DATASET} in
 		;;
 esac
 
+EXTRA_DRIVER_JAVA_OPTS="-Dgraph.edges.type=inter"
+EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} -Dtiling.source=$( relativeToSource ${DATASET} layout )"
+EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
+EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}"
+
 echo MAX_LEVEL: ${MAX_LEVEL}
 echo PARTITIONS: ${PARTITIONS}
 echo EXECUTORS: ${EXECUTORS}
 echo LEVELS: ${LEVELS}
+echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS}
 
 echo MAX_LEVEL: ${MAX_LEVEL} > metadata-tiling.log
 echo PARTITIONS: ${PARTITIONS} >> metadata-tiling.log
 echo EXECUTORS: ${EXECUTORS} >> metadata-tiling.log
 echo LEVELS: ${LEVELS} >> metadata-tiling.log
+echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> metadata-tiling.log
 
 echo
 echo Removing old tile set
@@ -83,26 +108,41 @@ echo "drop '${DATATABLE}'" >> clear-hbase-table
 
 hbase shell < clear-hbase-table
 
+
+
+# See if there is a local inter-community edge configuration file
+if [ -e metadata-tiling.conf ]; then
+	CONFIGURATION=metadata-tiling.conf
+else
+	CONFIGURATION=
+fi
+
+
+
 # Extra jars needed by tiling processes
 EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.jar:/opt/cloudera/parcels/CDH/lib/hbase/lib/hbase-client-1.0.0-cdh5.5.2.jar
 
+
+
+# OK, that's all we need - start tiling
 STARTTIME=$(date +%s)
 echo Starting tiling
 
+echo Run command: >> metadata-tiling.log
 echo spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
-    --jars ${EXTRA_JARS} \
+    --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
 	${MAIN_JAR} \
-	-base ${BASE_LOCATION}/${DATASET}/layout/ \
-	-levels ${LEVELS} \
-	-name ${DATATABLE} \
-	-hbaseConfig /etc/hbase/conf/hbase-site.xml \
-	${OTHER_ARGS} >> metadata-tiling.log
+	output.conf tiling.conf graph.conf \
+	${CONFIGURATION} \
+	>> metadata-tiling.log
+echo >> metadata-tiling.log
+echo >> metadata-tiling.log
 
 
 spark-submit \
@@ -111,19 +151,29 @@ spark-submit \
 	--executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
-    --jars ${EXTRA_JARS} \
+    --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
 	${MAIN_JAR} \
-	-base ${BASE_LOCATION}/${DATASET}/layout/ \
-	-levels ${LEVELS} \
-	-name ${DATATABLE} \
-	-hbaseConfig /etc/hbase/conf/hbase-site.xml \
-	${OTHER_ARGS} |& tee -a metadata-tiling.log
+	output.conf tiling.conf graph.conf \
+	${CONFIGURATION} \
+	|& tee -a metadata-tiling.log
+
+
 
 ENDTIME=$(date +%s)
 
+
+
+cleanupConfigFile ${OUTPUT_COPIED} output.conf
+cleanupConfigFile ${TILING_COPIED} tiling.conf
+cleanupConfigFile ${GRAPH__COPIED} graph.conf
+
+
+
 echo >> metadata-tiling.log
 echo >> metadata-tiling.log
+echo Start time: ${STARTTIME} >> metadata-tiling.log
+echo End time: ${ENDTIME} >> metadata-tiling.log
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds >> metadata-tiling.log
 
 echo
