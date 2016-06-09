@@ -43,8 +43,7 @@ if [ "${DATASET}" == "" ]; then
 	echo No dataset specified
 	exit
 fi
-# We need to export this so that the config file can pull it in.
-export DATASET
+DATASET
 
 
 
@@ -69,7 +68,8 @@ MAX_LEVEL=$(getMaxLevel ${DATASET})
 PARTITIONS=$(getPartitions ${DATASET})
 EXECUTORS=$(getExecutors ${DATASET})
 LEVELS=($(hardCodedLevels ${DATASET} ${TOP_LEVEL} ${NEXT_LEVELS}))
-DATATABLE="graph-nodes-${DATASET}-salt"
+# We need to export this so that the config file can pull it in.
+export DATATABLE="graph-nodes-${DATASET}-salt"
 
 OTHER_ARGS=
 
