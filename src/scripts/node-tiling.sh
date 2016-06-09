@@ -133,7 +133,7 @@ echo spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_JAVA_OPTS}" \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \
@@ -149,7 +149,7 @@ spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_JAVA_OPTS}" \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \

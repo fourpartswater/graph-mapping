@@ -113,4 +113,4 @@ function relativeToSource {
 # LEVELS=($(hardCodedLevels affinity-nd 3 2))
 # echo Level config parameters: $( getLevelConfig ${LEVELS[@]} )
 
-echo -Dtiling.source=$( relativeToSource abc def ghi )
+# echo -Dtiling.source=$( relativeToSource abc def ghi )
