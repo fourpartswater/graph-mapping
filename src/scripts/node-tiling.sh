@@ -14,8 +14,9 @@ TOP_LEVEL=3
 NEXT_LEVELS=2
 
 # Set up application-specific parameters
-# MAIN_CLASS=software.uncharted.graphing.salt.NodeTilingPipeline
-MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
+# Switch main classes to debug configuration
+MAIN_CLASS=software.uncharted.graphing.salt.NodeTilingPipeline
+# MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Node tiling pipeline"
 
 # Set up our dataset
@@ -42,6 +43,8 @@ if [ "${DATASET}" == "" ]; then
 	echo No dataset specified
 	exit
 fi
+# We need to export this so that the config file can pull it in.
+export DATASET
 
 
 
@@ -73,7 +76,6 @@ OTHER_ARGS=
 case ${DATASET} in 
 
 	analytics)
-		ANALYTICS=
 		OTHER_ARGS="${OTHER_ARGS} -Dgraph.analytics.0=software.uncharted.graphing.analytics.SumAnalytic3"
 		OTHER_ARGS="${OTHER_ARGS} -Dgraph.analytics.1=software.uncharted.graphing.analytics.MeanAnalytic4"
 		OTHER_ARGS="${OTHER_ARGS} -Dgraph.analytics.2=software.uncharted.graphing.analytics.MinAnalytic5"
@@ -84,13 +86,13 @@ esac
 echo MAX_LEVEL: ${MAX_LEVEL}
 echo PARTITIONS: ${PARTITIONS}
 echo EXECUTORS: ${EXECUTORS}
-echo LEVELS: ${LEVELS}
+echo LEVELS: ${LEVELS[@]}
 echo OTHER_ARGS: ${OTHER_ARGS}
 
 echo MAX_LEVEL: ${MAX_LEVEL} > node-tiling.log
 echo PARTITIONS: ${PARTITIONS} >> node-tiling.log
 echo EXECUTORS: ${EXECUTORS} >> node-tiling.log
-echo LEVELS: ${LEVELS} >> node-tiling.log
+echo LEVELS: ${LEVELS[@]} >> node-tiling.log
 echo OTHER_ARGS: ${OTHER_ARGS} >> node-tiling.log
 
 echo
@@ -98,7 +100,7 @@ echo Removing old tile set
 echo "disable '${DATATABLE}'" > clear-hbase-table
 echo "drop '${DATATABLE}'" >> clear-hbase-table
 
-hbase shell < clear-hbase-table
+# hbase shell < clear-hbase-table
 
 
 
@@ -110,7 +112,7 @@ else
 fi
 
 EXTRA_DRIVER_JAVA_OPTS=-Dtiling.source=$( relativeToSource ${DATASET} layout )
-EXTRA_DRIVER_JAVA_OPTS=${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )
+EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
 EXTRA_DRIVER_JAVA_OPTS=${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}
 
 # Extra jars needed by tiling processes
@@ -131,10 +133,10 @@ echo spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \
-	--driver-java-options "${EXTRA_DRIVER_JAVA_OPTS}" \
 	>> node-tiling.log
 echo >> node-tiling.log
 echo >> node-tiling.log
@@ -147,10 +149,10 @@ spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars ${EXTRA_JARS} \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \
-	--driver-java-options "${EXTRA_DRIVER_JAVA_OPTS}" \
 	>> node-tiling.log
 
 
