@@ -1,4 +1,17 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.config
+
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
@@ -6,7 +19,7 @@ import software.uncharted.graphing.salt.ArcTypes
 
 
 class ConfigurationTestSuite extends FunSuite {
-  private def withKeys (overrides: Map[String, String])(test: => Unit) = {
+  private def withKeys(overrides: Map[String, String])(test: => Unit) = {
     val oldValues = overrides.map { case (key, value) =>
       val oldValue = if (sys.props.contains(key)) Some(sys.props(key)) else None
       sys.props(key) = value
@@ -16,12 +29,12 @@ class ConfigurationTestSuite extends FunSuite {
       println(sys.props)
       test
     } finally {
-      oldValues.map{case (key, valueOpt) =>
-          if (valueOpt.isDefined) {
-            sys.props(key) = valueOpt.get
-          } else {
-            sys.props.remove(key)
-          }
+      oldValues.map { case (key, valueOpt) =>
+        if (valueOpt.isDefined) {
+          sys.props(key) = valueOpt.get
+        } else {
+          sys.props.remove(key)
+        }
       }
     }
   }
