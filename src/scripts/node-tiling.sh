@@ -109,7 +109,9 @@ else
 	CONFIGURATION=
 fi
 
-
+EXTRA_DRIVER_JAVA_OPTS=-Dtiling.source=$( relativeToSource ${DATASET} layout )
+EXTRA_DRIVER_JAVA_OPTS=${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )
+EXTRA_DRIVER_JAVA_OPTS=${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}
 
 # Extra jars needed by tiling processes
 EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.jar:/opt/cloudera/parcels/CDH/lib/hbase/lib/hbase-client-1.0.0-cdh5.5.2.jar
@@ -120,6 +122,7 @@ EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.
 STARTTIME=$(date +%s)
 echo Starting tiling
 
+echo Run command: >> node-tiling.log
 echo spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
@@ -131,9 +134,10 @@ echo spark-submit \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \
-	-Dtiling.source=$( relativeToSource ${DATASET} layout ) \
-	$( getLevelConfig ${LEVELS[@]} ) \
-	${OTHER_ARGS} >> node-tiling.log
+	--driver-java-options "${EXTRA_DRIVER_JAVA_OPTS}" \
+	>> node-tiling.log
+echo >> node-tiling.log
+echo >> node-tiling.log
 
 spark-submit \
 	--num-executors ${EXECUTORS} \
@@ -146,9 +150,8 @@ spark-submit \
 	${MAIN_JAR} \
 	output.conf \
 	${CONFIGURATION} \
-	-Dtiling.source=$( relativeToSource ${DATASET} layout ) \
-	$( getLevelConfig ${LEVELS[@]} ) \
-	${OTHER_ARGS} >> node-tiling.log
+	--driver-java-options "${EXTRA_DRIVER_JAVA_OPTS}" \
+	>> node-tiling.log
 
 
 
