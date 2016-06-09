@@ -100,7 +100,7 @@ echo Removing old tile set
 echo "disable '${DATATABLE}'" > clear-hbase-table
 echo "drop '${DATATABLE}'" >> clear-hbase-table
 
-# hbase shell < clear-hbase-table
+hbase shell < clear-hbase-table
 
 
 
