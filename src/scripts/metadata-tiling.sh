@@ -84,7 +84,6 @@ case ${DATASET} in
 		;;
 esac
 
-EXTRA_DRIVER_JAVA_OPTS="-Dgraph.edges.type=inter"
 EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} -Dtiling.source=$( relativeToSource ${DATASET} layout )"
 EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
 EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}"
@@ -137,6 +136,7 @@ echo spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
 	${CONFIGURATION} \
@@ -153,6 +153,7 @@ spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
 	${CONFIGURATION} \

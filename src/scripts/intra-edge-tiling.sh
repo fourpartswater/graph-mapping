@@ -127,6 +127,7 @@ echo spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
 	${CONFIGURATION} \
@@ -142,6 +143,7 @@ spark-submit \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
+	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
 	${CONFIGURATION} \
