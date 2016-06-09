@@ -1,8 +1,15 @@
 #!/bin/bash
 
+
+
+# Include any needed common scripts                                                                                              
+SOURCE_LOCATION=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
+. ${SOURCE_LOCATION}/level-config.sh
+
+
+
 # Set up default parameters
 MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-BASE_LOCATION=/user/nkronenfeld/graphing/timing
 TOP_LEVEL=3
 NEXT_LEVELS=2
 
@@ -40,7 +47,7 @@ fi
 
 # copy our output script into the dataset, if it's not already there
 if [ ! -e ${DATASET}/output.conf ]; then
-	cp scripts/config/default-output.conf ${DATASET}/output.conf
+	cp ${SOURCE_LOCATION}/config/default-output.conf ${DATASET}/output.conf
 fi
 
 # move to where our dataset is stored
@@ -56,7 +63,7 @@ echo Starting at `date`
 
 # Determine parameters about our dataset
 MAX_LEVEL=$(getMaxLevel ${DATASET})
-PARTITIONS=$(getPartitiosn ${DATASET})
+PARTITIONS=$(getPartitions ${DATASET})
 EXECUTORS=$(getExecutors ${DATASET})
 LEVELS=($(hardCodedLevels ${DATASET} ${TOP_LEVEL} ${NEXT_LEVELS}))
 DATATABLE="graph-nodes-${DATASET}-salt"
