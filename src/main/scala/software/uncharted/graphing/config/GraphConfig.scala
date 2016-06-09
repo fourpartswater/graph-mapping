@@ -1,5 +1,19 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.config
 
+
+import java.io.File
 
 import software.uncharted.graphing.salt.ArcTypes
 
@@ -7,6 +21,8 @@ import scala.collection.JavaConverters._
 import com.typesafe.config.{ConfigFactory, ConfigException, Config}
 import grizzled.slf4j.{Logger, Logging}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
+
+import scala.util.Try
 
 
 /**
@@ -60,27 +76,29 @@ object GraphConfig extends Logging {
   /**
     * Get the full configuration object associated with graph tiling jobs
     *
-    * @param arguments the command-line arguments with which the graph tiling job was run
+    * @param arguments The command-line arguments with which the graph tiling job was run.  Config files specified
+    *                  earlier take precedence over config files specified later.
     * @return A full configuration, with default fallbacks and environmental overrides
     */
   def getFullConfiguration(arguments: Array[String], logger: Logger): Config = {
-    // get the properties file path
-    if (arguments.length < 1) {
-      logger.error("Path to configuration file required")
-      sys.exit(-1)
-    }
+    // Read in and merge command-line specified configuration files
+    val specifiedConfigs = arguments.map{arg =>
+      val file = new File(arg)
+      if (file.exists()) {
+        Try(ConfigFactory.parseReader(scala.io.Source.fromFile(file).bufferedReader()).resolve()).toOption
+      } else {
+        None
+      }
+    }.filter(_.isDefined).map(_.get)
 
     // Get the environment-based config
     val environmentConfig = ConfigFactory.load()
-
-    // Get command-line specified config files
-    val clConfig = ConfigFactory.parseReader(scala.io.Source.fromFile(arguments(0)).bufferedReader()).resolve()
 
     // Get our fallback config file
     val defaultConfig = ConfigFactory.parseReader(scala.io.Source.fromURL(getClass.getResource("/graph-defaults.conf")).bufferedReader()).resolve()
 
     // Merge these together
-    environmentConfig.withFallback(clConfig).withFallback(defaultConfig)
+    (specifiedConfigs :+ defaultConfig).fold(environmentConfig)((base, fallback) => base.withFallback(fallback))
   }
 }
 
