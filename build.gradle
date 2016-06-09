@@ -204,6 +204,7 @@ dependencies {
 	assemblyJarDepends "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
 	assemblyJarDepends "org.apache.commons:commons-csv:1.1"
 	assemblyJarDepends "com.univocity:univocity-parsers:1.5.1"
+	assemblyJarDepends "org.clapper:grizzled-slf4j_2.10:1.0.2"
 	hbaseDependency("hbase-client", "assemblyJarDepends")
 	hbaseDependency("hbase-common", "assemblyJarDepends")
 	hbaseDependency("hbase-server", "assemblyJarDepends")
