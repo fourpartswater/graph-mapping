@@ -43,13 +43,17 @@ if [ "${DATASET}" == "" ]; then
 	echo No dataset specified
 	exit
 fi
-DATASET
 
 
 
 # copy our output script into the dataset, if it's not already there
 if [ ! -e ${DATASET}/output.conf ]; then
+	echo Using default output configuration
 	cp ${SOURCE_LOCATION}/config/default-output.conf ${DATASET}/output.conf
+	OUTPUT_COPIED=1
+else
+	echo Using existing output configuration
+	OUTPUT_COPIED=0
 fi
 
 # move to where our dataset is stored
@@ -131,7 +135,7 @@ echo spark-submit \
 	--executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
-    --jars ${EXTRA_JARS} \
+    --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
 	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
@@ -147,7 +151,7 @@ spark-submit \
 	--executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
-    --jars ${EXTRA_JARS} \
+    --jars `echo ${EXTRA_JARS} | tr : ,` \
 	--class ${MAIN_CLASS} \
 	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
@@ -158,6 +162,10 @@ spark-submit \
 
 
 ENDTIME=$(date +%s)
+
+if [ "1" == "${OUTPUT_COPIED}" ]; then
+	rm output.conf
+fi
 
 echo >> node-tiling.log
 echo >> node-tiling.log
