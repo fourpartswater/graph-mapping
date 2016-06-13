@@ -21,6 +21,7 @@ import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
+import software.uncharted.xdata.ops.util.DebugGraphOperations
 import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation

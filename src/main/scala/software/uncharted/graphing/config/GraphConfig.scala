@@ -15,7 +15,7 @@ package software.uncharted.graphing.config
 
 import java.io.File
 
-import software.uncharted.graphing.salt.ArcTypes
+import software.uncharted.xdata.ops.salt.ArcTypes
 
 import scala.collection.JavaConverters._
 import com.typesafe.config.{ConfigFactory, ConfigException, Config}

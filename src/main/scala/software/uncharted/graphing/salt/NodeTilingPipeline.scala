@@ -23,6 +23,7 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 
 import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.util.DebugGraphOperations
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation

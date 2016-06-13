@@ -20,6 +20,7 @@ import org.apache.spark.sql.{DataFrame, Column, SQLContext}
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.util.DebugGraphOperations
 import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation

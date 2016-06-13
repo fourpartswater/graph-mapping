@@ -15,7 +15,7 @@ package software.uncharted.graphing.config
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
-import software.uncharted.graphing.salt.ArcTypes
+import software.uncharted.xdata.ops.salt.ArcTypes
 
 
 class ConfigurationTestSuite extends FunSuite {

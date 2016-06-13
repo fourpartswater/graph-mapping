@@ -18,6 +18,7 @@ import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
 
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
+import software.uncharted.xdata.ops.salt.{ArcTypes, CartesianSegmentOp}
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag

@@ -12,6 +12,7 @@
   */
 package software.uncharted.graphing.geometry
 
+import software.uncharted.xdata.geometry.Line
 
 
 object ArcToPoints {
