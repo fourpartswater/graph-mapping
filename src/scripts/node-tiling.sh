@@ -4,14 +4,12 @@
 
 # Include any needed common scripts
 SOURCE_LOCATION=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
-. ${SOURCE_LOCATION}/level-config.sh
+. ${SOURCE_LOCATION}/arg-parser.sh
 
 
 
 # Set up default parameters
 MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-TOP_LEVEL=3
-NEXT_LEVELS=2
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
@@ -19,30 +17,10 @@ MAIN_CLASS=software.uncharted.graphing.salt.NodeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Node tiling pipeline"
 
-# Set up our dataset
-DATASET=
-while [ "$1" != "" ]; do
-	case $1 in 
-		-d | --dataset )
-			shift
-			DATASET=$1
-			;;
-		-1 | -t | --top )
-			shift
-			TOP_LEVEL=$1
-			;;
-		-n | -b | --next | --bottom )
-			shift
-			NEXT_LEVELS=$1
-			;;
-	esac
-	shift
-done
 
-if [ "${DATASET}" == "" ]; then
-	echo No dataset specified
-	exit
-fi
+
+# Parse input arguments
+parseArguments graph-nodes- -salt "$@"
 
 
 
@@ -68,9 +46,6 @@ echo Starting at `date`
 MAX_LEVEL=$(getMaxLevel ${DATASET})
 PARTITIONS=$(getPartitions ${DATASET})
 EXECUTORS=$(getExecutors ${DATASET})
-LEVELS=($(hardCodedLevels ${DATASET} ${TOP_LEVEL} ${NEXT_LEVELS}))
-# We need to export this so that the config file can pull it in.
-export DATATABLE="graph-nodes-${DATASET}-salt"
 
 OTHER_ARGS=
 
@@ -88,13 +63,15 @@ EXTRA_DRIVER_JAVA_OPTS=-Dtiling.source=$( relativeToSource ${DATASET} layout )
 EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
 EXTRA_DRIVER_JAVA_OPTS=${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}
 
+echo DATATABLE: ${DATATABLE}
 echo MAX_LEVEL: ${MAX_LEVEL}
 echo PARTITIONS: ${PARTITIONS}
 echo EXECUTORS: ${EXECUTORS}
 echo LEVELS: ${LEVELS[@]}
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS}
 
-echo MAX_LEVEL: ${MAX_LEVEL} > node-tiling.log
+echo DATATABLE: ${DATATABLE} > node-tiling.log
+echo MAX_LEVEL: ${MAX_LEVEL} >> node-tiling.log
 echo PARTITIONS: ${PARTITIONS} >> node-tiling.log
 echo EXECUTORS: ${EXECUTORS} >> node-tiling.log
 echo LEVELS: ${LEVELS[@]} >> node-tiling.log
