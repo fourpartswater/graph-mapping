@@ -319,7 +319,6 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      //val community = g.id(n2c(i))
       val newCommunityNum = g.nodeInfo(i).newCommunityId
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
