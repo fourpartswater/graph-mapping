@@ -33,6 +33,8 @@ import software.uncharted.salt.core.analytic.Aggregator
 
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
                      analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
+  var newCommunityId = -1
+
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
     analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
   def finishedAnalyticValues: Array[String] = {

@@ -319,7 +319,8 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      val community = g.id(n2c(i))
+      //val community = g.id(n2c(i))
+      val newCommunityNum = g.nodeInfo(i).newCommunityId
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
       val metadata = g.metaData(i)
@@ -327,7 +328,7 @@ class Community (val g: Graph,
       val analytics =
         if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
         else ""
-      out.println("node\t"+id+"\t"+community+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
+      out.println("node\t"+id+"\t"+g.id(newCommunityNum)+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
     }
     // write links to output file
     g.display_links(out)
@@ -441,9 +442,16 @@ class Community (val g: Graph,
           weights += weight
       }
 
-      nodeInfos(comm) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node))).reduce{(a, b) =>
-        if (a._2 > b._2) (a._1 + b._1, a._2) else (b._1 + a._1, b._2)
-      }._1
+      //Select the node with the highest degree as representative of the community.
+      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
+        if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
+      }
+      nodeInfos(comm) = commNodeInfo
+
+      //Update all nodes in the community to store the new community id.
+      for (node <- comm_nodes(comm)){
+        g.nodeInfo(node).newCommunityId = commNodeNum
+      }
     }
 
     new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))

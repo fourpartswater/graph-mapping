@@ -177,7 +177,7 @@ ext {
 dependencies {
 	projectDependency("software.uncharted.salt:salt-core:3.0.0")
 	projectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
-	projectDependency("software.uncharted.sparkpip:sparkpipe-salt-ops:3.0.0")
+	projectDependency("software.uncharted.sparkpipe:sparkpipe-salt-ops:3.0.0")
 	projectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
 
 	// Compile config - needed to build

@@ -20,6 +20,8 @@ APPLICATION_NAME="Intra-community edge tiling pipeline"
 
 
 
+# Parse input arguments
+parseArguments graph-intra-edges- -salt "$@"
 
 
 # copy our config files into the dataset, if they're not already there
@@ -29,8 +31,6 @@ GRAPH__COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-graph.conf  ${
 
 
 
-# Parse input arguments
-parseArguments graph-intra-edges- -salt "$@"
 
 
 
