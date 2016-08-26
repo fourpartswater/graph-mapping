@@ -1,14 +1,22 @@
-// optionally include projects to simplify development / debugging of entire stack
+ext {
+  // Includes a project if its directory exists at a sibling level
+  includeProject = { projectName, fileName="" ->
+    if (fileName == "") {
+      fileName = projectName
+    }
+    f = new File(settingsDir, "../$fileName")
+    if (f.exists() && f.isDirectory()) {
+      println "Including project $projectName from ${f.getPath()}"
+      include ":$projectName"
+      project(":$projectName").projectDir = f
+    }
+  }
+}
+
+// Force use of checked out projects if 'useProjects' property is defined
 if (settings.hasProperty('useProjects')) {
-  include ':salt-core'
-  project(':salt-core').projectDir = new File(settingsDir, '../salt')
-
-  include ':sparkpipe-core'
-  project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core')
-
-  include ':sparkpipe-salt-ops'
-  project(':sparkpipe-salt-ops').projectDir = new File(settingsDir, '../sparkpipe-salt-ops')
-
-  include ':xdata-pipeline-ops'
-  project(':xdata-pipeline-ops').projectDir = new File(settingsDir, '../xdata-pipeline-ops')
+  includeProject('salt-core', 'salt')
+  includeProject('sparkpipe-core')
+  includeProject('sparkpipe-salt-ops')
+  includeProject('xdata-pipeline-ops')
 }
