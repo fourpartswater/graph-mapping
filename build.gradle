@@ -82,13 +82,13 @@ test {
 
 }
 
-// Configure a jar task to build a fat jar that includes dependencies added ot the assemblyJarReq config.
+// Configure a jar task to build a fat jar, run it before the assembly step
 task assemblyJar(type: Jar) {
   classifier = "assembly"
   from files(sourceSets.main.output.classesDir)
   from files(sourceSets.main.output.resourcesDir)
   from {
-    configurations.assemblyJarDepends.collect {
+    (configurations.runtime - configurations.provided).collect {
       it.isDirectory() ? it : zipTree(it)
     }
   }
@@ -96,29 +96,16 @@ task assemblyJar(type: Jar) {
 assemblyJar.mustRunAfter "jar"
 assemble.dependsOn "assemblyJar"
 
+// extra configurations
 configurations {
-  // IntelliJ does something funky when resolving conflicting jars - we need to force the exclusion
-  // below in order to run test cases from within IntelliJ.  Command line is fine.
-  compile.exclude group: "org.jboss.netty", module: "netty"
-  compile.exclude group: "org.apache.hadoop", module: "hadoop-client"
-
-  // Create a configuration to hold jars that we need to roll into our fat jar.  Disable transitive dependency
-  // resolution, since we only want the jars we specifically list.
-  assemblyJarDepends {
-    transitive = false
-  }
-  // Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
-  // the impl of the servlet api, which ends up generating a security exception.  We force exclude
-  // the signed api jar here, and force include the unsigned api jar below.
-  compile.exclude group: "org.eclipse.jetty.orbit", module: "javax.servlet"
-
   provided
   compile.extendsFrom provided
-
   dist
+  // IntelliJ is picking up an old version of jetty that we need to
+  // force exclude to run tests.
+  provided.exclude group: "org.jboss.netty", module: "netty"
 }
-
-// Generate the assembly jar along with the build artifacts
+// Add scripts zip to the artifacts of the dist assembly.  This can be used by downstream builds.
 artifacts {
   dist assemblyJar
 }
@@ -156,39 +143,32 @@ ext {
 
 // Jars / projects this project depends on.
 dependencies {
+  // dependencies that can be taken from a maven repo or local projects
   optionalProjectDependency("software.uncharted.salt:salt-core:3.0.1")
   optionalProjectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
   optionalProjectDependency("software.uncharted.sparkpipe:sparkpipe-salt-ops:3.0.0")
   optionalProjectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
 
-  // Compile config - needed to build
-  compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
+  // Compile config - needed at build and runtime
+  compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
+  compile "org.apache.commons:commons-csv:1.1"
+  compile "com.univocity:univocity-parsers:1.5.1"
+  compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
   compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
   compile "com.amazonaws:aws-java-sdk:1.3.11"
-  compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
   hbaseDependency("hbase-client")
   hbaseDependency("hbase-common")
   hbaseDependency("hbase-server")
 
+  // Provided config - needed to build but expected to be available in deploy env
+  provided "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
+  provided "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
+  provided "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
   provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
-  // Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
-  // the impl of the servlet api, which ends up generating a security exception.  We force include
-  // the unsigned api jar here, and force include the unsigned api jar above.
-  compile "javax.servlet:javax.servlet-api:3.0.1"
 
   testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
   testRuntime 'org.pegdown:pegdown:1.1.0'
 
-  assemblyJarDepends "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
-  assemblyJarDepends "org.apache.commons:commons-csv:1.1"
-  assemblyJarDepends "com.univocity:univocity-parsers:1.5.1"
-  assemblyJarDepends "org.clapper:grizzled-slf4j_2.10:1.0.2"
-  hbaseDependency("hbase-client", "assemblyJarDepends")
-  hbaseDependency("hbase-common", "assemblyJarDepends")
-  hbaseDependency("hbase-server", "assemblyJarDepends")
 }
 
 // publishing setup - url, username, password need to be stored in environment
@@ -216,7 +196,8 @@ publishing {
   }
 }
 
-// Creation of a distribution jar
+// Creation of a distribution archive containing the pipeline assembly jar and the baseline
+// execution scripts.
 distributions {
   main {
     baseName = 'xdata-graph'
