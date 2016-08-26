@@ -28,6 +28,7 @@ buildscript {
 
 apply plugin: 'scala'
 apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'distribution'
 apply plugin: 'idea'
 apply plugin: 'com.github.maiflai.scalatest'
@@ -188,6 +189,31 @@ dependencies {
 	hbaseDependency("hbase-client", "assemblyJarDepends")
 	hbaseDependency("hbase-common", "assemblyJarDepends")
 	hbaseDependency("hbase-server", "assemblyJarDepends")
+}
+
+// publishing setup - url, username, password need to be stored in environment
+// variables
+publishing {
+  publications {
+    maven(MavenPublication) {
+      from components.java
+    }
+  }
+}
+publishing {
+  repositories {
+    maven {
+      if (version.endsWith("SNAPSHOT")) {
+        url "${System.env.MAVEN_REPO_URL}/snapshots"
+      } else {
+        url "${System.env.MAVEN_REPO_URL}/internal"
+      }
+      credentials {
+        username "${System.env.MAVEN_REPO_USERNAME}"
+        password "${System.env.MAVEN_REPO_PASSWORD}"
+      }
+    }
+  }
 }
 
 // Creation of a distribution jar
