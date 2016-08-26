@@ -6,10 +6,10 @@ version = "0.1-SNAPSHOT"
 ext {
   dependencyScalaVersion = "2.10"
   scalaVersion = "2.10.6"
-  sparkVersion = "1.5.0-cdh5.5.2"
+  sparkVersion = "1.6.2"
   hbaseVersion = "1.0.0-cdh5.5.2"
   htraceVersion = "3.2.0-incubating"
-  cdhVersion = "1.0.0-cdh5.5.2"
+  cdhVersion="1.0.0-cdh5.5.2"
 }
 
 // Extra setup needed for plugins
@@ -28,9 +28,12 @@ buildscript {
 
 apply plugin: 'scala'
 apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'distribution'
 apply plugin: 'idea'
 apply plugin: 'com.github.maiflai.scalatest'
+
+
 
 // Gradle/intellij don't work properly together with 1.8
 sourceCompatibility = '1.7'
@@ -41,6 +44,12 @@ repositories {
   mavenLocal()
   maven {
     url = "https://repository.cloudera.com/artifactory/cloudera-repos"
+  }
+  maven {
+    url = "http://maven.oculus.local:8080/archiva/repository/snapshots"
+  }
+  maven {
+    url = "http://maven.oculus.local:8080/archiva/repository/internal"
   }
 }
 
@@ -70,15 +79,16 @@ test {
       exclude 'hbc.test'
     }
   }
+
 }
 
-// Configure a jar task to build a fat jar that includes dependencies added ot the assemblyJarReq config.
+// Configure a jar task to build a fat jar, run it before the assembly step
 task assemblyJar(type: Jar) {
   classifier = "assembly"
   from files(sourceSets.main.output.classesDir)
   from files(sourceSets.main.output.resourcesDir)
   from {
-    configurations.assemblyJarDepends.collect {
+    (configurations.runtime - configurations.provided).collect {
       it.isDirectory() ? it : zipTree(it)
     }
   }
@@ -86,29 +96,16 @@ task assemblyJar(type: Jar) {
 assemblyJar.mustRunAfter "jar"
 assemble.dependsOn "assemblyJar"
 
+// extra configurations
 configurations {
-  // IntelliJ does something funky when resolving conflicting jars - we need to force the exclusion
-  // below in order to run test cases from within IntelliJ.  Command line is fine.
-  compile.exclude group: "org.jboss.netty", module: "netty"
-  compile.exclude group: "org.apache.hadoop", module: "hadoop-client"
-
-  // Create a configuration to hold jars that we need to roll into our fat jar.  Disable transitive dependency
-  // resolution, since we only want the jars we specifically list.
-  assemblyJarDepends {
-    transitive = false
-  }
-  // Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
-  // the impl of the servlet api, which ends up generating a security exception.  We force exclude
-  // the signed api jar here, and force include the unsigned api jar below.
-  compile.exclude group: "org.eclipse.jetty.orbit", module: "javax.servlet"
-
   provided
   compile.extendsFrom provided
-
   dist
+  // IntelliJ is picking up an old version of jetty that we need to
+  // force exclude to run tests.
+  provided.exclude group: "org.jboss.netty", module: "netty"
 }
-
-// Generate the assembly jar along with the build artifacts
+// Add scripts zip to the artifacts of the dist assembly.  This can be used by downstream builds.
 artifacts {
   dist assemblyJar
 }
@@ -117,7 +114,6 @@ artifacts {
 ext {
   // A function to exclude various HBase dependencies we don't want.
   hbaseDependency = { dependencyName, config = "compile" ->
-    println("Dealing with hbase dependency " + dependencyName + " for " + config)
     getDependencies().add(config, "org.apache.hbase:" + dependencyName + ":$hbaseVersion", {
       exclude group: "asm", module: "asm"
       exclude group: "org.slf4j", module: "slf4j-api"
@@ -128,42 +124,19 @@ ext {
     })
   }
 
-  // A function that defines a dependence on another project, if it's there, or a maven repo, if
-  // the project is not there.  The project name defaults to the name of the maven dependency (as
-  // opposed to the group or version).
-  projectDependency = { dependencyName, projectName = "" ->
-    boolean projectExists = false
-
-    // See what we can find out from the dependency name
-    if (projectName == "") {
-      depends = getDependencies()
-      projectName = ":" + depends.create(dependencyName).getName()
-    }
-
-    if (null != project(projectName)
-      && null != project(projectName).projectDir
-      && project(projectName).projectDir instanceof java.io.File) {
-
-      java.io.File projectDir = project(projectName).projectDir
-      if (projectDir.exists() && projectDir.isDirectory()) {
-        java.io.File buildFile = new java.io.File(projectDir, "build.gradle")
-        if (buildFile.exists()) {
-          projectExists = true
-        }
-      }
-    }
-
-    if (projectExists) {
-      println "Depending on " + projectName + " directly"
+  // A function that defines a project dependency if the useProjects option is set, otherwise fetches
+  // from maven.
+  optionalProjectDependency = { dependencyName ->
+    depends = getDependencies()
+    projectName = ":" + depends.create(dependencyName).getName()
+    subprojectNames = project.subprojects.collect { it.name }
+    if (project.hasProperty('useProjects') && subprojectNames.contains(projectName)) {
       dependencies {
         compile project(projectName)
-        assemblyJarDepends project(projectName)
       }
     } else {
-      println projectName + " isn't present locally; using maven repository version"
       dependencies {
         compile dependencyName
-        assemblyJarDepends dependencyName
       }
     }
   }
@@ -171,48 +144,66 @@ ext {
 
 // Jars / projects this project depends on.
 dependencies {
-  projectDependency("software.uncharted.salt:salt-core:3.0.0")
-  projectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
-  projectDependency("software.uncharted.sparkpip:sparkpipe-salt-ops:3.0.0")
-  projectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
+  // dependencies that can be taken from a maven repo or local projects
+  optionalProjectDependency "software.uncharted.salt:salt-core:3.0.1"
+  optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-core:0.9.7"
+  optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-salt-ops:3.0.0"
+  optionalProjectDependency "software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT"
 
-  // Compile config - needed to build
-  compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
-  compile "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
+  // Compile config - needed at build and runtime
+  compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
+  compile "org.apache.commons:commons-csv:1.1"
+  compile "com.univocity:univocity-parsers:1.5.1"
+  compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
   compile "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
   compile "com.amazonaws:aws-java-sdk:1.3.11"
-  compile "org.clapper:grizzled-slf4j_2.10:1.0.2"
-  hbaseDependency("hbase-client")
-  hbaseDependency("hbase-common")
-  hbaseDependency("hbase-server")
+  hbaseDependency "hbase-client"
+  hbaseDependency "hbase-common"
+  hbaseDependency "hbase-server"
 
+  // Provided config - needed to build but expected to be available in deploy env
+  provided "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
+  provided "org.apache.spark:spark-yarn_$dependencyScalaVersion:$sparkVersion"
+  provided "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion"
   provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
-  // Spark uses the signed version of the servlet api.  Hadoop uses (unsigned) jetty 8 to provide
-  // the impl of the servlet api, which ends up generating a security exception.  We force include
-  // the unsigned api jar here, and force include the unsigned api jar above.
-  compile "javax.servlet:javax.servlet-api:3.0.1"
 
   testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
   testRuntime 'org.pegdown:pegdown:1.1.0'
-
-  assemblyJarDepends "com.databricks:spark-csv_$dependencyScalaVersion:1.3.0"
-  assemblyJarDepends "org.apache.commons:commons-csv:1.1"
-  assemblyJarDepends "com.univocity:univocity-parsers:1.5.1"
-  assemblyJarDepends "org.clapper:grizzled-slf4j_2.10:1.0.2"
-  hbaseDependency("hbase-client", "assemblyJarDepends")
-  hbaseDependency("hbase-common", "assemblyJarDepends")
-  hbaseDependency("hbase-server", "assemblyJarDepends")
 }
 
-// Creation of a distribution jar
+// publishing setup - url, username, password need to be stored in environment
+// variables
+publishing {
+  publications {
+    maven(MavenPublication) {
+      from components.java
+    }
+  }
+}
+publishing {
+  repositories {
+    maven {
+      if (version.endsWith("SNAPSHOT")) {
+        url "${System.env.MAVEN_REPO_URL}/snapshots"
+      } else {
+        url "${System.env.MAVEN_REPO_URL}/internal"
+      }
+      credentials {
+        username "${System.env.MAVEN_REPO_USERNAME}"
+        password "${System.env.MAVEN_REPO_PASSWORD}"
+      }
+    }
+  }
+}
+
+// Creation of a distribution archive containing the pipeline assembly jar and the baseline
+// execution scripts.
 distributions {
   main {
     baseName = 'xdata-graph'
     contents {
       // Copy the run scripts over
-      into("scripts") {
+      into ("scripts"){
         from("src/scripts")
         fileMode 0755
       }
