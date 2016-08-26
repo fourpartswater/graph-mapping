@@ -176,7 +176,7 @@ class Community (val g: Graph,
     }
   }
 
-  def one_level (randomize: Boolean = true): Boolean = {
+  def one_level (randomize: Boolean = true): (Boolean, MutableBuffer[MutableBuffer[Int]]) = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -251,7 +251,33 @@ class Community (val g: Graph,
 
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
-    improvement
+    val (renumber, _) = getRenumbering
+
+    // Compute communities
+    val comm_nodes = MutableBuffer[MutableBuffer[Int]]()
+    for (node <- 0 until size) {
+      val n = renumber(n2c(node))
+      while (comm_nodes.size < n+1) comm_nodes += MutableBuffer[Int]()
+      comm_nodes(n) += node
+    }
+
+    val comm_deg = comm_nodes.size
+    for (comm <- 0 until comm_deg) {
+
+      //Get the community representative node. Every node in the community has the same one.
+      //Select the node with the highest degree as representative of the community.
+      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
+        if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
+      }
+
+      //Update all nodes in the community to store the new community id.
+      for (node <- comm_nodes(comm)){
+        g.nodeInfo(node).communityNode = commNodeInfo
+      }
+    }
+
+
+    (improvement, comm_nodes)
   }
 
   private def getRenumbering: (Array[Int], Int) = {
@@ -319,7 +345,7 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      val newCommunityNum = g.nodeInfo(i).newCommunityId
+      val newCommunityId = g.nodeInfo(i).communityNode.id
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
       val metadata = g.metaData(i)
@@ -327,7 +353,7 @@ class Community (val g: Graph,
       val analytics =
         if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
         else ""
-      out.println("node\t"+id+"\t"+g.id(newCommunityNum)+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
+      out.println("node\t"+id+"\t"+newCommunityId+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
     }
     // write links to output file
     g.display_links(out)
@@ -403,16 +429,8 @@ class Community (val g: Graph,
     }
   }
 
-  def partition2graph_binary: Graph = {
+  def partition2graph_binary(comm_nodes: MutableBuffer[MutableBuffer[Int]]): Graph = {
     val (renumber, _) = getRenumbering
-
-    // Compute communities
-    val comm_nodes = MutableBuffer[MutableBuffer[Int]]()
-    for (node <- 0 until size) {
-      val n = renumber(n2c(node))
-      while (comm_nodes.size < n+1) comm_nodes += MutableBuffer[Int]()
-      comm_nodes(n) += node
-    }
 
     // Compute weighted graph
     val nb_nodes = comm_nodes.size
@@ -441,16 +459,8 @@ class Community (val g: Graph,
           weights += weight
       }
 
-      //Select the node with the highest degree as representative of the community.
-      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
-        if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
-      }
-      nodeInfos(comm) = commNodeInfo
-
-      //Update all nodes in the community to store the new community id.
-      for (node <- comm_nodes(comm)){
-        g.nodeInfo(node).newCommunityId = commNodeNum
-      }
+      //Every node in the community has a reference to the same head community node.
+      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode
     }
 
     new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))
@@ -595,6 +605,7 @@ object Community {
 
     var g: Graph = null
     var improvement: Boolean = true
+    var comm_nodes: MutableBuffer[MutableBuffer[Int]] = null
     SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
     SimpleProfiling.finish("init.modularity")
@@ -609,7 +620,8 @@ object Community {
       }
 
       SimpleProfiling.register("iterative.one_level")
-      improvement = c.one_level(randomize)
+      var (improvementLevel, comm_nodes) = c.one_level(randomize)
+      improvement = improvementLevel
       SimpleProfiling.finish("iterative.one_level")
       SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
@@ -620,10 +632,6 @@ object Community {
         g.display_nodes(Console.out)
         g.display_links(Console.out)
       }
-
-      SimpleProfiling.register("iterative.convert")
-      g = c.partition2graph_binary
-      SimpleProfiling.finish("iterative.convert")
 
       SimpleProfiling.register("iterative.write")
       curDir.foreach { pwd =>
@@ -638,6 +646,10 @@ object Community {
         stats.close()
       }
       SimpleProfiling.finish("iterative.write")
+
+      SimpleProfiling.register("iterative.convert")
+      g = c.partition2graph_binary(comm_nodes)
+      SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
       SimpleProfiling.register("iterative.communitize")
