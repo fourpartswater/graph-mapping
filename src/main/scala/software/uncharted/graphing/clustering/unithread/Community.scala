@@ -605,7 +605,6 @@ object Community {
 
     var g: Graph = null
     var improvement: Boolean = true
-    var comm_nodes: MutableBuffer[MutableBuffer[Int]] = null
     SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
     SimpleProfiling.finish("init.modularity")
@@ -620,7 +619,7 @@ object Community {
       }
 
       SimpleProfiling.register("iterative.one_level")
-      var (improvementLevel, comm_nodes) = c.one_level(randomize)
+      val (improvementLevel, comm_nodes) = c.one_level(randomize)
       improvement = improvementLevel
       SimpleProfiling.finish("iterative.one_level")
       SimpleProfiling.register("iterative.modularity")
