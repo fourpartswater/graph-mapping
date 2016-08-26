@@ -1,11 +1,14 @@
-include ':salt-core'
-project(':salt-core').projectDir = new File(settingsDir, '../salt')
+// optionally include projects to simplify development / debugging of entire stack
+if (settings.hasProperty('useProjects')) {
+  include ':salt-core'
+  project(':salt-core').projectDir = new File(settingsDir, '../salt')
 
-include ':sparkpipe-core'
-project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core')
+  include ':sparkpipe-core'
+  project(':sparkpipe-core').projectDir = new File(settingsDir, '../sparkpipe-core')
 
-include ':sparkpipe-salt-ops'
-project(':sparkpipe-salt-ops').projectDir = new File(settingsDir, '../sparkpipe-salt-ops')
+  include ':sparkpipe-salt-ops'
+  project(':sparkpipe-salt-ops').projectDir = new File(settingsDir, '../sparkpipe-salt-ops')
 
-include ':xdata-pipeline-ops'
-project(':xdata-pipeline-ops').projectDir = new File(settingsDir, '../xdata-pipeline-ops')
+  include ':xdata-pipeline-ops'
+  project(':xdata-pipeline-ops').projectDir = new File(settingsDir, '../xdata-pipeline-ops')
+}

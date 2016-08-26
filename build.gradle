@@ -6,7 +6,7 @@ version = "0.1-SNAPSHOT"
 ext {
 	dependencyScalaVersion = "2.10"
 	scalaVersion = "2.10.6"
-	sparkVersion = "1.5.0-cdh5.5.2"
+	sparkVersion = "1.6.2"
 	hbaseVersion = "1.0.0-cdh5.5.2"
 	htraceVersion = "3.2.0-incubating"
 	cdhVersion="1.0.0-cdh5.5.2"
@@ -44,6 +44,12 @@ repositories {
 	maven {
 		url = "https://repository.cloudera.com/artifactory/cloudera-repos"
 	}
+  maven {
+    url = "http://maven.oculus.local:8080/archiva/repository/snapshots"
+  }
+  maven {
+    url = "http://maven.oculus.local:8080/archiva/repository/internal"
+  }
 }
 
 // Task to update the gradle wrapper
@@ -120,7 +126,6 @@ artifacts {
 ext {
 	// A function to exclude various HBase dependencies we don't want.
 	hbaseDependency = {dependencyName, config="compile" ->
-		println("Dealing with hbase dependency "+dependencyName+" for "+config)
 		getDependencies().add(config, "org.apache.hbase:"+dependencyName+":$hbaseVersion", {
 			exclude group: "asm", module: "asm"
 			exclude group: "org.slf4j", module: "slf4j-api"
@@ -131,54 +136,29 @@ ext {
 		})
 	}
 
-
-	// A function that defines a dependence on another project, if it's there, or a maven repo, if
-	// the project is not there.  The project name defaults to the name of the maven dependency (as
-	// opposed to the group or version).
-	projectDependency = { dependencyName, projectName="" ->
-		boolean projectExists = false
-
-		// See what we can find out from the dependency name
-		if (projectName == "") {
-			depends = getDependencies()
+	// A function that defines a project dependency if the useProjects option is set, otherwise fetches
+  // from maven.
+  optionalProjectDependency = { dependencyName ->
+    if (project.hasProperty('useProjects')) {
+      depends = getDependencies()
 			projectName = ":"+depends.create(dependencyName).getName()
-		}
-
-		if (null != project(projectName)
-		    && null != project(projectName).projectDir
-		    && project(projectName).projectDir instanceof java.io.File) {
-
-			java.io.File projectDir = project(projectName).projectDir
-			if (projectDir.exists() && projectDir.isDirectory()) {
-				java.io.File buildFile = new java.io.File(projectDir, "build.gradle")
-				if (buildFile.exists()) {
-					projectExists = true
-				}
-			}
-		}
-
-		if (projectExists) {
-			println "Depending on " + projectName +" directly"
-			dependencies {
-				compile project(projectName)
-				assemblyJarDepends project(projectName)
-			}
-		} else {
-			println projectName +" isn't present locally; using maven repository version"
-			dependencies {
-				compile dependencyName
-				assemblyJarDepends dependencyName
-			}
-		}
-	}
+      dependencies {
+        compile project(projectName)
+      }
+    } else {
+      dependencies {
+        compile dependencyName
+      }
+    }
+  }
 }
 
 // Jars / projects this project depends on.
 dependencies {
-	projectDependency("software.uncharted.salt:salt-core:3.0.0")
-	projectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
-	projectDependency("software.uncharted.sparkpip:sparkpipe-salt-ops:3.0.0")
-	projectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
+	optionalProjectDependency("software.uncharted.salt:salt-core:3.0.1")
+	optionalProjectDependency("software.uncharted.sparkpipe:sparkpipe-core:0.9.7")
+	optionalProjectDependency("software.uncharted.sparkpipe:sparkpipe-salt-ops:3.0.0")
+	optionalProjectDependency("software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT")
 
 	// Compile config - needed to build
 	compile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion"
