@@ -21,12 +21,9 @@ import software.uncharted.salt.core.generation.rdd.RDDTileGenerator
 import software.uncharted.xdata.ops.salt.{ArcTypes, CartesianSegmentOp}
 
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe.TypeTag
 import scala.language.implicitConversions
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Column, DataFrame, SQLContext}
-import com.databricks.spark.csv.CsvParser
+import org.apache.spark.sql.DataFrame
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.output.SeriesData
@@ -40,61 +37,6 @@ import software.uncharted.sparkpipe.ops.community.salt.zxy.CartesianOp
   * Non-standard operations needed for graph tiling
   */
 object GraphTilingOperations {
-
-
-
-
-  /**
-    * Convert an RDD of objects that are products (e.g. case classes) into a dataframe
-    *
-    * @param sqlc A SQL context into which to set the dataframe
-    * @param input The input data
-    * @tparam T The type of input data
-    * @return A dataframe representing the same data
-    */
-  def toDataFrame[T <: Product : TypeTag](sqlc: SQLContext)(input: RDD[T]): DataFrame = {
-    sqlc.createDataFrame(input)
-  }
-
-  /**
-    * Convert an RDD of strings into a dataframe
-    *
-    * @param sqlc A SQL context into which to set the dataframe.
-    * @param settings Settings to control CSV parsing.
-    * @param schemaOpt The schema into which to parse the data (if null, inferSchema must be true)
-    * @param input The input data
-    * @return A dataframe representing the same data, but parsed into proper typed rows.
-    */
-  def toDataFrame (sqlc: SQLContext, settings: Map[String, String], schemaOpt: Option[StructType])(input: RDD[String]): DataFrame = {
-    val parser = new CsvParser
-
-    // Move settings to our parser
-    def setParserValue (key: String, setFcn: String => Unit): Unit =
-      settings.get(key).foreach(strValue => setFcn(strValue))
-    def setParserBoolean (key: String, setFcn: Boolean => Unit): Unit =
-      setParserValue(key, value => setFcn(value.trim.toLowerCase.toBoolean))
-    def setParserCharacter (key: String, setFcn: Character => Unit): Unit =
-      setParserValue(key, value => setFcn(if (null == value) null else value.charAt(0)))
-
-    setParserBoolean("useHeader", parser.withUseHeader(_))
-    setParserBoolean("ignoreLeadingWhiteSpace", parser.withIgnoreLeadingWhiteSpace(_))
-    setParserBoolean("ignoreTrailingWhiteSpace", parser.withIgnoreTrailingWhiteSpace(_))
-    setParserBoolean("treatEmptyValuesAsNull", parser.withTreatEmptyValuesAsNulls(_))
-    setParserBoolean("inferSchema", parser.withInferSchema(_))
-    setParserCharacter("delimiter", parser.withDelimiter(_))
-    setParserCharacter("quote", parser.withQuoteChar(_))
-    setParserCharacter("escape", parser.withEscape(_))
-    setParserCharacter("comment", parser.withComment(_))
-    setParserValue("parseMode", parser.withParseMode(_))
-    setParserValue("parserLib", parser.withParserLib(_))
-    setParserValue("charset", parser.withCharset(_))
-    setParserValue("codec", parser.withCompression(_))
-
-    schemaOpt.map(schema => parser.withSchema(schema))
-
-    parser.csvRdd(sqlc, input)
-  }
-
   /**
     * Get the bounds of specified columns in a dataframe
     *
