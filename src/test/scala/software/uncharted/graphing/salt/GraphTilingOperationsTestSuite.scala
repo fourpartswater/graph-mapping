@@ -13,19 +13,21 @@
 package software.uncharted.graphing.salt
 
 
-import java.nio.{ByteOrder, DoubleBuffer, ByteBuffer}
+import java.nio.{ByteBuffer, ByteOrder, DoubleBuffer}
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.sql.types._
-import org.scalatest.{Tag, FunSuite}
+import org.scalatest.{FunSuite, Tag}
 import software.uncharted.graphing.utilities.S3Client
 import software.uncharted.salt.core.util.SparseArray
+import software.uncharted.xdata.ops.util.BasicOperations
 import software.uncharted.xdata.ops.{numeric => XDataNum}
 
 
 class GraphTilingOperationsTestSuite extends FunSuite with SharedSparkContext {
   Logger.getRootLogger.setLevel(Level.WARN)
+  import BasicOperations._
   import GraphTilingOperations._
   import software.uncharted.xdata.ops.{io => XDataIO}
 

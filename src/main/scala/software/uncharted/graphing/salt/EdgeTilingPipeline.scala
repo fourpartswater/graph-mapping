@@ -20,7 +20,8 @@ import org.apache.spark.sql.{DataFrame, Column, SQLContext}
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.util.DebugGraphOperations
+import software.uncharted.xdata.ops.util.BasicOperations
+import software.uncharted.xdata.ops.util.DebugOperations
 import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
@@ -78,8 +79,9 @@ object EdgeTilingPipeline extends Logging {
                           tileConfig: TilingConfig,
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
+    import BasicOperations._
+    import DebugOperations._
     import GraphTilingOperations._
-    import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
     import software.uncharted.xdata.ops.{io => XDataIO}

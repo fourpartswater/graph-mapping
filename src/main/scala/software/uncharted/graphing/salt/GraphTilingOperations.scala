@@ -40,43 +40,9 @@ import software.uncharted.sparkpipe.ops.community.salt.zxy.CartesianOp
   * Non-standard operations needed for graph tiling
   */
 object GraphTilingOperations {
-  def filter[T](test: T => Boolean)(input: RDD[T]): RDD[T] =
-    input.filter(test)
 
-  def filterA (condition: Column)(input: DataFrame): DataFrame =
-    input.filter(condition)
 
-  def regexFilter (regexStr: String, exclude: Boolean = false)(input: RDD[String]): RDD[String] = {
-    val regex = regexStr.r
-    input.filter {
-      case regex(_*) => if (exclude) false else true
-      case _ => if (exclude) true else false
-    }
-  }
 
-  /**
-    * A function to allow optional application within a pipe, as long as there is no type change involved
-    *
-    * @param optOp An optional operation; if it is defined, it is applied to the input.  If it is not defined, the
-    *              input is passed through untouched.
-    * @param input The input data
-    * @tparam T The type of input data
-    * @return The input data transformed by the given operation, if there is such an operation, or else the input
-    *         data itself, if not.
-    */
-  def optional[T] (optOp: Option[T => T])(input: T): T =
-    optOp.map(op => op(input)).getOrElse(input)
-
-  /**
-    * Just map the input data to a new form (use rdd.map, but in a pipeline)
-    *
-    * @param fcn The transformation function
-    * @param input The input data
-    * @tparam S The input type
-    * @tparam T The output type
-    * @return The input data, transformed
-    */
-  def map[S, T: ClassTag](fcn: S => T)(input: RDD[S]): RDD[T] = input.map(fcn)
 
   /**
     * Convert an RDD of objects that are products (e.g. case classes) into a dataframe

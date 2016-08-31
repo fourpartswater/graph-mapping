@@ -21,7 +21,8 @@ import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
-import software.uncharted.xdata.ops.util.DebugGraphOperations
+import software.uncharted.xdata.ops.util.BasicOperations
+import software.uncharted.xdata.ops.util.DebugOperations
 import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
@@ -73,8 +74,9 @@ object MetadataTilingPipeline extends Logging {
                          tilingConfig: TilingConfig,
                          graphConfig: GraphConfig,
                          outputOperation: OutputOperation): Unit = {
+    import BasicOperations._
+    import DebugOperations._
     import GraphTilingOperations._
-    import DebugGraphOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
     import RDDIO.mutateContextFcn
