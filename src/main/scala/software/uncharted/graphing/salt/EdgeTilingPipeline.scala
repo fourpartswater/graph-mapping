@@ -105,7 +105,7 @@ object EdgeTilingPipeline extends Logging {
       .to(countDFRowsOp("Required edges: " ))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, graphConfig.formatType, graphConfig.minSegLength, graphConfig.maxSegLength, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-      .to(serializeTilesDense)
+      .to(XDataIO.serializeBinArray)
       .to(outputOperation)
       .run()
   }

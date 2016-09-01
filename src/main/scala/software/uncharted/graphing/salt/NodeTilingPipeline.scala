@@ -93,6 +93,7 @@ object NodeTilingPipeline extends Logging {
     import DebugOperations._
     import GraphTilingOperations._
     import software.uncharted.xdata.ops.{numeric => XDataNum}
+    import software.uncharted.xdata.ops.{io => XDataIO}
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
@@ -108,7 +109,7 @@ object NodeTilingPipeline extends Logging {
       .to(XDataNum.addConstantColumn("count", 1))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-      .to(serializeTilesDense)
+      .to(XDataIO.serializeBinArray)
       .to(outputOperation)
       .run()
   }

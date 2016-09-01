@@ -75,7 +75,6 @@ object MetadataTilingPipeline extends Logging {
                          outputOperation: OutputOperation): Unit = {
     import BasicOperations._
     import DebugOperations._
-    import GraphTilingOperations._
     import BasicSaltOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
@@ -143,7 +142,7 @@ object MetadataTilingPipeline extends Logging {
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
       .to(countRDDRowsOp("Tiles: "))
-      .to(serializeTiles(encodeTile))
+      .to(XDataIO.serializeTiles(encodeTile))
       .to(outputOperation)
       .run()
   }

@@ -132,45 +132,4 @@ object GraphTilingOperations {
       new TileLevelRequest[(Int, Int, Int)](levels, getLevel)
     )(input)
   }
-
-  private val BytesPerDouble = 8
-  private val BytesPerInt = 4
-  private val doubleTileToByteArrayDense: SparseArray[Double] => Seq[Byte] = sparseData => {
-    val data = sparseData.seq.toArray
-    val byteBuffer = ByteBuffer.allocate(data.length * BytesPerDouble).order(ByteOrder.LITTLE_ENDIAN)
-    byteBuffer.asDoubleBuffer().put(DoubleBuffer.wrap(data))
-    byteBuffer.array().toSeq
-  }
-
-  private val doubleTileToByteArraySparse: SparseArray[Double] => Seq[Byte] = sparseData => {
-    val defaultValue = sparseData.default
-    var nonDefaultCount = 0
-    for (i <- 0 until sparseData.length())
-      if (defaultValue != sparseData(i)) nonDefaultCount += 1
-
-    val buffer = ByteBuffer.allocate(BytesPerInt + BytesPerDouble + nonDefaultCount * (BytesPerInt + BytesPerDouble))
-      .order(ByteOrder.LITTLE_ENDIAN)
-    buffer.putInt(nonDefaultCount)
-    buffer.putDouble(defaultValue)
-    for (i <- 0 until sparseData.length()) {
-      if (defaultValue != sparseData(i)) {
-        buffer.putInt(i)
-        buffer.putDouble(sparseData(i))
-      }
-    }
-    buffer.array().toSeq
-  }
-
-  def serializeTiles[TC, BC, V, X] (serializationFcn: SparseArray[V] => Seq[Byte])(input: RDD[SeriesData[TC, BC, V, X]]): RDD[(TC, Seq[Byte])] = {
-    input.map { tile =>
-      (tile.coords, serializationFcn(tile.bins))
-    }
-  }
-
-  def serializeTilesDense[TC, BC, X] (input: RDD[SeriesData[TC, BC, Double, X]]): RDD[(TC, Seq[Byte])] = {
-    serializeTiles[TC, BC, Double, X](doubleTileToByteArrayDense)(input)
-  }
-  def serializeTilesSparse[TC, BC, X] (input: RDD[SeriesData[TC, BC, Double, X]]): RDD[(TC, Seq[Byte])] = {
-    serializeTiles[TC, BC, Double, X](doubleTileToByteArraySparse)(input)
-  }
 }
