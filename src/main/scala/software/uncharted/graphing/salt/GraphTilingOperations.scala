@@ -133,17 +133,6 @@ object GraphTilingOperations {
     )(input)
   }
 
-  def genericFullTilingRequest[RT, DC, TC: ClassTag, BC, T, U, V, W, X] (series: Series[RT, DC, TC, BC, T, U, V, W, X], levels: Seq[Int], getZoomLevel: TC => Int)(data: RDD[RT]): RDD[SeriesData[TC, BC, V, X]] = {
-    genericTiling(series)(new TileLevelRequest[TC](levels, getZoomLevel))(data)
-  }
-
-  def genericTiling[RT, DC, TC: ClassTag, BC, T, U, V, W, X] (series: Series[RT, DC, TC, BC, T, U, V, W, X])(request: TileRequest[TC])(data: RDD[RT]): RDD[SeriesData[TC, BC, V, X]] = {
-    val sc = data.sparkContext
-    val generator = new RDDTileGenerator(sc)
-
-    generator.generate(data, series, request).flatMap(t => series(t))
-  }
-
   private val BytesPerDouble = 8
   private val BytesPerInt = 4
   private val doubleTileToByteArrayDense: SparseArray[Double] => Seq[Byte] = sparseData => {

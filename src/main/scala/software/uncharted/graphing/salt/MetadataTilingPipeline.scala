@@ -23,17 +23,16 @@ import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.xdata.ops.util.BasicOperations
 import software.uncharted.xdata.ops.util.DebugOperations
-import software.uncharted.xdata.sparkpipe.config.{TilingConfig, SparkConfig}
+import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
-
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{Row, DataFrame, SQLContext}
-
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.salt.BasicSaltOperations
 
 
 
@@ -77,6 +76,7 @@ object MetadataTilingPipeline extends Logging {
     import BasicOperations._
     import DebugOperations._
     import GraphTilingOperations._
+    import BasicSaltOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
     import RDDIO.mutateContextFcn
