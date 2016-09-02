@@ -15,14 +15,13 @@ package software.uncharted.graphing.salt
 
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
-
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
-
 import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.salt.BasicSaltOperations
 import software.uncharted.xdata.ops.util.BasicOperations
 import software.uncharted.xdata.ops.util.DebugOperations
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
@@ -91,7 +90,7 @@ object NodeTilingPipeline extends Logging {
                           outputOperation: OutputOperation): Unit = {
     import BasicOperations._
     import DebugOperations._
-    import GraphTilingOperations._
+    import BasicSaltOperations._
     import software.uncharted.xdata.ops.{numeric => XDataNum}
     import software.uncharted.xdata.ops.{io => XDataIO}
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}

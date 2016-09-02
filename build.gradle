@@ -147,7 +147,6 @@ dependencies {
   // dependencies that can be taken from a maven repo or local projects
   optionalProjectDependency "software.uncharted.salt:salt-core:3.0.1"
   optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-core:0.9.7"
-  optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-salt-ops:3.0.0"
   optionalProjectDependency "software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT"
 
   // Compile config - needed at build and runtime
