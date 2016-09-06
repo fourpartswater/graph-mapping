@@ -15,15 +15,15 @@ package software.uncharted.graphing.salt
 
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
-
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
-
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.util.DebugGraphOperations
+import software.uncharted.xdata.ops.salt.BasicSaltOperations
+import software.uncharted.xdata.ops.util.BasicOperations
+import software.uncharted.xdata.ops.util.DebugOperations
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
@@ -88,9 +88,11 @@ object NodeTilingPipeline extends Logging {
                           tileConfig: TilingConfig,
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
-    import GraphTilingOperations._
-    import DebugGraphOperations._
+    import BasicOperations._
+    import DebugOperations._
+    import BasicSaltOperations._
     import software.uncharted.xdata.ops.{numeric => XDataNum}
+    import software.uncharted.xdata.ops.{io => XDataIO}
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import RDDIO.mutateContextFcn
 
@@ -106,7 +108,7 @@ object NodeTilingPipeline extends Logging {
       .to(XDataNum.addConstantColumn("count", 1))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
       .to(countRDDRowsOp("Tiles: "))
-      .to(serializeTilesDense)
+      .to(XDataIO.serializeBinArray)
       .to(outputOperation)
       .run()
   }
