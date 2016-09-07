@@ -95,6 +95,7 @@ class Community (val g: Graph,
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
+  var comm_nodes: MutableBuffer[MutableBuffer[Int]] = null
 
 
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
@@ -176,7 +177,7 @@ class Community (val g: Graph,
     }
   }
 
-  def one_level (randomize: Boolean = true): (Boolean, MutableBuffer[MutableBuffer[Int]]) = {
+  def one_level (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -254,7 +255,7 @@ class Community (val g: Graph,
     val (renumber, _) = getRenumbering
 
     // Compute communities
-    val comm_nodes = MutableBuffer[MutableBuffer[Int]]()
+    comm_nodes = MutableBuffer[MutableBuffer[Int]]()
     for (node <- 0 until size) {
       val n = renumber(n2c(node))
       while (comm_nodes.size < n+1) comm_nodes += MutableBuffer[Int]()
@@ -277,7 +278,7 @@ class Community (val g: Graph,
     }
 
 
-    (improvement, comm_nodes)
+    improvement
   }
 
   private def getRenumbering: (Array[Int], Int) = {
@@ -429,7 +430,7 @@ class Community (val g: Graph,
     }
   }
 
-  def partition2graph_binary(comm_nodes: MutableBuffer[MutableBuffer[Int]]): Graph = {
+  def partition2graph_binary(): Graph = {
     val (renumber, _) = getRenumbering
 
     // Compute weighted graph
@@ -619,8 +620,7 @@ object Community {
       }
 
       SimpleProfiling.register("iterative.one_level")
-      val (improvementLevel, comm_nodes) = c.one_level(randomize)
-      improvement = improvementLevel
+      improvement = c.one_level(randomize)
       SimpleProfiling.finish("iterative.one_level")
       SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
@@ -647,7 +647,7 @@ object Community {
       SimpleProfiling.finish("iterative.write")
 
       SimpleProfiling.register("iterative.convert")
-      g = c.partition2graph_binary(comm_nodes)
+      g = c.partition2graph_binary()
       SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
