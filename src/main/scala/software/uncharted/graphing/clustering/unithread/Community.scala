@@ -27,6 +27,7 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.utilities.SimpleProfiling
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
+import scala.collection.Seq
 import scala.util.Random
 
 
@@ -95,7 +96,7 @@ class Community (val g: Graph,
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
-  var comm_nodes: MutableBuffer[MutableBuffer[Int]] = null
+  var comm_nodes: Seq[Seq[Int]] = null
 
 
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
@@ -255,12 +256,13 @@ class Community (val g: Graph,
     val (renumber, _) = getRenumbering
 
     // Compute communities
-    comm_nodes = MutableBuffer[MutableBuffer[Int]]()
+    var comm_nodes_tmp = MutableBuffer[MutableBuffer[Int]]()
     for (node <- 0 until size) {
       val n = renumber(n2c(node))
-      while (comm_nodes.size < n+1) comm_nodes += MutableBuffer[Int]()
-      comm_nodes(n) += node
+      while (comm_nodes_tmp.size < n+1) comm_nodes_tmp += MutableBuffer[Int]()
+      comm_nodes_tmp(n) += node
     }
+    comm_nodes = comm_nodes_tmp
 
     val comm_deg = comm_nodes.size
     for (comm <- 0 until comm_deg) {
