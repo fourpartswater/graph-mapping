@@ -145,8 +145,8 @@ class CommunityModificationsTestSuite extends FunSuite {
 
     // Cluster that graph
     val c= new Community(g, -1, 0.15)
-    c.one_level()
-    val g1 = c.partition2graph_binary
+    val improvement = c.one_level()
+    val g1 = c.partition2graph_binary()
 
     // Since the graph was fully connected, it should reduce to a single node.
     // Check that it did so, and that analytics aggregated correctly.

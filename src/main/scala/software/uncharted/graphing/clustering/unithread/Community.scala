@@ -27,6 +27,7 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.utilities.SimpleProfiling
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
+import scala.collection.Seq
 import scala.util.Random
 
 
@@ -95,6 +96,7 @@ class Community (val g: Graph,
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
+  var comm_nodes: Seq[Seq[Int]] = null
 
 
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
@@ -251,6 +253,33 @@ class Community (val g: Graph,
 
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
+    val (renumber, _) = getRenumbering
+
+    // Compute communities
+    var comm_nodes_tmp = MutableBuffer[MutableBuffer[Int]]()
+    for (node <- 0 until size) {
+      val n = renumber(n2c(node))
+      while (comm_nodes_tmp.size < n+1) comm_nodes_tmp += MutableBuffer[Int]()
+      comm_nodes_tmp(n) += node
+    }
+    comm_nodes = comm_nodes_tmp
+
+    val comm_deg = comm_nodes.size
+    for (comm <- 0 until comm_deg) {
+
+      //Get the community representative node. Every node in the community has the same one.
+      //Select the node with the highest degree as representative of the community.
+      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
+        if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
+      }
+
+      //Update all nodes in the community to store the new community id.
+      for (node <- comm_nodes(comm)){
+        g.nodeInfo(node).communityNode = commNodeInfo
+      }
+    }
+
+
     improvement
   }
 
@@ -319,7 +348,7 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      val community = g.id(n2c(i))
+      val newCommunityId = g.nodeInfo(i).communityNode.id
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
       val metadata = g.metaData(i)
@@ -327,7 +356,7 @@ class Community (val g: Graph,
       val analytics =
         if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
         else ""
-      out.println("node\t"+id+"\t"+community+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
+      out.println("node\t"+id+"\t"+newCommunityId+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
     }
     // write links to output file
     g.display_links(out)
@@ -403,16 +432,8 @@ class Community (val g: Graph,
     }
   }
 
-  def partition2graph_binary: Graph = {
+  def partition2graph_binary(): Graph = {
     val (renumber, _) = getRenumbering
-
-    // Compute communities
-    val comm_nodes = MutableBuffer[MutableBuffer[Int]]()
-    for (node <- 0 until size) {
-      val n = renumber(n2c(node))
-      while (comm_nodes.size < n+1) comm_nodes += MutableBuffer[Int]()
-      comm_nodes(n) += node
-    }
 
     // Compute weighted graph
     val nb_nodes = comm_nodes.size
@@ -441,9 +462,8 @@ class Community (val g: Graph,
           weights += weight
       }
 
-      nodeInfos(comm) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node))).reduce{(a, b) =>
-        if (a._2 > b._2) (a._1 + b._1, a._2) else (b._1 + a._1, b._2)
-      }._1
+      //Every node in the community has a reference to the same head community node.
+      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode
     }
 
     new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))
@@ -614,10 +634,6 @@ object Community {
         g.display_links(Console.out)
       }
 
-      SimpleProfiling.register("iterative.convert")
-      g = c.partition2graph_binary
-      SimpleProfiling.finish("iterative.convert")
-
       SimpleProfiling.register("iterative.write")
       curDir.foreach { pwd =>
         val levelDir = new File(pwd, "level_" + (level-1))
@@ -631,6 +647,10 @@ object Community {
         stats.close()
       }
       SimpleProfiling.finish("iterative.write")
+
+      SimpleProfiling.register("iterative.convert")
+      g = c.partition2graph_binary()
+      SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
       SimpleProfiling.register("iterative.communitize")
