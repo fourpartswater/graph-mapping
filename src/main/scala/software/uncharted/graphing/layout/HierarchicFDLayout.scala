@@ -18,6 +18,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
 
+import scala.util.Try
+
 
 
 /**
@@ -64,7 +66,7 @@ class HierarchicFDLayout extends Serializable {
 
 		val forceDirectedLayouter = new ForceDirected()	//force-directed layout scheme
 
-		val levelStats = new Array[(Long, Long, Double, Double, Double, Double, Int)](maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
+		val levelStats = new Array[Seq[(String, AnyVal)]](maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
 
 		//Array of RDDs for storing all node results.  Format is (id, (x, y, radius, parentID, numInternalNodes, metaData))
 		//var nodeResultsAllLevels = new Array[(RDD[(Long, (Double, Double, Double, Long, Long, String))])](maxHierarchyLevel+1)
@@ -209,10 +211,11 @@ class HierarchicFDLayout extends Serializable {
 
 			val graphForThisLevel = Graph(nodeDataAll, edges)	// create a graph of the layout results for this level
 
-			levelStats(level) = calcLayoutStats(graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
+			levelStats(level) = calcLayoutStats(level,
+                                          graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
-			                                    graphForThisLevel.vertices.map(n => try { n._2._3 } catch { case _: Throwable => 0.0 } ),	// get community radii
-			                                    graphForThisLevel.vertices.map(n => try { n._2._7 } catch { case _: Throwable => 0.0 } ),	// get parent radii
+                                          graphForThisLevel.vertices.map(n => Try(n._2._3).toOption), // Get community radii
+                                          graphForThisLevel.vertices.map(n => Try(n._2._7).toOption), // Get parent radii
 			                                    Math.min(layoutDimensions._1, layoutDimensions._2),
 			                                    level == maxHierarchyLevel)
 
@@ -301,29 +304,81 @@ class HierarchicFDLayout extends Serializable {
 		(id, squareCoords)
 	}
 
-	private def calcLayoutStats(numNodes: Long,
+	private def calcLayoutStats(level: Int,
+                              numNodes: Long,
 	                            numEdges: Long,
-	                            radii: RDD[Double],
-	                            parentRadii: RDD[Double],
+	                            radii: RDD[Option[Double]],
+	                            parentRadii: RDD[Option[Double]],
 	                            totalLayoutLength: Double,
-	                            bMaxHierarchyLevel: Boolean): (Long, Long, Double, Double, Double, Double, Int) = {
+	                            bMaxHierarchyLevel: Boolean): Seq[(String, AnyVal)] = {
+    val undefinedRadii = radii.filter(_.isEmpty).count()
+    val goodRadii = radii.filter(_.isDefined).map(_.get)
+    val radiusTotals = goodRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
+		val maxRadius = goodRadii.reduce(_ max _)
+    val meanRadius = radiusTotals._2 / radiusTotals._3
+    val stddevRadius = radiusTotals._1 /  radiusTotals._3 - meanRadius * meanRadius
+		val minRadius = goodRadii.reduce(_ min _)
 
-		val maxR = radii.reduce(_ max _)	// calc min and max radii
-		val minR = radii.reduce(_ min _)
-		val maxParentR = parentRadii.reduce(_ max _)	// calc min and max parent radii
-		val minParentR = parentRadii.reduce(_ min _)
+    val undefinedParentRadii = parentRadii.filter(_.isEmpty).count()
+    val goodParentRadii = parentRadii.filter(_.isDefined).map(_.get)
+    val parentRadiusTotals = goodParentRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
+		val maxParentRadius = goodParentRadii.reduce(_ max _)
+    val meanParentRadius = parentRadiusTotals._2 / parentRadiusTotals._3
+    val stddevParentRadius = parentRadiusTotals._1 / parentRadiusTotals._3 - meanParentRadius * meanParentRadius
+		val minParentRadius = goodParentRadii.reduce(_ min _)
 
-		val minRecommendedZoomLevel = if (bMaxHierarchyLevel) {
-			0
-		}
-		else {
-			// use max parent radius to give a min recommended zoom level for this hierarchy
-			// (ideally want parent radius to correspond to approx 1 tile length)
-			Math.round(Math.log(totalLayoutLength/maxParentR)*1.4427).toInt	// 1.4427 = 1/log(2), so equation = log2(layoutlength/maxParentR)
-		}
+    // Calculate the ideal zoom level at which a given number of items of the specified radius fit on each tile
+    def getZoomLevel (radius: Double, numberPerTile: Double) = {
+      if (bMaxHierarchyLevel) 0
+      else {
+        // let
+        //   T = totalLayoutLength
+        //   L = level
+        //   R = radius
+        //   N = numberPerTile
+        //
+        // Tile size is (T * (1/2)^L)^2 = T^2 * (1/2)^2L
+        // To fit N items on a tile, each item must therefor be of size T^2 * (1/2)^2L * 1/N
+        // But item size is pi*R^2
+        //
+        // pi * R^2 = T^2 * (1/2)^2L * 1/N
+        // (1/2)^2L = pi * R^2 * N/T^2
+        // L = 1/2 log_1/2 (pi * R^2 * N/T^2)
+        // L = 1/2 log(pi * R^2 * N/T^2) / log(1/2)
+        0.5 * math.log(math.Pi * radius * radius * numberPerTile / (totalLayoutLength * totalLayoutLength)) / math.log(0.5)
+      }
+    }
+    def getOldZoomLevel (radius: Double) = {
+      val minRecommendedZoomLevel = if (bMaxHierarchyLevel) {
+        0
+      } else {
+        // use max parent radius to give a min recommended zoom level for this hierarchy
+        // (ideally want parent radius to correspond to approx 1 tile length)
+        Math.round(Math.log(totalLayoutLength / radius) * 1.4427).toInt // 1.4427 = 1/log(2), so equation = log2(layoutlength/radius)
+      }
+    }
 
-		//output format is (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
-		(numNodes, numEdges, minR, maxR, minParentR, maxParentR, minRecommendedZoomLevel)
+    collection.IndexedSeq
+    Seq(
+      ("hierarchical level", level),
+      ("old min recommended zoom level", getOldZoomLevel(maxParentRadius)),
+      ("nodes", numNodes),
+      ("edges", numEdges),
+      ("min radius", minRadius),
+      ("zoom level by min radius", getZoomLevel(minRadius, 10)),
+      ("mean radius", meanRadius),
+      ("zoom level by mean radius", getZoomLevel(meanRadius, 10)),
+      ("max radius", maxRadius),
+      ("zoom level by max radius", getZoomLevel(maxRadius, 10)),
+      ("std dev radius", stddevRadius),
+      ("min parent radius", minParentRadius),
+      ("zoom level by min parent radius", getZoomLevel(minParentRadius, 1)),
+      ("mean parent radius", meanParentRadius),
+      ("zoom level by mean parent radius", getZoomLevel(meanParentRadius, 1)),
+      ("max parent radius", maxParentRadius),
+      ("zoom level by max parent radius", getZoomLevel(maxParentRadius, 1)),
+      ("std dev parent radius", stddevParentRadius)
+    )
 	}
 
 	private def saveLayoutResults(graphWithCoords: Graph[(Double, Double, Double, Long, Double, Double, Double, Long, Int, String), Long],
@@ -369,21 +424,15 @@ class HierarchicFDLayout extends Serializable {
 	}
 
 
-	private def saveLayoutStats(sc: SparkContext, stats: Array[(Long, Long, Double, Double, Double, Double, Int)], outputDir: String) = {
+	private def saveLayoutStats(sc: SparkContext, stats: Array[Seq[(String, AnyVal)]], outputDir: String) = {
 
 		// re-format results into strings for saving to text file
 		var level = stats.length - 1
 		val statsStrings = new Array[(String)](stats.length)
 		while (level >= 0) {
-			val (numNodes, numEdges, minR, maxR, minParentR, maxParentR, minRecommendedZoomLevel) = stats(level)
+      val levelStats = stats(level)
 
-			statsStrings(level) = ("hierarchical level: " + level + ", min recommended zoom level: " + minRecommendedZoomLevel
-				                       + ", nodes: " + numNodes
-				                       + ", edges: " + numEdges
-				                       + ", min radius: " + minR
-				                       + ", max radius: " + maxR
-				                       + ", min parent radius: " + minParentR
-				                       + ", max parent radius: " + maxParentR)
+			statsStrings(level) = levelStats.map(a => a._1+": "+a._2).mkString(", ")
 
 			level -= 1
 		}
