@@ -14,6 +14,7 @@ package software.uncharted.graphing.layout
 
 
 
+import org.apache.commons.collections.list.TreeList
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
@@ -316,6 +317,7 @@ class HierarchicFDLayout extends Serializable {
     val radiusTotals = goodRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
 		val maxRadius = goodRadii.reduce(_ max _)
     val meanRadius = radiusTotals._2 / radiusTotals._3
+    val medianRadius = MedianCalculator.median(goodRadii, 5)
     val stddevRadius = radiusTotals._1 /  radiusTotals._3 - meanRadius * meanRadius
 		val minRadius = goodRadii.reduce(_ min _)
 
@@ -324,6 +326,7 @@ class HierarchicFDLayout extends Serializable {
     val parentRadiusTotals = goodParentRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
 		val maxParentRadius = goodParentRadii.reduce(_ max _)
     val meanParentRadius = parentRadiusTotals._2 / parentRadiusTotals._3
+    val medianParentRadius = MedianCalculator.median(goodParentRadii, 5)
     val stddevParentRadius = parentRadiusTotals._1 / parentRadiusTotals._3 - meanParentRadius * meanParentRadius
 		val minParentRadius = goodParentRadii.reduce(_ min _)
 
@@ -367,7 +370,13 @@ class HierarchicFDLayout extends Serializable {
       ("min radius", minRadius),
       ("zoom level by min radius", getZoomLevel(minRadius, 10)),
       ("mean radius", meanRadius),
-      ("zoom level by mean radius", getZoomLevel(meanRadius, 10)),
+      ("zoom level by mean radius (10)", getZoomLevel(meanRadius, 10)),
+      ("zoom level by mean radius (4)", getZoomLevel(meanRadius, 4)),
+      ("zoom level by mean radius (16)", getZoomLevel(meanRadius, 16)),
+      ("zoom level by mean radius (64)", getZoomLevel(meanRadius, 64)),
+      ("zoom level by mean radius (256)", getZoomLevel(meanRadius, 256)),
+      ("median radius", medianRadius),
+      ("zoom level by median radius", getZoomLevel(medianRadius, 10)),
       ("max radius", maxRadius),
       ("zoom level by max radius", getZoomLevel(maxRadius, 10)),
       ("std dev radius", stddevRadius),
@@ -375,6 +384,8 @@ class HierarchicFDLayout extends Serializable {
       ("zoom level by min parent radius", getZoomLevel(minParentRadius, 1)),
       ("mean parent radius", meanParentRadius),
       ("zoom level by mean parent radius", getZoomLevel(meanParentRadius, 1)),
+      ("median parent radius", medianParentRadius),
+      ("zoom level by median parent radius", getZoomLevel(medianParentRadius, 10)),
       ("max parent radius", maxParentRadius),
       ("zoom level by max parent radius", getZoomLevel(maxParentRadius, 1)),
       ("std dev parent radius", stddevParentRadius)
