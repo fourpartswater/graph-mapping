@@ -77,6 +77,7 @@ object NodeTilingPipeline extends Logging {
         StructField("parentR", DoubleType),
         StructField("internalNodes", LongType),
         StructField("degree", IntegerType),
+        StructField("level", IntegerType),
         StructField("metadata", StringType)
       ) ++ analytics.map(a => StructField(a.getColumnName, StringType))
     )
