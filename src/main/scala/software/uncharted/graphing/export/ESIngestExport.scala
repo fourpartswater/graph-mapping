@@ -1,11 +1,21 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
+
 package software.uncharted.graphing.export
 
 import org.apache.spark.{SparkConf, SparkContext}
 import software.uncharted.graphing.utilities.ArgumentParser
 
-/**
-  * Created by phorne on 9/9/2016.
-  */
 object ESIngestExport {
   def main(args: Array[String]) {
     val argParser = new ArgumentParser(args)
