@@ -13,9 +13,10 @@
 package software.uncharted.graphing.layout
 
 
+import org.apache.spark.{Accumulable, Accumulator}
 
 import scala.util.Random
-
+import scala.collection.mutable.{Buffer => MutableBuffer}
 
 
 /**
@@ -108,6 +109,24 @@ class ForceDirected extends Serializable {
 	var _bNodesOverlapping = false	// boolean for whether community circles overlap or not
 	var _nodeOverlapRepulsionFactor = Math.pow(1000.0/256, 2.0)	// constant used for extra strong repulsion if node 'circles' overlap
 
+  /**
+    * Run a force-directed layout on all the direct children of a single parent community
+    *
+    * @param nodes A 4-tuple of (VertexId, numInternalNodes, degree, metadata) for each node in our parent community
+    * @param edges A 3-tuple of (srcId, dstId, weight) of each edge between two nodes in our parent community
+    * @param parentID The ID of the parent community.  This should be -1 for the root community.
+    * @param boundingBox The bounding box of the parent community, as determined by the last level.
+    *                    This should be (0, 0, maxX, maxY) for the top level.
+    * @param hierLevel The hierarchy level of the (parent?) community
+    * @param borderPercent
+    * @param maxIterations
+    * @param bUseEdgeWeights
+    * @param bUseNodeSizes
+    * @param nodeAreaPercent
+    * @param gravity
+    * @param isolatedDegreeThres
+    * @return
+    */
 	def run(nodes: Iterable[(Long, Long, Int, String)],
 	        edges: Iterable[(Long, Long, Long)],
 	        parentID: Long,
@@ -119,7 +138,8 @@ class ForceDirected extends Serializable {
 	        bUseNodeSizes: Boolean = false,
 	        nodeAreaPercent: Int = 30,
 	        gravity: Double = 0.0,
-	        isolatedDegreeThres: Int = 0): Array[(Long, Double, Double, Double, Long, Int, String)] = {
+	        isolatedDegreeThres: Int = 0,
+          scaleFactors: Accumulable[MutableBuffer[Double], Double]): Array[(Long, Double, Double, Double, Long, Int, String)] = {
 
 		var numNodes = nodes.size
 		if (numNodes == 0) throw new IllegalArgumentException("number of nodes must be > 0")
@@ -155,6 +175,8 @@ class ForceDirected extends Serializable {
 			// layout isolated communities in a spiral shape
 			val isolatedNodeLayouter = new IsolatedNodeLayout()
 			val (spiralCoords, connectedAreaOut) = isolatedNodeLayouter.calcSpiralCoords(isolatedNodeData, boundingBoxFinal, nodeAreaFactor*invTotalInternalNodes, connectedArea, borderPercent, hierLevel==0)
+      val scaleFactor = math.sqrt(connectedAreaOut / connectedArea)
+      scaleFactors += scaleFactor
 
 			// re-calc coords of bounding box to correspond to only the central connected communities (width = height = sqrt(2)*r)
 			val rSqrt2 = Math.sqrt(connectedAreaOut * 0.31831)*0.70711		//0.31831 = 1/pi; 0.70711 = 1/sqrt(2)

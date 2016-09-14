@@ -53,7 +53,7 @@ class IsolatedNodeLayout {
 				val (id, numInternalNodes, degree, metaData) = n
 				val nodeArea = nodeAreaNorm * boundingBoxArea * numInternalNodes
 				val nodeRadius = Math.sqrt(nodeArea * 0.31831)	//0.31831 = 1/pi
-				                          (id, xC, yC, nodeRadius, numInternalNodes, degree, metaData)
+				(id, xC, yC, nodeRadius, numInternalNodes, degree, metaData)
 			}
 		).toList.sortBy(row => if (bSortByDegree) row._6 else row._4).toArray
 

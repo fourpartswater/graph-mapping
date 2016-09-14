@@ -14,11 +14,11 @@ package software.uncharted.graphing.layout
 
 
 
-import org.apache.commons.collections.list.TreeList
-import org.apache.spark.SparkContext
+import org.apache.spark.{Accumulable, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
 
+import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
 
@@ -165,18 +165,18 @@ class HierarchicFDLayout extends Serializable {
 			val g = if (level > 0) gravity else 0
 			//val currAreaPercent = Math.max(nodeAreaPercent - (maxHierarchyLevel-level)*5, 10)	// use less area for communities at lower hierarchical levels
 
+      val scaleFactors: Accumulable[MutableBuffer[Double], Double] = joinedData.context.accumulableCollection[MutableBuffer[Double], Double](MutableBuffer[Double]())
 			// perform force-directed layout algorithm on all nodes and edges in a given parent community
 			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
 			val nodeDataAll = joinedData.flatMap { p =>
-				val parentID = p._1
-				val parentRectangle = p._2._2
-				// List of (node IDs, numInternalNodes, degree, node metaData) for a given community
-				val communityNodes = p._2._1._1
-				// List of edges (srcID, dstID, weight)
-				val communityEdges = p._2._1._2
-				// Note, 'nodesWithCoords' result is an array of format (ID, x, y, radius, numInternalNodes, degree, metaData)
+        // ParentID: Long
+        // communityNodes: Iterable[(nodeId: VertexId, numInternalNodes: Long, degree: Int, metadata: String)]
+        // communityEdges: Iterable[(srcId: Long, dstId: Long, weight: Long)]
+        // parentRectangle: (Double, Double, Double, Double)
+        val (parentID, ((communityNodes, communityEdges), parentRectangle)) = p
+
 				val nodesWithCoords = forceDirectedLayouter.run(communityNodes,
-					communityEdges,
+          communityEdges,
 					parentID,
 					parentRectangle,
 					level,
@@ -186,7 +186,8 @@ class HierarchicFDLayout extends Serializable {
 					bUseNodeSizes,
 					nodeAreaPercent,
 					g,
-					isolatedDegreeThres)
+					isolatedDegreeThres,
+          scaleFactors)
 
 				// calc circle coords of parent community for saving results
 				// centre of parent circle
@@ -202,6 +203,7 @@ class HierarchicFDLayout extends Serializable {
 				)
 				nodeData
 			}
+      println("Layout done.  Scale factors used: "+scaleFactors.value.toList)
 
 			nodeDataAll.cache
 
