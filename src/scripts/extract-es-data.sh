@@ -65,7 +65,6 @@ spark-submit \
 	--executor-cores 4 \
 	--executor-memory 10g \
 	${MAIN_JAR} \
-	-sourceClustering ${BASE_LOCATION}/${DATASET}/clusters \
 	-sourceLayout ${BASE_LOCATION}/${DATASET}/layout \
 	-output ${BASE_LOCATION}/${DATASET}/esexport \
 	-maxLevel ${MAX_LEVEL} |& tee -a export.log

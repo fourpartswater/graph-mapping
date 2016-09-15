@@ -22,7 +22,6 @@ object ESIngestExport {
 
     val sc = new SparkContext(new SparkConf().setAppName("Node Tiling"))
 
-    val sourceClusteringDir = argParser.getStringOption("sourceClustering", "The source directory where to find clustered graph data", None).get
     val sourceLayoutDir = argParser.getStringOption("sourceLayout", "The source directory where to find graph layout data", None).get
     val outputDir = argParser.getStringOption("output", "The output location where to save data", None).get
     val dataDelimiter = argParser.getString("d", "Delimiter for the source graph data. Default is tab-delimited", "\t")
@@ -30,11 +29,9 @@ object ESIngestExport {
 
     val fileStartTime = System.currentTimeMillis()
 
-    // Hierarchical Force-Directed layout scheme
     val exporter = new Exporter()
 
     exporter.exportData(sc,
-      sourceClusteringDir,
       sourceLayoutDir,
       outputDir,
       dataDelimiter,
