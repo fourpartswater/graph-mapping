@@ -16,7 +16,7 @@ package software.uncharted.graphing.layout
 import org.apache.spark.{Accumulable, Accumulator}
 
 import scala.util.Random
-import scala.collection.mutable.{Buffer => MutableBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 
 /**
@@ -139,7 +139,7 @@ class ForceDirected extends Serializable {
 	        nodeAreaPercent: Int = 30,
 	        gravity: Double = 0.0,
 	        isolatedDegreeThres: Int = 0,
-          scaleFactors: Accumulable[MutableBuffer[Double], Double]): Array[(Long, Double, Double, Double, Long, Int, String)] = {
+          scaleFactors: Accumulable[ArrayBuffer[Double], Double]): Array[(Long, Double, Double, Double, Long, Int, String)] = {
 
 		var numNodes = nodes.size
 		if (numNodes == 0) throw new IllegalArgumentException("number of nodes must be > 0")

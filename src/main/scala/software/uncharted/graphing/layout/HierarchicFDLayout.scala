@@ -18,7 +18,7 @@ import org.apache.spark.{Accumulable, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
 
-import scala.collection.mutable.{Buffer => MutableBuffer}
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 
 
@@ -165,7 +165,7 @@ class HierarchicFDLayout extends Serializable {
 			val g = if (level > 0) gravity else 0
 			//val currAreaPercent = Math.max(nodeAreaPercent - (maxHierarchyLevel-level)*5, 10)	// use less area for communities at lower hierarchical levels
 
-      val scaleFactors: Accumulable[MutableBuffer[Double], Double] = joinedData.context.accumulableCollection[MutableBuffer[Double], Double](MutableBuffer[Double]())
+      val scaleFactors: Accumulable[ArrayBuffer[Double], Double] = joinedData.context.accumulableCollection[ArrayBuffer[Double], Double](ArrayBuffer[Double]())
 			// perform force-directed layout algorithm on all nodes and edges in a given parent community
 			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
 			val nodeDataAll = joinedData.flatMap { p =>
@@ -350,7 +350,7 @@ class HierarchicFDLayout extends Serializable {
         // (1/2)^2L = pi * R^2 * N/T^2
         // L = 1/2 log_1/2 (pi * R^2 * N/T^2)
         // L = 1/2 log(pi * R^2 * N/T^2) / log(1/2)
-        0.5 * math.log(math.Pi * radius * radius * numberPerTile / (totalLayoutLength * totalLayoutLength)) / math.log(0.5)
+        math.round(0.5 * math.log(math.Pi * radius * radius * numberPerTile / (totalLayoutLength * totalLayoutLength)) / math.log(0.5)).toInt
       }
     }
     def getOldZoomLevel (radius: Double) = {
