@@ -101,23 +101,26 @@ class HierarchicFDLayout extends Serializable {
 			val edges0 = gparser.parseEdgeData(sc, rawData, partitions, delimiter, 1, 2, 3)
 
 			// parse node data ... format is (nodeID, parent community ID, internal number of nodes, degree, metadata)
-			val parsedNodeData0 =  if (level == maxHierarchyLevel) {
-				val ndata = gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
-				//for the top hierarachy level, force the 'parentID' = to the largest community,
-				// so the largest community will be placed in the centre of the graph layout
-				//(and reset the 'lastLevelLayout' variable accordingly)
-				val topParentID = ndata.map(n => (n._1, n._2._2)).top(1)(Ordering.by(_._2))(0)._1
-				lastLevelLayout = sc.parallelize(Seq(topParentID -> (0.0,0.0,layoutDimensions._1,layoutDimensions._2)))
+			val parsedNodeData0 =
+        if (level == maxHierarchyLevel) {
+          val ndata = gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
+          //for the top hierarachy level, force the 'parentID' of all nodes to the largest community,
+          // so the largest community will be placed in the centre of the graph layout
+          //(and reset the 'lastLevelLayout' variable accordingly)
+          val topParentID = ndata.map(n => (n.id, n.internalNodes)).top(1)(Ordering.by(_._2))(0)._1
+          lastLevelLayout = sc.parallelize(Seq(topParentID ->(0.0, 0.0, layoutDimensions._1, layoutDimensions._2)))
 
-				ndata.map(node => (node._1, (topParentID, node._2._2, node._2._3, node._2._4)))	// force parentID = topParentID for top level group
-			}
-			else {
-				gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
-			}
+          // force parentID = topParentID for top level group
+          ndata.map(node => GraphNode(node.id, topParentID, node.internalNodes, node.degree, node.metadata))
+        } else {
+          gparser.parseNodeData(sc, rawData, partitions, delimiter, 1, 2, 3, 4)
+        }
+      val localNodeData = parsedNodeData0.collect()
+      val localEdgeData = edges0.collect()
 
 			// now create graph of parsed nodes and edges for this hierarchy, and discard any nodes/communities that ==null or are too small
-			val graph = Graph(parsedNodeData0, edges0).subgraph(vpred = (id, attr) => {
-				if ((attr != null) && (attr._2 > communitySizeThres || level == 0)) true else false
+			val graph = Graph(parsedNodeData0.map(node => (node.id, node)), edges0).subgraph(vpred = (id, attr) => {
+				if ((attr != null) && (attr.internalNodes > communitySizeThres || level == 0)) true else false
 			})
 			val parsedNodeData = graph.vertices
 			val edges = graph.edges
@@ -126,12 +129,12 @@ class HierarchicFDLayout extends Serializable {
 			// find all intra-community edges and store with parent ID as map key
 			val edgesByParent = graph.triplets.flatMap(et =>
 				{
-					val srcParentID = et.srcAttr._1	// parent ID for edge's source node
-					val dstParentID = et.dstAttr._1	// parent ID for edge's destination node
+					val srcParentID = et.srcAttr.parentId	// parent ID for edge's source node
+					val dstParentID = et.dstAttr.parentId	// parent ID for edge's destination node
 
 					if (srcParentID == dstParentID) {
 						// this is an INTRA-community edge (so save result with parent community ID as key)
-						Iterator( (srcParentID, (et.srcId, et.dstId, et.attr)) )
+						Iterator( (srcParentID, GraphEdge(et.srcId, et.dstId, et.attr)) )
 					}
 					else {
 						// this is an INTER-community edge (so disregard for force-directed layout of leaf communities)
@@ -147,17 +150,19 @@ class HierarchicFDLayout extends Serializable {
 			}
 
 			// now re-map nodes by (parent ID, (node ID, numInternalNodes, degree, metaData)) and group by parent rectangle
-			val groupedNodes = if (consolidationPartitions==0) {
-				parsedNodeData.map(n => (n._2._1, (n._1, n._2._2, n._2._3, n._2._4))).groupByKey()
-			} else {
-				parsedNodeData.map(n => (n._2._1, (n._1, n._2._2, n._2._3, n._2._4))).groupByKey(consolidationPartitions)
-			}
+      val nodesByParent = parsedNodeData.map{n =>
+        val (id, node) = n
+        (node.parentId, node)
+      }
+      val groupedNodes =
+        if (0 == consolidationPartitions) nodesByParent.groupByKey()
+        else nodesByParent.groupByKey(consolidationPartitions)
 
 			//join raw nodes with intra-community edges (key is parent ID), AND join with lastLevelLayout so have access to parent rectangle coords too
 			val joinedData = groupedNodes.leftOuterJoin(groupedEdges).map{case (parentID, (nodeData, edgesOption)) =>
 				// create a dummy edge for any communities without intra-cluster edges
 				// (ie for leaf communities containing only 1 node)
-				val edgeResults = edgesOption.getOrElse(Iterable( (-1L, -1L, 0L) ))
+				val edgeResults = edgesOption.getOrElse(Iterable( GraphEdge(-1L, -1L, 0L) ))
 				(parentID, (nodeData, edgeResults))
 			}.join(lastLevelLayout)
 
@@ -175,7 +180,8 @@ class HierarchicFDLayout extends Serializable {
         // parentRectangle: (Double, Double, Double, Double)
         val (parentID, ((communityNodes, communityEdges), parentRectangle)) = p
 
-				val nodesWithCoords = forceDirectedLayouter.run(communityNodes,
+				val nodesWithCoords = forceDirectedLayouter.run(
+          communityNodes,
           communityEdges,
 					parentID,
 					parentRectangle,
@@ -195,16 +201,14 @@ class HierarchicFDLayout extends Serializable {
 				// radius of parent circle
 				val parentR = Math.sqrt(Math.pow(parentX - parentRectangle._1, 2.0) + Math.pow(parentY - parentRectangle._2, 2.0))
 
-				val nodeData = nodesWithCoords.map(i => {
-					// add parent ID onto each record
-					val (id, x, y, radius, numInternalNodes, degree, metaData) = i
-					(id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
+				nodesWithCoords.map{i =>
+					// add parent geometry onto each record
+          if (parentID != i.node.parentId) {
+            println("Parent mismatch!")
+          }
+          (i.node.id, ParentedLayoutNode(i.node, i.geometry, LayoutGeometry(parentX, parentY, parentR)))
 				}
-				)
-				nodeData
 			}
-      println("Layout done.  Scale factors used: "+scaleFactors.value.toList)
-
 			nodeDataAll.cache
 
 			//			nodeResultsAllLevels(level) = nodeDataAll	// store node and edge results for this hierarchy level
@@ -217,23 +221,20 @@ class HierarchicFDLayout extends Serializable {
 			levelStats(level) = calcLayoutStats(level,
                                           graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
-                                          graphForThisLevel.vertices.map(n => Try(n._2._3).toOption), // Get community radii
-                                          graphForThisLevel.vertices.map(n => Try(n._2._7).toOption), // Get parent radii
+                                          graphForThisLevel.vertices.map(n => Try(n._2.geometry.radius).toOption), // Get community radii
+                                          graphForThisLevel.vertices.map(n => Try(n._2.parentGeometry.radius).toOption), // Get parent radii
 			                                    Math.min(layoutDimensions._1, layoutDimensions._2),
 			                                    level == maxHierarchyLevel)
 
 			// save layout results for this hierarchical level
 			saveLayoutResults(graphForThisLevel, outputDir, level, level == maxHierarchyLevel)
+      println("Layout done.  Scale factors used: "+scaleFactors.value.toList)
 
 			if (level > 0) {
-				val levelLayout = nodeDataAll.map(data =>
-					{
-						// convert x,y coords and community radius of this community to a square bounding box for next hierarchical level
-						val dataCircle = (data._1, data._2._1, data._2._2, data._2._3)
-						val rect = circleToRectangle(dataCircle)
-						rect
-					}
-				)
+				val levelLayout = nodeDataAll.map { data =>
+          // convert x,y coords and community radius of this community to a square bounding box for next hierarchical level
+          circleToRectangle(data._1, data._2.geometry)
+        }
 
 				//localLastLevelLayout = levelLayout.collect
 				levelLayout.cache
@@ -299,11 +300,10 @@ class HierarchicFDLayout extends Serializable {
 	//		squares
 	//	}
 
-	private def circleToRectangle(nodeCoords: (Long, Double, Double, Double)): (Long, (Double, Double, Double, Double)) = {
-		val (id, x, y, r) = nodeCoords
+	private def circleToRectangle(id: Long, geometry: LayoutGeometry): (Long, (Double, Double, Double, Double)) = {
 		// calc coords of bounding box with same centre as the circle, and width = height = sqrt(2)*r
-		val rSqrt2 = r*0.70711	// 0.70711 = 1/sqrt(2)
-		val squareCoords = (x - rSqrt2, y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
+		val rSqrt2 = geometry.radius*0.70711	// 0.70711 = 1/sqrt(2)
+		val squareCoords = (geometry.x - rSqrt2, geometry.y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
 		(id, squareCoords)
 	}
 
@@ -394,42 +394,43 @@ class HierarchicFDLayout extends Serializable {
     )
 	}
 
-	private def saveLayoutResults(graphWithCoords: Graph[(Double, Double, Double, Long, Double, Double, Double, Long, Int, String), Long],
+	private def saveLayoutResults(graphWithCoords: Graph[ParentedLayoutNode, Long],
 	                              outputDir: String,
 	                              level: Int, bIsMaxLevel: Boolean) =	{
 
 		// re-format results into tab-delimited strings for saving to text file
-		val resultsNodes = graphWithCoords.vertices.map(node =>
-			{
-				try {
-					val (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData)) = node
+		val resultsNodes = graphWithCoords.vertices.flatMap{vertex =>
+      Try{
+        val (id, node) = vertex
 
-					"node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
-				}
-				catch {
-					case _: Throwable => null
-				}
-			}
-		).filter(line => line != null)
+        "node\t" + id + "\t" +
+        node.geometry.x + "\t" +
+        node.geometry.y + "\t" +
+        node.geometry.radius + "\t" +
+        node.node.parentId + "\t" +
+        node.parentGeometry.x + "\t" +
+        node.parentGeometry.y + "\t" +
+        node.parentGeometry.radius+ "\t" +
+        node.node.internalNodes + "\t" +
+        node.node.degree + "\t" +
+        node.node.metadata
+      }.toOption
+    }
 
-		val resultsEdges = graphWithCoords.triplets.map(et =>
-			{
-				try {
-					val srcID = et.srcId
-					val dstID = et.dstId
-					// nodeAttributes are of format ((x, y, radius, numInternalNodes), parentCircle)
-					val srcCoords = (et.srcAttr._1, et.srcAttr._2)
-					val dstCoords = (et.dstAttr._1, et.dstAttr._2)
-					// is this an inter-community edge (same parentID for src and dst)
-					val interCommunityEdge = if ((et.srcAttr._4 != et.dstAttr._4) || bIsMaxLevel) 1 else 0
+		val resultsEdges = graphWithCoords.triplets.flatMap { et =>
+      Try {
+        val srcID = et.srcId
+        val dstID = et.dstId
+        // nodeAttributes are of format ((x, y, radius, numInternalNodes), parentCircle)
 
-					"edge\t" + srcID + "\t" + srcCoords._1 + "\t" + srcCoords._2 + "\t" + dstID + "\t" + dstCoords._1 + "\t" + dstCoords._2 + "\t" + et.attr + "\t" + interCommunityEdge
-				}
-				catch {
-					case _: Throwable => null
-				}
-			}
-		).filter(line => line != null)
+        val srcGeometry = et.srcAttr.geometry
+        val dstGeometry = et.dstAttr.geometry
+        // is this an inter-community edge (same parentID for src and dst)
+        val interCommunityEdge = if ((et.srcAttr.node.parentId != et.dstAttr.node.parentId) || bIsMaxLevel) 1 else 0
+
+        "edge\t" + srcID + "\t" + srcGeometry.x + "\t" + srcGeometry.y + "\t" + dstID + "\t" + dstGeometry.x + "\t" + dstGeometry.y + "\t" + et.attr + "\t" + interCommunityEdge
+      }.toOption
+    }.filter(line => line != null)
 
 		val resultsAll = resultsNodes.union(resultsEdges)	// put both node and edge results into one RDD
 
@@ -453,3 +454,5 @@ class HierarchicFDLayout extends Serializable {
 		sc.parallelize(statsStrings, 1).saveAsTextFile(outputDir+"/stats")
 	}
 }
+
+case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)

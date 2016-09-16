@@ -93,7 +93,7 @@ class GraphCSVParser {
 	                  parentIDindex: Int=2,
 	                  internalNodesX: Int=3,
 	                  degreeX: Int=4,
-	                  bKeepExtraAttributes: Boolean=true): RDD[(Long, (Long, Long, Int, String))] = {
+	                  bKeepExtraAttributes: Boolean=true): RDD[GraphNode] = {
 
 		val nAttrX = Math.max(Math.max(Math.max(nodeIDindex, parentIDindex), internalNodesX), degreeX)+1
 
@@ -111,7 +111,7 @@ class GraphCSVParser {
 					} else {
 						""
 					}
-					Some((id, (parentID, internalNodes, degree, metaData)))
+          Some(GraphNode(id, parentID, internalNodes, degree, metaData))
 				}
 				else {
 					None
@@ -120,3 +120,6 @@ class GraphCSVParser {
 		)
 	}
 }
+
+case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String)
+case class GraphEdge (srcId: Long, dstId: Long, weight: Long)

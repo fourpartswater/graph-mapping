@@ -45,17 +45,14 @@ class AntiOverlap {
      * @param 	maxDelta
 	 * 		  	Optional threshold to determine when algorithm has sufficiently converged (if maximum node displacement < maxDelta). Default = 0.0
 	 *      	meaning algorithm will simply continue to run for maxIterations
-	 *
-	 * @return 	Array of final node/community locations. Format of output array is (node ID, x, y, radius, numInternalNodes, metaData)
+    * @return 	Array of final node/community locations. Format of output array is (node ID, x, y, radius, numInternalNodes, metaData)
 	 *
 	 */
-	def run(nodeCoords: Array[(Long, Double, Double, Double, Long, Int, String)],
+	def run(nodeCoords: Array[LayoutNode],
 	        parentID: Long,
 	        maxIterations: Int = 250,
 	        dampen: Float = 0.5f,
-	        maxDelta: Double = 0.0): Array[(Long, Double, Double, Double, Long, Int, String)] = {
-
-
+	        maxDelta: Double = 0.0): Array[LayoutNode] = {
   	    val numNodes = nodeCoords.length
   	    val bUseQTDecomp = numNodes > QT_NODE_THRES
 		var bDone = false
@@ -63,11 +60,10 @@ class AntiOverlap {
 		println("Starting Anti-Overlap layout algorithm on " + numNodes + " nodes")
 
 		while (!bDone) {
-
 			_bNodesOverlapping = false
 
 			// init array of node displacements for this iteration
-			val deltaXY = Array.fill[(Double, Double)](numNodes)((0.0,0.0))
+			val deltaXY = Array.fill[Delta](numNodes)(Delta(0.0,0.0))
 
 			//---- Calc repulsion displacements between all overlapping nodes
 			if (bUseQTDecomp) {
@@ -75,23 +71,14 @@ class AntiOverlap {
 				val qt = ForceDirected.createQuadTree(nodeCoords, numNodes)
 
 				for (n1 <- 0 until numNodes) {
-					val (x,y,r) = (nodeCoords(n1)._2, nodeCoords(n1)._3, nodeCoords(n1)._4)
-					val qtDeltaXY = calcQTOverlapRepulsion(n1, x, y, r, qt.getRoot, QT_THETA)
-
-					deltaXY(n1) = (deltaXY(n1)._1 + qtDeltaXY._1, deltaXY(n1)._2 + qtDeltaXY._2)
+          deltaXY(n1) = deltaXY(n1) + calcQTOverlapRepulsion(n1, nodeCoords(n1).geometry, qt.getRoot, QT_THETA)
 				}
-			}
-			else {
+			} else {
 				// Use regular repulsion force calculation instead
 				for (n1 <- 0 until numNodes) {
 					for (n2 <- 0 until numNodes) {
-						if (n1 != n2 && (nodeCoords(n1)._1 != parentID)) {
-							// get x, y coords and radii of target and repulsor nodes
-							val xyr_target = (nodeCoords(n1)._2, nodeCoords(n1)._3, nodeCoords(n1)._4)
-							val xyr_repulsor = (nodeCoords(n2)._2, nodeCoords(n2)._3, nodeCoords(n2)._4)
-
-							val nodeDeltaXY = calcOverlapRepulsion(xyr_target, xyr_repulsor)
-							deltaXY(n1) = (deltaXY(n1)._1 + nodeDeltaXY._1, deltaXY(n1)._2 + nodeDeltaXY._2)
+						if (n1 != n2 && (nodeCoords(n1).node.parentId != parentID)) {
+              deltaXY(n1) = deltaXY(n1) + calcOverlapRepulsion(nodeCoords(n1).geometry, nodeCoords(n2).geometry)
 						}
 					}
 				}
@@ -101,13 +88,13 @@ class AntiOverlap {
 			var maxDX = Double.MinValue
 			var maxDY = Double.MinValue
 			for (n1 <- 0 until numNodes) {
-			    val dX = deltaXY(n1)._1 * dampen	// dampen displacement results
-			    val dY = deltaXY(n1)._2 * dampen
+			    val dX = deltaXY(n1).deltaX * dampen	// dampen displacement results
+			    val dY = deltaXY(n1).deltaY * dampen
 				maxDX = Math.max(dX, maxDX)			// calc max of all displacements
 				maxDY = Math.max(dY, maxDY)
 
 				// save new node coord locations
-				nodeCoords(n1) = (nodeCoords(n1)._1, nodeCoords(n1)._2 + dX, nodeCoords(n1)._3 + dY, nodeCoords(n1)._4, nodeCoords(n1)._5, nodeCoords(n1)._6, nodeCoords(n1)._7)
+        nodeCoords(n1) = LayoutNode(nodeCoords(n1).node, nodeCoords(n1).geometry.offset(dX, dY))
 			}
 
 			if ((!_bNodesOverlapping) || (iterations >= maxIterations) || (Math.max(maxDX,maxDY) < maxDelta)) {
@@ -123,69 +110,66 @@ class AntiOverlap {
   	}
 
   	// Calculate Node to Node anti-overlap repulsion displacement
-	def calcOverlapRepulsion(target: (Double, Double, Double), repulsor: (Double, Double, Double)): (Double, Double) = {
+	def calcOverlapRepulsion(target: LayoutGeometry, repulsor: LayoutGeometry): Delta = {
 
 		//format for 'point' is assumed to be (x,y,radius)
-		var xDist = target._1 - repulsor._1
-		var yDist = target._2 - repulsor._2
-		val r1 = target._3
-		val r2 = repulsor._3
+		var xDist = target.x - repulsor.x
+		var yDist = target.y - repulsor.y
+		val r1 = target.radius
+		val r2 = repulsor.radius
 		// calc distance between two nodes (corrected for node radii)
-		val dist12 = Math.sqrt(xDist*xDist + yDist*yDist)		// distance between node
+    // distance between node
+		val dist12 = Math.sqrt(xDist*xDist + yDist*yDist)
 		if (dist12 < r1 + r2) {
 			_bNodesOverlapping = true
 			var repulseDist = 0.0
 			if ((xDist == 0) && (yDist == 0)) {
-				xDist = r1*0.01	// force xDist and yDist to be 1% of radius so repulse calc below doesn't == 0
+        // force xDist and yDist to be 1% of radius so repulse calc below doesn't == 0
+				xDist = r1*0.01
 				yDist = r2*0.01	// TODO -- would be better to use random directions here!
+			} else {
+        // repulse force == proportional to ratio of community radii
+				repulseDist = ((r2 + r1 - dist12)/dist12)*(r2/(r2+r1));
 			}
-			else {
-				repulseDist = ((r2 + r1 - dist12)/dist12)*(r2/(r2+r1));	// repulse force == proportional to ratio of community radii
-			}
-			(xDist*repulseDist, yDist*repulseDist)
-		}
-		else {
-			(0.0, 0.0)
+			Delta(xDist*repulseDist, yDist*repulseDist)
+		} else {
+			Delta(0.0, 0.0)
 		}
 	}
 
   	// Calculate QuadTree anti-overlap repulsion displacement
-	def calcQTOverlapRepulsion(index: Int, x: Double, y: Double,
-	                    r: Double, qn: QuadNode, theta: Double): (Double, Double) = {
+	def calcQTOverlapRepulsion(index: Int, g: LayoutGeometry, qn: QuadNode, theta: Double): Delta = {
 
 		if (qn == null) {
 			throw new IllegalArgumentException("quadNode == null") //return (0.0, 0.0)
 		}
-		if (qn.getNumChildren == 0) { // nothing to compute
-			return (0.0, 0.0)
-		}
-
-		if (qn.getNumChildren == 1) { // leaf
-
+		if (qn.getNumChildren == 0) {
+      // nothing to compute
+			Delta(0.0, 0.0)
+		} else if (qn.getNumChildren == 1) {
+      // leaf
 			val qnData = qn.getData
 			if (qnData.getId == index) {
-				return (0.0, 0.0)
-			}
-
-			val xyDelta = calcOverlapRepulsion((x,y,r), (qnData.getX, qnData.getY, qnData.getSize))
-			return xyDelta
-		}
-
-		if (ForceDirected.useAsPseudoNode(qn, (x,y), r, theta)) {	// consider current quadnode as a 'pseudo node'?
-			val (xC, yC) = qn.getCenterOfMass									// use quadnode's Centre of Mass as repulsor's coords
-			val rC = qn.getSize													// and use average radius of all underlying nodes, for this pseudo node
-			val xyDelta = calcOverlapRepulsion((x,y,r), (xC, yC, rC))
-			return (xyDelta._1*qn.getNumChildren, xyDelta._2*qn.getNumChildren)	// multiply repulsion results by number of child nodes
-		}
-
-		// failed to resolve a repulsion, so recurse into all four child quad nodes, and sum results
-		val xyDeltaNW = calcQTOverlapRepulsion(index, x, y, r, qn.getNW, theta)
-		val xyDeltaNE = calcQTOverlapRepulsion(index, x, y, r, qn.getNE, theta)
-		val xyDeltaSW = calcQTOverlapRepulsion(index, x, y, r, qn.getSW, theta)
-		val xyDeltaSE = calcQTOverlapRepulsion(index, x, y, r, qn.getSE, theta)
-
-		(xyDeltaNW._1 + xyDeltaNE._1 + xyDeltaSW._1 + xyDeltaSE._1,
-		 xyDeltaNW._2 + xyDeltaNE._2 + xyDeltaSW._2 + xyDeltaSE._2)
+				Delta(0.0, 0.0)
+			} else {
+        calcOverlapRepulsion(g, LayoutGeometry(qnData.getX, qnData.getY, qnData.getSize))
+      }
+		} else if (ForceDirected.useAsPseudoNode(qn, g, theta)) {
+      // consider current quadnode as a 'pseudo node'?
+      // use quadnode's Centre of Mass as repulsor's coords
+			val (xC, yC) = qn.getCenterOfMass
+      // and use average radius of all underlying nodes, for this pseudo node
+			val rC = qn.getSize
+			val xyDelta = calcOverlapRepulsion(g, LayoutGeometry(xC, yC, rC))
+      // multiply repulsion results by number of child nodes
+      xyDelta * qn.getNumChildren
+		} else {
+      // failed to resolve a repulsion, so recurse into all four child quad nodes, and sum results
+      calcQTOverlapRepulsion(index, g, qn.getNW, theta) +
+        calcQTOverlapRepulsion(index, g, qn.getNE, theta) +
+        calcQTOverlapRepulsion(index, g, qn.getSW, theta) +
+        calcQTOverlapRepulsion(index, g, qn.getSE, theta)
+    }
 	}
 
 

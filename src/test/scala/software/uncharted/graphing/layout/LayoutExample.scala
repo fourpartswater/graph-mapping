@@ -44,11 +44,12 @@ class LayoutExample extends FunSuite with SharedSparkContext {
       val srcStream = new PrintStream(new FileOutputStream(src))
 
       val idInc = 4 << (2 * level)
+      val nodeSize = idInc >> 2
       // Write out 4^(maxLevel-level) fully connected sub-clusters of 4 nodes each
       for (i <- 0 until maxNodeId by idInc) {
         for (c <- 0 until 4) {
           val id = i + c * idInc / 4
-          srcStream.println("node\t"+id+"\t"+id+"\t"+idInc+"\t"+idInc+"\t"+connectedNodeName(id, level, maxLevel))
+          srcStream.println("node\t"+id+"\t"+i+"\t"+nodeSize+"\t"+nodeSize+"\t"+connectedNodeName(id, level, maxLevel))
         }
       }
       // Write out numDisconnected fully disconnected nodes
