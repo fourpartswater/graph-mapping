@@ -172,7 +172,7 @@ class ForceDirected extends Serializable {
 
 			// layout isolated communities in a spiral shape
 			val isolatedNodeLayouter = new IsolatedNodeLayout()
-			val (spiralCoords, connectedAreaOut) = isolatedNodeLayouter.calcSpiralCoords(isolatedNodeData, boundingBoxFinal, nodeAreaFactor*invTotalInternalNodes, connectedArea, borderPercent, hierLevel==0)
+			val (spiralCoords, connectedAreaOut) = isolatedNodeLayouter.calcSpiralCoords(isolatedNodeData, boundingBoxFinal, nodeAreaFactor*invTotalInternalNodes, connectedArea, /* borderPercent/4.0 */ 0.0, hierLevel==0)
       val scaleFactor = math.sqrt(connectedAreaOut / connectedArea)
       scaleFactors += scaleFactor
 
@@ -481,8 +481,12 @@ class ForceDirected extends Serializable {
 			val x = boundingBox._1 + boundingBox._3*0.5
 			val y = boundingBox._2 + boundingBox._4*0.5
 			val numInternalNodes = nodeData.last.internalNodes
-			val nodeArea = nodeAreaNorm * boundingBoxArea * numInternalNodes
-			val radius = if (bUseNodeSizes) Math.sqrt(nodeArea * 0.31831) else 0.0	//0.31831 = 1/pi
+      val radius = if (false) {
+        val nodeArea = nodeAreaNorm * boundingBoxArea * numInternalNodes
+        if (bUseNodeSizes) Math.sqrt(nodeArea /* * 0.31831*/) else 0.0 //0.31831 = 1/pi
+      } else {
+        Math.sqrt(boundingBoxArea / 2)
+      }
 
 			Array( LayoutNode(nodeData.last, LayoutGeometry(x, y, radius) ) )
 		} else {

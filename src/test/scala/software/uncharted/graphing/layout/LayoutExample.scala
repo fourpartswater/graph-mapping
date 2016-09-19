@@ -12,7 +12,10 @@
  */
 package software.uncharted.graphing.layout
 
-import java.io.{File, FileOutputStream, PrintStream}
+import java.awt.{BorderLayout, Color, Dimension, Graphics}
+import java.awt.event.ActionEvent
+import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
+import javax.swing.{AbstractAction, JFrame, JMenu, JMenuBar, JMenuItem, JPanel, JTabbedPane}
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.SharedSparkContext
@@ -34,7 +37,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     val srcDir = new File("layout-example-input")
     srcDir.mkdir()
 
-    val numDisconnected = 32
+    val numDisconnected = 128
     val maxLevel = 2
     val maxNodeId = 4 << (2 * maxLevel)
     for (level <- 0 to maxLevel) {
@@ -55,7 +58,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
       // Write out numDisconnected fully disconnected nodes
       for (i <- 0 until numDisconnected) {
         val id = maxNodeId + i
-        srcStream.println("node\t"+id+"\t"+id+"\t"+1+"\t"+1+"\t"+s"disconnected node $i on hierarchy level $level")
+        srcStream.println("node\t"+id+"\t"+id+"\t"+1+"\t"+0+"\t"+s"disconnected node $i on hierarchy level $level")
       }
 
       // Connect nodes
@@ -95,19 +98,18 @@ class LayoutExample extends FunSuite with SharedSparkContext {
 
     srcDir
   }
-  private def makeOutputLocation: File = {
+  private def getOutputLocation: File = {
     val outDir = new File("layout-example-output")
-    outDir.mkdir()
     outDir
   }
   test("Example of layout application, to be used to debug through the process") {
     val sourceDir = makeSource
-    val outputDir = makeOutputLocation
+    val outputDir = getOutputLocation
     val partitions = 0
     val consolidationPartitions = 0
     val dataDelimiter = "\t"
     val maxIterations = 500
-    val maxHierarchyLevel = 0
+    val maxHierarchyLevel = 2
     val borderPercent = 2.0
     val layoutLength = 256.0
     val nodeAreaPercent = 30
@@ -141,3 +143,109 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     outputDir.delete()
   }
 }
+
+object DisplayApp {
+  def main (args: Array[String]): Unit = {
+    val app = new DisplayApp("layout-example-output", 3)
+    app.setup
+    app.setVisible(true)
+  }
+}
+class DisplayApp (outputPath: String, levels: Int) extends JFrame {
+  def setup: Unit = {
+    val tabs = new JTabbedPane()
+    for (i <- 0 until levels) {
+      val levelPane = new LevelPane(outputPath, i)
+      tabs.add("Level "+i, levelPane)
+    }
+    getContentPane.setLayout(new BorderLayout())
+    getContentPane.add(tabs, BorderLayout.CENTER)
+
+    setLocation(100, 100)
+    setSize(600, 700)
+    setupMenu
+
+    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+  }
+  def setupMenu: Unit = {
+    val bar: JMenuBar = new JMenuBar
+    val fileMenu: JMenu = new JMenu("file")
+    val exit = new JMenuItem(new AbstractAction("exit") {
+      override def actionPerformed(actionEvent: ActionEvent): Unit = {
+        setVisible(false);
+      }
+    })
+    fileMenu.add(exit)
+    bar.add(fileMenu)
+    setJMenuBar(bar)
+  }
+}
+class LevelPane (outputPath: String, level: Int) extends JPanel {
+  val nodes: List[NodeEntry] = readData()
+  def readData (): List[NodeEntry] = {
+    val dataDir = new File(outputPath, "level_"+level)
+    val dataFile = new File(dataDir, "part-00000")
+    val reader = new BufferedReader(new InputStreamReader(new FileInputStream(dataFile)))
+    val bnodes = MutableBuffer[NodeEntry]()
+
+    var line = reader.readLine()
+    while (null != line) {
+      val fields = line.split("\t")
+      bnodes += NodeEntry(
+        fields(1).toLong, fields(2).toDouble, fields(3).toDouble, fields(4).toDouble,
+        fields(5).toLong, fields(6).toDouble, fields(7).toDouble, fields(8).toDouble,
+        fields(9).toInt, fields(10).toInt, fields(11)
+      )
+      line = reader.readLine()
+    }
+    bnodes.toList
+  }
+  override def paint (g: Graphics): Unit = {
+    val size: Dimension = getSize
+    def coords (x: Double, y: Double): (Int, Int) = {
+      ((size.getWidth * x / 256.0).round.toInt, (size.getHeight* y / 256.0).round.toInt)
+    }
+    def circle (color: Color, x: Double, y: Double, r: Double, fill: Boolean, idOpt: Option[Long] = None): Unit = {
+      g.setColor(color)
+      val (lx, ly) = coords(x, y)
+      val (dxr, dyr) = coords(r, r)
+      val dx = dxr max 1
+      val dy = dyr max 1
+      if (fill) g.fillOval(lx - dx, ly - dy, 2*dx+1, 2*dy+1)
+      else g.drawOval(lx - dx, ly - dy, 2*dx+1, 2*dy+1)
+      idOpt.foreach{id =>
+        g.setColor(Color.BLACK)
+        g.drawString(""+id, lx, ly)
+      }
+    }
+    g.setColor(Color.WHITE)
+    g.fillRect(0, 0, size.getWidth.toInt, size.getHeight.toInt)
+
+    // draw nodes
+    for (node <- nodes) {
+      circle(Color.BLUE, node.x, node.y, node.r, true /*, Some(node.id) */)
+      circle(Color.RED, node.px, node.py, node.pr, false)
+    }
+
+    // Draw tick marks
+    def plus (color: Color, x: Double, y: Double, r: Double): Unit = {
+      g.setColor(color)
+      val (lx, ly) = coords(x, y)
+      val (dx, dy) = coords(r, r)
+      g.drawLine(lx - dx, ly, lx + dx, ly)
+      g.drawLine(lx, ly - dy, lx, ly + dy)
+    }
+
+    plus(Color.GREEN, 128.0, 128.0, 16.0)
+    plus(Color.GREEN,  64.0,  64.0,  8.0)
+    plus(Color.GREEN, 128.0,  64.0,  8.0)
+    plus(Color.GREEN, 196.0,  64.0,  8.0)
+    plus(Color.GREEN, 196.0, 128.0,  8.0)
+    plus(Color.GREEN, 196.0, 196.0,  8.0)
+    plus(Color.GREEN, 128.0, 196.0,  8.0)
+    plus(Color.GREEN,  64.0, 196.0,  8.0)
+    plus(Color.GREEN,  64.0, 128.0,  8.0)
+  }
+}
+
+case class NodeEntry (id: Long, x: Double, y: Double, r: Double, pid:Long, px: Double, py: Double, pr: Double, internal: Int, degree: Int, metadata: String)
