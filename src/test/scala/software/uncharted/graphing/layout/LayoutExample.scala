@@ -23,13 +23,13 @@ import org.scalatest.FunSuite
 
 
 class LayoutExample extends FunSuite with SharedSparkContext {
-  def levelWeight (level: Int): Int = {
+  def levelWeight (level: Int, connectedNodesPerLevel: Int): Int = {
     if (0 == level) 0
-    else 4 * levelWeight(level - 1) + 6
+    else connectedNodesPerLevel * levelWeight(level - 1, connectedNodesPerLevel) + connectedNodesPerLevel * (connectedNodesPerLevel - 1) / 2
   }
 
-  private def connectedNodeName (id: Int, level: Int, levels: Int): String = {
-    val parts = for (i <- (levels - level) to 0 by -1) yield (id >> (2 * i)) & 3
+  private def connectedNodeName (id: Int, level: Int, levels: Int, connectedNodesPerLevel: Int): String = {
+    val parts = for (i <- (levels - level) to 0 by -1) yield ((id / math.pow(connectedNodesPerLevel, i).round.toInt) % connectedNodesPerLevel)
     val hid = parts.mkString(":")
     s"connected node $hid[$id] on hierarchy level $level"
   }
@@ -39,57 +39,53 @@ class LayoutExample extends FunSuite with SharedSparkContext {
 
     val numDisconnected = 128
     val maxLevel = 2
-    val maxNodeId = 4 << (2 * maxLevel)
+    val connectedNodesPerLevel = 7
+    val maxConnectedNodeId = math.pow(connectedNodesPerLevel, 1 + maxLevel).round.toInt
     for (level <- 0 to maxLevel) {
       val levelDir = new File(srcDir, "level_" + level)
       levelDir.mkdir()
       val src = new File(levelDir, "part-00000")
       val srcStream = new PrintStream(new FileOutputStream(src))
 
-      val idInc = 4 << (2 * level)
-      val nodeSize = idInc >> 2
-      // Write out 4^(maxLevel-level) fully connected sub-clusters of 4 nodes each
-      for (i <- 0 until maxNodeId by idInc) {
-        for (c <- 0 until 4) {
-          val id = i + c * idInc / 4
-          srcStream.println("node\t"+id+"\t"+i+"\t"+nodeSize+"\t"+nodeSize+"\t"+connectedNodeName(id, level, maxLevel))
+      val idInc = math.pow(connectedNodesPerLevel, 1 + level).round.toInt
+      val nodeSize = idInc / connectedNodesPerLevel
+
+      // Write out connectedNodesPerLevel^(maxLevel-level) fully connected sub-clusters of connectedNodesPerLevel
+      // nodes each
+      for (i <- 0 until maxConnectedNodeId by idInc) {
+        for (c <- 0 until connectedNodesPerLevel) {
+          val id = i + c * idInc / connectedNodesPerLevel
+          srcStream.println("node\t"+id+"\t"+i+"\t"+nodeSize+"\t"+nodeSize+"\t"+connectedNodeName(id, level, maxLevel, connectedNodesPerLevel))
         }
       }
       // Write out numDisconnected fully disconnected nodes
       for (i <- 0 until numDisconnected) {
-        val id = maxNodeId + i
+        val id = maxConnectedNodeId + i
         srcStream.println("node\t"+id+"\t"+id+"\t"+1+"\t"+0+"\t"+s"disconnected node $i on hierarchy level $level")
       }
 
       // Connect nodes
-      val internalWeight = 1
-      val externalWeight = 1
       for (edgeLevel <- level to maxLevel) {
-        val lvlInc = 4 << (2 * edgeLevel)
-        for (i <- 0 until maxNodeId by lvlInc) {
-          val a = i + 0 * lvlInc / 4
-          val b = i + 1 * lvlInc / 4
-          val c = i + 2 * lvlInc / 4
-          val d = i + 3 * lvlInc / 4
+        val lvlInc = math.pow(connectedNodesPerLevel, 1 + edgeLevel).round.toInt
+        for (i <- 0 until maxConnectedNodeId by lvlInc) {
+          val vn = (0 until connectedNodesPerLevel).map(n => i + n*lvlInc / connectedNodesPerLevel)
 
           // self-connections from lower levels
           if (edgeLevel == level) {
-            val selfWeight = levelWeight(level)
+            val selfWeight = levelWeight(level, connectedNodesPerLevel)
             if (selfWeight > 0) {
-              srcStream.println("edge\t" + a + "\t" + a + "\t" + selfWeight)
-              srcStream.println("edge\t" + b + "\t" + b + "\t" + selfWeight)
-              srcStream.println("edge\t" + c + "\t" + c + "\t" + selfWeight)
-              srcStream.println("edge\t" + d + "\t" + d + "\t" + selfWeight)
+              for (i <- 0 until connectedNodesPerLevel)
+                srcStream.println("edge\t"+vn(i)+"\t"+vn(i)+"\t"+selfWeight)
             }
           }
 
           // Connect up nodes on this level
-          srcStream.println("edge\t" + a + "\t" + b + "\t" + internalWeight)
-          srcStream.println("edge\t" + a + "\t" + c + "\t" + internalWeight)
-          srcStream.println("edge\t" + a + "\t" + d + "\t" + internalWeight)
-          srcStream.println("edge\t" + b + "\t" + c + "\t" + internalWeight)
-          srcStream.println("edge\t" + b + "\t" + d + "\t" + internalWeight)
-          srcStream.println("edge\t" + c + "\t" + d + "\t" + internalWeight)
+          val internalWeight = 1
+          for (i <- 0 until connectedNodesPerLevel - 1) {
+            for (j <- i+1 until connectedNodesPerLevel) {
+              srcStream.println("edge\t"+vn(i)+"\t"+vn(j)+"\t"+internalWeight)
+            }
+          }
         }
       }
       srcStream.flush()
