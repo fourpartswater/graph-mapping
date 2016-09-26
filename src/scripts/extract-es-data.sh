@@ -32,7 +32,7 @@ echo Running in `pwd`
 echo Starting at `date`
 
 
-MAX_LEVEL=`hdfs dfs -ls ${BASE_LOCATION}/${DATASET}/clusters | awk -F'_' '{print $2}' | sort -nr | head -n1`
+MAX_LEVEL=`hdfs dfs -ls ${BASE_LOCATION}/${DATASET}/layout | awk -F'_' '{print $2}' | sort -nr | head -n1`
 
 echo MAX_LEVEL: ${MAX_LEVEL}
 

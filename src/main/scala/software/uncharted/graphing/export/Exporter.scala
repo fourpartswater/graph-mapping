@@ -47,7 +47,7 @@ class Exporter {
           node.numInternalNodes,
           node.degree,
           node.level,
-          if (levelPath.isDefined) levelPath.get else node.levelId(node.parentId, node.level),  //Top level does not have a path defined, so it is initialized here.
+          levelPath.getOrElse(node.levelId(node.parentId, node.level)),  //Top level does not have a path defined, so it is initialized here.
           node.metaData)
       })
 
@@ -85,9 +85,9 @@ class Exporter {
         node(8),
         node(9),
         node(10),
-        level,
+        level,  //Data also contains level.
         "",
-        if (node.length > 12) node(12) else ""))
+        node.drop(12))) //Treat all other columns as metadata/
 
     return combinedData
   }
