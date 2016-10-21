@@ -32,14 +32,22 @@ import software.uncharted.salt.core.analytic.Aggregator
 
 
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
-                     analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
+                     analyticData: Array[Any],
+                     baseAnalyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
   var communityNode: NodeInfo = null
 
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
     analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
+
   def finishedAnalyticValues: Array[String] = {
     (analyticData zip analytics).map{case (data, analytic) =>
         finishValue(data, analytic)
+    }
+  }
+
+  def finishedBaseAnalyticValues: Array[String] = {
+    (baseAnalyticData zip analytics).map{case (data, analytic) =>
+      finishValue(data, analytic)
     }
   }
 
@@ -62,6 +70,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
       this.internalNodes + that.internalNodes,
       this.metaData,
       aggregatedAnalyticData.toArray,
+      this.baseAnalyticData,
       analytics
     )
   }
@@ -201,7 +210,7 @@ object Graph {
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
     for (i <- 0 until nb_nodes) {
-      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2), nodes(i)._3, customGraphAnalytics)
+      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2), nodes(i)._3, nodes(i)._3.clone(), customGraphAnalytics)
     }
 
     val links = new Array[Int](nb_links)
@@ -291,12 +300,12 @@ object Graph {
           for (i <- ad.indices) {
             ad(i) = extractAnalyticValue(customAnalytics(i).aggregator, metadataInputStream.readUTF())
           }
-          nodeInfos(i) = NodeInfo(i, 1, Some(md), ad, customAnalytics)
+          nodeInfos(i) = NodeInfo(i, 1, Some(md), ad, ad.clone(), customAnalytics)
         }
       }
     } else {
       for (i <- 0 until nb_nodes)
-        nodeInfos(i) = NodeInfo(i, 1, None, Array[Any](), customAnalytics)
+        nodeInfos(i) = NodeInfo(i, 1, None, Array[Any](), Array[Any](), customAnalytics)
     }
 
     new Graph(degrees, links, nodeInfos, weights)
