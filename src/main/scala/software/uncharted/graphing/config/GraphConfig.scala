@@ -43,7 +43,7 @@ object GraphConfig extends Logging {
     try {
       val graphConfig = config.getConfig(graphKey)
       val analytics = graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
-        CustomGraphAnalytic(analyticName)
+        CustomGraphAnalytic(analyticName, "")
       }
       val levels = graphConfig.getIntList(levelsKey).asScala.map(_.intValue())
       val edgeConfig = graphConfig.getConfig(edgeKey)

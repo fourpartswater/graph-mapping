@@ -352,7 +352,7 @@ class Community (val g: Graph,
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
       val metadata = g.metaData(i)
-      val analyticData = g.nodeInfo(i).finishedAnalyticValues
+      val analyticData = g.nodeInfo(i).finishedBaseAnalyticValues
       val analytics =
         if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
         else ""
@@ -541,7 +541,13 @@ object Community {
 
           case "a" =>
             i = i + 1
-            tempAnalytics += CustomGraphAnalytic(args(i))
+            tempAnalytics += CustomGraphAnalytic(args(i), "")
+
+          case "ac" =>
+            i = i + 1
+            val analytic = args(i)
+            i = i + 1
+            tempAnalytics += CustomGraphAnalytic(analytic, args(i))
 
           case "v" =>
             verbose = true

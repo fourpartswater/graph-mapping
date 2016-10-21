@@ -99,7 +99,7 @@ object Convert {
 
           case "ae" =>
             i = i + 1
-            edge_analytics += CustomGraphAnalytic(args(i))
+            edge_analytics += CustomGraphAnalytic(args(i), "")
 
           case "s" =>
             i = i + 1
@@ -129,7 +129,13 @@ object Convert {
 
           case "an" =>
             i = i + 1
-            node_analytics += CustomGraphAnalytic(args(i))
+            node_analytics += CustomGraphAnalytic(args(i), "")
+
+          case "anc" =>
+            i = i + 1
+            val analytic = args(i)
+            i = i + 1
+            node_analytics += CustomGraphAnalytic(analytic, args(i))
 
           case "n" =>
             i = i + 1
