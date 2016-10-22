@@ -10,7 +10,7 @@ MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 DATASET=
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1
@@ -37,7 +37,7 @@ case ${DATASET} in
 		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
 		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
 		;;
-	
+
 	wdc-pld)
 		echo Converting WDC pay-level domain graph
 		CONVERT_ARGS="-ie edges.txt -ce \\t -s 0 -d 1"
@@ -67,6 +67,15 @@ case ${DATASET} in
 		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.MinAnalytic5"
 		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
 		;;
+
+    grant-graph)
+        echo Converting ${DATASET}
+        CONVERT_ARGS="-ie edges -ce \\t -s 0 -d 1 -oe edges.bin"
+        CONVERT_ARGS="${CONVERT_ARGS} -in nodes -cn \\t -n 1 -m 0 -om metadata.bin"
+        CONVERT_ARGS="${CONVERT_ARGS} -anc software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
+        MEM=64g
+        ;;
+
 
 esac
 

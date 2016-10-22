@@ -33,7 +33,7 @@ import software.uncharted.salt.core.analytic.Aggregator
 
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
                      analyticData: Array[Any],
-                     baseAnalyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
+                     var baseAnalyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
   var communityNode: NodeInfo = null
 
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
@@ -210,7 +210,7 @@ object Graph {
 
     val nodeInfos = new Array[NodeInfo](nb_nodes)
     for (i <- 0 until nb_nodes) {
-      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2), nodes(i)._3, nodes(i)._3.clone(), customGraphAnalytics)
+      nodeInfos(i) = NodeInfo(nodes(i)._1, 1, Some(nodes(i)._2), nodes(i)._3, nodes(i)._3, customGraphAnalytics)
     }
 
     val links = new Array[Int](nb_links)
