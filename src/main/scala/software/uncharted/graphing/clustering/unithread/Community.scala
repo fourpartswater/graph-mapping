@@ -432,6 +432,14 @@ class Community (val g: Graph,
     }
   }
 
+  def updateAnalyticData(g: Graph): Unit = {
+    //Iterate over all node infos and set base analytic to the aggregated analytic values.
+    for (i <- 0 until g.nb_nodes) {
+      val nodeInfo = g.nodeInfo(i)
+      nodeInfo.baseAnalyticData = nodeInfo.analyticData
+    }
+  }
+
   def partition2graph_binary(): Graph = {
     val (renumber, _) = getRenumbering
 
@@ -656,6 +664,7 @@ object Community {
 
       SimpleProfiling.register("iterative.convert")
       g = c.partition2graph_binary()
+      c.updateAnalyticData(g)
       SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)

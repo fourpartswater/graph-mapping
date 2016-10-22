@@ -1,11 +1,20 @@
+/**
+  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.analytics
 
 import software.uncharted.salt.core.analytic.Aggregator
 import com.typesafe.config.Config
 
-/**
-  * Created by nkronenfeld on 19/10/16.
-  */
 class BucketAnalytic (c: Int, minValue: Double, maxValue: Double, bins: Int) extends CustomGraphAnalytic[Array[Int]] {
   val analyticKey = "analytic"
   val bucketKey = "bucket"
@@ -45,6 +54,11 @@ class BucketAnalytic (c: Int, minValue: Double, maxValue: Double, bins: Int) ext
       (output: Array[Int]) => output.mkString(",")
     )
 
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
   override def initialize(configs: Config): CustomGraphAnalytic[Array[Int]] = {
     val analyticConfig = configs.getConfig(analyticKey)
     val bucketConfig = analyticConfig.getConfig(bucketKey)
@@ -63,8 +77,9 @@ class BucketAggregator (minValue: Double, maxValue: Double, bins: Int) extends A
   override def finish(intermediate: Array[Int]): Array[Int] = intermediate
 
   override def merge(left: Array[Int], right: Array[Int]): Array[Int] = {
-    for (i <- left.indices) left(i) = left(i) + right(i)
-    left
+    val result: Array[Int] = Array.fill(left.length)(0)
+    for (i <- left.indices) result(i) = left(i) + right(i)
+    result
   }
 
   override def add(current: Array[Int], next: Option[Double]): Array[Int] = {

@@ -43,6 +43,11 @@ class AggregatorBasedAnalytic[T] (base: Aggregator[Double, T, Double], c: Int, a
     */
   override def max(left: String, right: String): String = (left.toDouble max right.toDouble).toString
 
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
   override def initialize(configs: Config): CustomGraphAnalytic[T] = this
 }
 
@@ -141,6 +146,11 @@ class CategoryAnalytic (c: Int) extends CustomGraphAnalytic[Map[String, Int]] {
       (output: List[(String, Int)]) => output.map{case (key, value) => s"$key:$value"}.mkString(",")
     )
 
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
   override def initialize(configs: Config): CustomGraphAnalytic[Map[String, Int]] = this
 }
 

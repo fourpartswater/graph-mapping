@@ -82,6 +82,11 @@ trait CustomGraphAnalytic[T] extends Serializable {
     */
   def max (left: String, right: String): String
 
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
   def initialize(configs: Config): CustomGraphAnalytic[T]
 }
 object CustomGraphAnalytic {
