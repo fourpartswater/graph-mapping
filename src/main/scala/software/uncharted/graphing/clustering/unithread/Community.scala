@@ -352,7 +352,7 @@ class Community (val g: Graph,
       val size = g.internalSize(i)
       val weight = g.weighted_degree(i).round.toInt
       val metadata = g.metaData(i)
-      val analyticData = g.nodeInfo(i).finishedBaseAnalyticValues
+      val analyticData = g.nodeInfo(i).finishedAnalyticValues
       val analytics =
         if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
         else ""
@@ -429,14 +429,6 @@ class Community (val g: Graph,
       statsStream.println("Ideal calculations (N="+N+", C="+C+", L="+L+")")
       statsStream.println("Unweighted diff from ideal: "+diffFromIdeal)
       statsStream.println("Weighted diff from ideal: "+(diffFromIdeal * math.pow(C/N, level/L)))
-    }
-  }
-
-  def updateAnalyticData(g: Graph): Unit = {
-    //Iterate over all node infos and set base analytic to the aggregated analytic values.
-    for (i <- 0 until g.nb_nodes) {
-      val nodeInfo = g.nodeInfo(i)
-      nodeInfo.baseAnalyticData = nodeInfo.analyticData
     }
   }
 
@@ -664,7 +656,6 @@ object Community {
 
       SimpleProfiling.register("iterative.convert")
       g = c.partition2graph_binary()
-      c.updateAnalyticData(g)
       SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
