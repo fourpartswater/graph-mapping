@@ -25,7 +25,7 @@ class ClusteredNode (val nodeId: String,
                      val degree: String,
                      val level: Int,
                      val communityHierarchy: String,
-                     val metaData: Array[String]) {
+                     val metaData: Array[String]) extends Serializable {
 
   override def toString() : String = {
     return "node\t" + levelId() + "\t" + xCoord + "\t" + yCoord + "\t" + radius + "\t" + parentId + "\t" + parentXCoord + "\t" + parentYCoord + "\t" + parentRadius + "\t" + numInternalNodes + "\t" + degree + "\t" + level + "\t" + inclusiveHierarchy() + "\t" + metaData.mkString("\t")
