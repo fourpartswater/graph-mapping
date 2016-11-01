@@ -16,19 +16,18 @@ package software.uncharted.graphing.clustering.usc
 
 import java.util.Date
 
-import scala.collection.generic.Growable
-import scala.collection.mutable.ListBuffer
-import scala.reflect.ClassTag
-import scala.util.Try
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.graphx.{Edge, Graph => SparkGraph}
-import org.apache.spark.{Accumulable, SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
-import software.uncharted.graphing.clustering.ClusteringStatistics
-import software.uncharted.graphing.utilities.{ArgumentParser, GraphOperations}
-import GraphOperations._
 import org.apache.spark.util.CollectionAccumulator
+import org.apache.spark.{SparkConf, SparkContext}
+import software.uncharted.graphing.clustering.ClusteringStatistics
+import software.uncharted.graphing.utilities.ArgumentParser
+import software.uncharted.graphing.utilities.GraphOperations._
+
 import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
+import scala.util.Try
 
 
 /**
