@@ -78,7 +78,7 @@ class Community (val g: Graph,
     */
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
             nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_]],
-            algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
+            algorithmMod: AlgorithmModification) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
 

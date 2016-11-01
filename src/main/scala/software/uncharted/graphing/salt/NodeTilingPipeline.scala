@@ -16,7 +16,7 @@ package software.uncharted.graphing.salt
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
@@ -41,15 +41,15 @@ object NodeTilingPipeline extends Logging {
   }
 
   def execute (config: Config): Unit = {
-    val sqlc = SparkConfig(config)
+    val sparkSession = SparkConfig(config)
     try {
-      execute(sqlc, config)
+      execute(sparkSession, config)
     } finally {
-      sqlc.sparkContext.stop()
+      sparkSession.sparkContext.stop()
     }
   }
 
-  def execute (sqlc: SQLContext, config: Config): Unit = {
+  def execute (sparkSession: SparkSession, config: Config): Unit = {
     val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
     val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
@@ -57,7 +57,7 @@ object NodeTilingPipeline extends Logging {
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
       println(s"Tiling hierarchy level $g at tile levels $minT to $maxT")
-      tileHierarchyLevel(sqlc, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
+      tileHierarchyLevel(sparkSession, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
   }
 
@@ -83,7 +83,7 @@ object NodeTilingPipeline extends Logging {
     )
   }
 
-  def tileHierarchyLevel (sqlc: SQLContext,
+  def tileHierarchyLevel (sparkSession: SparkSession,
                           hierarchyLevel: Int,
                           zoomLevels: Seq[Int],
                           tileConfig: TilingConfig,
@@ -99,12 +99,12 @@ object NodeTilingPipeline extends Logging {
 
     val schema = getSchema(graphConfig.analytics)
 
-    val tiles = Pipe(sqlc)
+    val tiles = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(schema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(schema)))
       .to(countDFRowsOp("Parsed data: "))
       .to(XDataNum.addConstantColumn("count", 1))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
