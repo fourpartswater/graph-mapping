@@ -15,24 +15,23 @@ package software.uncharted.graphing.salt
 
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
-import software.uncharted.xdata.ops.util.BasicOperations
-import software.uncharted.xdata.ops.util.DebugOperations
+import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.salt.BasicSaltOperations
+import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
-import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.salt.BasicSaltOperations
 
 
 
@@ -74,11 +73,11 @@ object MetadataTilingPipeline extends Logging {
                          graphConfig: GraphConfig,
                          outputOperation: OutputOperation): Unit = {
     import BasicOperations._
-    import DebugOperations._
     import BasicSaltOperations._
+    import DebugOperations._
+    import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
-    import RDDIO.mutateContextFcn
 
     val rawData = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))
@@ -104,7 +103,7 @@ object MetadataTilingPipeline extends Logging {
     val nodeData = rawData
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
-      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(nodeSchema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), nodeSchema))
       .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
@@ -116,7 +115,7 @@ object MetadataTilingPipeline extends Logging {
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(edgeSchema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), edgeSchema))
       .to(countDFRowsOp("Parsed edge data: "))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
       .to(countRDDRowsOp("Graph edges: "))

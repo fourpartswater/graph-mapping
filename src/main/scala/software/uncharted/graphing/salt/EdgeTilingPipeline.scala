@@ -17,12 +17,11 @@ import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Column, DataFrame, SQLContext, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.BasicOperations
-import software.uncharted.xdata.ops.util.DebugOperations
+import software.uncharted.xdata.ops.util.{BasicOperations, DebugOperations, DataFrameOperations}
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
@@ -81,11 +80,11 @@ object EdgeTilingPipeline extends Logging {
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
     import BasicOperations._
-    import DebugOperations._
     import BasicSaltOperations._
+    import DataFrameOperations._
+    import DebugOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
-    import RDDIO.mutateContextFcn
 
     val edgeFcn: Option[DataFrame => DataFrame] = graphConfig.edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
@@ -96,8 +95,7 @@ object EdgeTilingPipeline extends Logging {
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null),
-                      Some(getSchema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
       .to(countDFRowsOp("Required edges: " ))
