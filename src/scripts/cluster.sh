@@ -2,7 +2,7 @@
 
 MEM=4g
 MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-SCALA_JAR=/opt/scala-2.10.4/lib/scala-library.jar
+SCALA_JAR=/opt/scala-2.11.7/lib/scala-library.jar
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Community
 
 
@@ -10,7 +10,7 @@ MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Community
 DATASET=
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1

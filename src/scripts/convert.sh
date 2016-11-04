@@ -2,7 +2,7 @@
 
 MEM=12g
 MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-SCALA_JAR=/opt/scala-2.10.4/lib/scala-library.jar
+SCALA_JAR=/opt/scala-2.11.7/lib/scala-library.jar
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 
 
@@ -10,7 +10,7 @@ MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 DATASET=
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1
@@ -37,7 +37,7 @@ case ${DATASET} in
 		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
 		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
 		;;
-	
+
 	wdc-pld)
 		echo Converting WDC pay-level domain graph
 		CONVERT_ARGS="-ie edges.txt -ce \\t -s 0 -d 1"
