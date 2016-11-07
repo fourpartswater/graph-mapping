@@ -16,10 +16,11 @@ package software.uncharted.graphing.clustering.unithread
 
 import java.io._
 
+import com.typesafe.config.Config
 import org.scalatest.FunSuite
-import software.uncharted.graphing.analytics.{WrappingTileAggregator, WrappingClusterAggregator, CustomGraphAnalytic}
+import software.uncharted.graphing.analytics.{CustomGraphAnalytic, WrappingClusterAggregator, WrappingTileAggregator}
 import software.uncharted.salt.core.analytic.Aggregator
-import software.uncharted.salt.core.analytic.numeric.{MeanAggregator, MaxAggregator, SumAggregator}
+import software.uncharted.salt.core.analytic.numeric.{MaxAggregator, MeanAggregator, SumAggregator}
 
 import scala.language.implicitConversions
 
@@ -205,4 +206,5 @@ class TestGraphAnalytic[T] (_name: String, _column: Int, baseAggregator: Aggrega
     new  WrappingClusterAggregator(baseAggregator, (s: String) => s.toDouble, (d: Double) => d.toString)
   override def min(left: String, right: String): String = (left.toDouble min right.toDouble).toString
   override def max(left: String, right: String): String = (left.toDouble max right.toDouble).toString
+  override def initialize(configs: Config): CustomGraphAnalytic[T] = this
 }

@@ -68,6 +68,15 @@ case ${DATASET} in
 		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
 		;;
 
+    grant-graph)
+        echo Converting ${DATASET}
+        CONVERT_ARGS="-ie edges -ce \\t -s 0 -d 1 -oe edges.bin"
+        CONVERT_ARGS="${CONVERT_ARGS} -in nodes -cn \\t -n 1 -m 0 -om metadata.bin"
+        CONVERT_ARGS="${CONVERT_ARGS} -anc software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
+        MEM=64g
+        ;;
+
+
 esac
 
 

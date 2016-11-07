@@ -35,6 +35,11 @@ else
 	ARGS="edges.bin -l -1 -v"
 fi
 
+if [ -e weights.bin ]
+then
+        ARGS="${ARGS} -w weights.bin"
+fi
+
 case ${DATASET} in
 
 	affinity-nd)
@@ -50,6 +55,12 @@ case ${DATASET} in
 		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MeanAnalytic4"
 		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MinAnalytic5"
 		;;
+
+    grant-graph)
+            ARGS="${ARGS} -nd 10"
+            ARGS="${ARGS} -ac software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
+            ;;
+
 
 esac
 

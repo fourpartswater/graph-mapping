@@ -541,7 +541,13 @@ object Community {
 
           case "a" =>
             i = i + 1
-            tempAnalytics += CustomGraphAnalytic(args(i))
+            tempAnalytics += CustomGraphAnalytic(args(i), "")
+
+          case "ac" =>
+            i = i + 1
+            val analytic = args(i)
+            i = i + 1
+            tempAnalytics += CustomGraphAnalytic(analytic, args(i))
 
           case "v" =>
             verbose = true

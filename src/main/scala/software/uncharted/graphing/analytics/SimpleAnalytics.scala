@@ -19,6 +19,7 @@ import software.uncharted.salt.core.analytic.collection.TopElementsAggregator
 import software.uncharted.salt.core.analytic.numeric.{MaxAggregator, MeanAggregator, MinAggregator, SumAggregator}
 
 import scala.collection.Map
+import com.typesafe.config.Config
 
 
 
@@ -41,6 +42,13 @@ class AggregatorBasedAnalytic[T] (base: Aggregator[Double, T, Double], c: Int, a
     * Take two processed, aggregated values, and determine the maximum value of the pair.
     */
   override def max(left: String, right: String): String = (left.toDouble max right.toDouble).toString
+
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
+  override def initialize(configs: Config): CustomGraphAnalytic[T] = this
 }
 
 class SumAnalytic0 extends AggregatorBasedAnalytic(SumAggregator, 0, "sum")
@@ -137,6 +145,13 @@ class CategoryAnalytic (c: Int) extends CustomGraphAnalytic[Map[String, Int]] {
       (input: String) => input.split(",").toSeq.filter(_.length > 0),
       (output: List[(String, Int)]) => output.map{case (key, value) => s"$key:$value"}.mkString(",")
     )
+
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
+  override def initialize(configs: Config): CustomGraphAnalytic[Map[String, Int]] = this
 }
 
 class CategoryAnalytic0 extends CategoryAnalytic(0)
