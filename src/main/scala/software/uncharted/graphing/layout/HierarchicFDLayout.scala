@@ -413,6 +413,7 @@ class HierarchicFDLayout extends Serializable {
         node.parentGeometry.radius+ "\t" +
         node.node.internalNodes + "\t" +
         node.node.degree + "\t" +
+        level + "\t" +
         node.node.metadata
       }.toOption
     }
@@ -421,8 +422,6 @@ class HierarchicFDLayout extends Serializable {
       Try {
         val srcID = et.srcId
         val dstID = et.dstId
-        // nodeAttributes are of format ((x, y, radius, numInternalNodes), parentCircle)
-
         val srcGeometry = et.srcAttr.geometry
         val dstGeometry = et.dstAttr.geometry
         // is this an inter-community edge (same parentID for src and dst)

@@ -37,6 +37,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
 
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
     analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
+
   def finishedAnalyticValues: Array[String] = {
     (analyticData zip analytics).map{case (data, analytic) =>
         finishValue(data, analytic)

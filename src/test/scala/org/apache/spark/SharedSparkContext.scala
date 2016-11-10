@@ -16,37 +16,32 @@
  */
 
 package org.apache.spark
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
-import org.apache.spark.sql.SQLContext
-
-import org.scalatest.Suite
-import org.scalatest.BeforeAndAfterAll
+import org.apache.spark.sql.{SQLContext, SparkSession}
+import org.scalatest.{BeforeAndAfterAll, Suite}
 
 /** Shares a local `SparkContext` between all tests in a suite and closes it at the end */
 trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
 
-  @transient private var _sc: SparkContext = _
-  @transient private var _sqlc: SQLContext = _
+  @transient private var _sparkSession: SparkSession = _
 
-  def sc: SparkContext = _sc
-  def sqlc: SQLContext = _sqlc
+  def sc: SparkContext = _sparkSession.sparkContext
+  def sqlc: SQLContext = _sparkSession.sqlContext
+
 
   var conf = new SparkConf(false)
 
   override def beforeAll() {
     // Make sure to allow multiple contexts for testing
     conf.set("spark.driver.allowMultipleContexts", "true")
+    conf.setMaster("local")
 
-    _sc = new SparkContext("local", "test", conf)
-    _sqlc = new SQLContext(_sc)
+    _sparkSession = SparkSession.builder.config(conf).getOrCreate()
     super.beforeAll()
   }
 
   override def afterAll() {
-    LocalSparkContext.stop(_sc)
-    _sqlc = null
-    _sc = null
+    _sparkSession.stop()
+    _sparkSession = null
     super.afterAll()
   }
 }

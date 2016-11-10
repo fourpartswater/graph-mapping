@@ -78,7 +78,7 @@ class Community (val g: Graph,
     */
   def this (filename: String,  filename_w: Option[String], filename_m: Option[String],
             nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_]],
-            algorithmMod: AlgorithmModification = new BaselineAlgorithm) =
+            algorithmMod: AlgorithmModification) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
 
@@ -541,7 +541,13 @@ object Community {
 
           case "a" =>
             i = i + 1
-            tempAnalytics += CustomGraphAnalytic(args(i))
+            tempAnalytics += CustomGraphAnalytic(args(i), "")
+
+          case "ac" =>
+            i = i + 1
+            val analytic = args(i)
+            i = i + 1
+            tempAnalytics += CustomGraphAnalytic(analytic, args(i))
 
           case "v" =>
             verbose = true
