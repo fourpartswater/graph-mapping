@@ -21,36 +21,19 @@ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.{BasicOperations, DebugOperations, DataFrameOperations}
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
+import software.uncharted.xdata.sparkpipe.config.TilingConfig
+import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 
-object EdgeTilingPipeline extends Logging {
+object EdgeTilingPipeline extends AbstractJob {
 
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sparkSession = SparkConfig(config)
-    try {
-      execute(sparkSession, config)
-    } finally {
-      sparkSession.sparkContext.stop()
-    }
-  }
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
-    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
-    val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
+    config.resolve()
+    val tilingConfig = parseTilingParameters(config)
+    val outputConfig = parseOutputOperation(config)
     val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
 
     // calculate and save our tiles

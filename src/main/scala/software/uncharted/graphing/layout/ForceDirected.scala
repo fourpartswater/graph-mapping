@@ -46,6 +46,11 @@ import scala.collection.mutable.ArrayBuffer
 
 object ForceDirected {
 	//----- Static members of ForceDirected
+  // num of nodes threshold for whether or not to use quadtree decomposition
+  val QT_NODE_THRES = 20
+  // theta value for quadtree decomposition
+  // (>= 0; lower value gives more accurate repulsion force results, but is less efficient)
+  val QT_THETA = 1.0
 
 	/**
 	 * Used to create a new Quad Tree object and insert all nodes into it
@@ -100,12 +105,10 @@ object ForceDirected {
 }
 
 class ForceDirected extends Serializable {
+  import ForceDirected._
 
-	val QT_NODE_THRES = 20		// num of nodes threshold for whether or not to use quadtree decomposition
-	val QT_THETA = 1.0			// theta value for quadtree decomposition
-								// (>= 0; lower value gives more accurate repulsion force results, but is less efficient)
-	var _bNodesOverlapping = false	// boolean for whether community circles overlap or not
-	var _nodeOverlapRepulsionFactor = Math.pow(1000.0/256, 2.0)	// constant used for extra strong repulsion if node 'circles' overlap
+  var _nodeOverlapRepulsionFactor: Double = 0.0
+  var _bNodesOverlapping: Boolean = false
 
   /**
     * Run a force-directed layout on all the direct children of a single parent community
