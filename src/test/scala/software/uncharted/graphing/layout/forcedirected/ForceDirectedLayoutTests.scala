@@ -42,6 +42,7 @@ class ForceDirectedLayoutTests extends FunSpec {
     GraphEdge(4L, 5L, 1L)
   )
   )
+  private val epsilon = 1E-12
 
   describe("Force-directed layout of graphs") {
     it("Should lay out a simple 5-node graph in a circle when ignoring node size") {
@@ -85,5 +86,57 @@ class ForceDirectedLayoutTests extends FunSpec {
       assert(layout(3L).geometry.radius > layout(4L).geometry.radius)
       assert(layout(4L).geometry.radius > layout(5L).geometry.radius)
     }
+    describe("#layoutIsolatedNodes") {
+      val nodes = (1L to 1000L).map(n => GraphNode(n, n, 1, 0, s"Node $n"))
+      val arranger = new ForceDirectedLayout
+      it("should lay things out in the allotted space only") {
+        val results = arranger.layoutIsolatedNodes(nodes, V2(0.0, 0.0), 10.0, 15.0)
+        results.foreach { r =>
+          val dist = r.geometry.position.length
+          val rad = r.geometry.radius
+          assert(dist + rad <= 15.0)
+          assert(dist - rad >= 10.0)
+        }
+      }
+      it("should lay things out in 1 row when the number of items is appropriate") {
+        // 16 ~= number of items in one row
+        val results = arranger.layoutIsolatedNodes(nodes.take(16), V2(0.0, 0.0), 10.0, 15.0)
+        assert(1 === countConcentricCircles(results).size)
+      }
+      it("should lay things out in 2 rows when the number of items is appropriate") {
+        // 2 rows => 2^2 * items in one row
+        val results = arranger.layoutIsolatedNodes(nodes.take(64), V2(0.0, 0.0), 10.0, 15.0)
+        assert(2 === countConcentricCircles(results).size)
+      }
+      it("should lay things out in 3 rows when the number of items is appropriate") {
+        // 3 rows => 3^2 * items in one row
+        val results = arranger.layoutIsolatedNodes(nodes.take(144), V2(0.0, 0.0), 10.0, 15.0)
+        assert(3 === countConcentricCircles(results).size)
+      }
+      it("should increase the number of items per row linearly") {
+        val results = arranger.layoutIsolatedNodes(nodes, V2(0.0, 0.0), 1.0, 15.0)
+        val circles = countConcentricCircles(results)
+        val increases = circles.sliding(2).map(p => (p(1)._2 - p(0)._2)).toList
+        val mean = increases.sum.toDouble / increases.length
+        increases.foreach { inc =>
+          assert(math.abs(inc - mean) < 1.0)
+        }
+      }
+    }
+  }
+
+  private def countConcentricCircles (nodes: Iterable[LayoutNode]) = {
+    val nodeCounts = Buffer[(Double, Int)]()
+    nodes.foreach { node =>
+      val d0 = node.geometry.position.length
+      val i = nodeCounts.indexWhere(p => math.abs(p._1 - d0) < epsilon)
+      if (-1 == i) {
+        nodeCounts += ((d0, 1))
+      } else {
+        nodeCounts(i) = (nodeCounts(i)._1, nodeCounts(i)._2 + 1)
+      }
+    }
+
+    nodeCounts.toList.sortBy(_._1)
   }
 }
