@@ -15,49 +15,25 @@ package software.uncharted.graphing.layout.forcedirected
 import software.uncharted.graphing.layout.{GraphNode, QuadTree}
 
 
-trait Node {
-  val id: Long
-  val internalNodes: Long
-  val degree: Int
-  val metaData: String
-}
-object Node {
-  def apply (graphNode: GraphNode): Node =
-    SimpleNode(graphNode.id, graphNode.internalNodes, graphNode.degree, graphNode.metadata)
-}
-
-/** A representation of a node
-  *
-  * @param id The id of that node (was _._1)
-  * @param internalNodes The total number of leaf nodes under this node (was _._2)
-  * @param degree The total degree of this node (was _._3)
-  * @param metaData Any metadata associated with this node (was _._4)
-  */
-case class SimpleNode (id: Long, internalNodes: Long, degree: Int, metaData: String) extends Node
-
 /**
   *
-  * @param id
-  * @param internalNodes
-  * @param degree
-  * @param metaData
   * @param geometry The layout geometry of this node
+  * @param parentGeometry The layout geometry of this node's parent, if known
   */
-case class LayoutNode (id: Long, internalNodes: Long, degree: Int, metaData: String,
-                       geometry: LayoutGeometry) extends Node
+class LayoutNode (_id: Long, _parentId: Long, _internalNodes: Long, _degree: Int, _metaData: String,
+                  val geometry: LayoutGeometry, val parentGeometry: Option[LayoutGeometry])
+  extends GraphNode(_id, _parentId, _internalNodes, _degree, _metaData) {
+  def inParent (parentGeometry: LayoutGeometry): LayoutNode = {
+    new LayoutNode(id, parentId, internalNodes, degree, metadata, geometry, Some(parentGeometry))
+  }
+}
 object LayoutNode {
-  def apply (node: Node, x: Double, y: Double, radius: Double): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metaData, LayoutGeometry(V2(x, y), radius))
-  def apply (node: Node, position: V2, radius: Double): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metaData, LayoutGeometry(position, radius))
-  def apply (node: Node, geometry: LayoutGeometry): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metaData, geometry)
   def apply (node: GraphNode, x: Double, y: Double, radius: Double): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metadata, LayoutGeometry(V2(x, y), radius))
+    new LayoutNode(node.id, node.parentId, node.internalNodes, node.degree, node.metadata, LayoutGeometry(V2(x, y), radius), None)
   def apply (node: GraphNode, position: V2, radius: Double): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metadata, LayoutGeometry(position, radius))
+    new LayoutNode(node.id, node.parentId, node.internalNodes, node.degree, node.metadata, LayoutGeometry(position, radius), None)
   def apply (node: GraphNode, geometry: LayoutGeometry): LayoutNode =
-    LayoutNode(node.id, node.internalNodes, node.degree, node.metadata, geometry)
+    new LayoutNode(node.id, node.parentId, node.internalNodes, node.degree, node.metadata, geometry, None)
 
   def createQuadTree (nodes: Iterable[LayoutNode], numNodes: Int): QuadTree = {
     val (minP, maxP) = nodes.map(n => (n.geometry.position, n.geometry.position)).reduce((a, b) =>
