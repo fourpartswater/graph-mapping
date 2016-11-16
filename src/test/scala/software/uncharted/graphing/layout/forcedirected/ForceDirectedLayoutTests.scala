@@ -12,8 +12,14 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
+
+import com.typesafe.config.ConfigFactory
+
+import scala.collection.mutable.Buffer
 import org.scalatest.FunSpec
 import software.uncharted.graphing.layout.{GraphEdge, GraphNode}
+
+
 
 class ForceDirectedLayoutTests extends FunSpec {
   private val g5 = (Seq(
@@ -48,13 +54,20 @@ class ForceDirectedLayoutTests extends FunSpec {
       val radii = layout.filter(_._1 != 1L).mapValues(_.geometry.position.length)
       val avgRadius = radii.values.sum / radii.size
       radii.foreach { case (id, radius) =>
-          assert(radius > avgRadius * 3.0 / 4.0, s"node $id is out of bounds")
-          assert(radius < avgRadius * 4.0 / 3.0, s"node $id is out of bounds")
+          assert(radius > avgRadius * 3.0 / 4.0, s"node $id is outside of bounds rings")
+          assert(radius < avgRadius * 4.0 / 3.0, s"node $id is inside of bounds rings")
       }
     }
     it("Should lay out a simple 5--node graph in a less precise circle when not ignoring node size") {
-      val arranger = new ForceDirectedLayout
-      arranger.parameters.useNodeSizes = true
+      val config = ConfigFactory.parseString(
+        """layout = {
+          |  force-directed = {
+          |    use-node-sizes = true
+          |  }
+          |}
+        """.stripMargin)
+      val parameters = ForceDirectedLayoutParameters(config).get
+      val arranger = new ForceDirectedLayout(parameters)
       val layout = arranger.run(g5._1, g5._2, 1L, (-1.0, -1.0, 1.0, 1.0), 1).map{ node =>
         (node.id, node)
       }.toMap

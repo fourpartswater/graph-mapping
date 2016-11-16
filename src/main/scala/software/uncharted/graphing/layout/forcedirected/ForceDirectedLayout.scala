@@ -19,9 +19,7 @@ import software.uncharted.graphing.layout.{GraphEdge, GraphNode}
 
 
 
-class ForceDirectedLayout extends Serializable {
-  val parameters = new ForceDirectedLayoutParameters
-
+class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDirectedLayoutParameters.default) extends Serializable {
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,
@@ -163,13 +161,8 @@ class ForceDirectedLayout extends Serializable {
 
 
 
-  def layoutConnectedNodes (nodes: Seq[GraphNode],
-                            edges: Iterable[GraphEdge],
-                            parentId: Long,
-                            center: V2,
-                            maxRadius: Double,
-                            totalInternalNodes: Long,
-                            hierarchyLevel: Int): Iterable[LayoutNode] = {
+  def layoutConnectedNodes (nodes: Seq[GraphNode], edges: Iterable[GraphEdge], parentId: Long, center: V2,
+                            maxRadius: Double, totalInternalNodes: Long, hierarchyLevel: Int): Iterable[LayoutNode] = {
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
