@@ -17,9 +17,12 @@ import java.awt.event.ActionEvent
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 import javax.swing.{AbstractAction, JFrame, JMenu, JMenuBar, JMenuItem, JPanel, JTabbedPane}
 
+import com.typesafe.config.ConfigFactory
+import software.uncharted.graphing.layout.forcedirected.ForceDirectedLayoutParameters
+
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.SharedSparkContext
-import org.scalatest.FunSuite
+import org.scalatest.{Outcome, FunSuite}
 
 
 class LayoutExample extends FunSuite with SharedSparkContext {
@@ -100,40 +103,27 @@ class LayoutExample extends FunSuite with SharedSparkContext {
   }
   test("Example of layout application, to be used to debug through the process") {
     val sourceDir = makeSource
+    val sourcePath = sourceDir.getAbsolutePath
     val outputDir = getOutputLocation
-    val partitions = 0
-    val consolidationPartitions = 0
-    val dataDelimiter = "\t"
-    val maxIterations = 500
-    val maxHierarchyLevel = 2
-    val borderPercent = 2.0
-    val layoutLength = 256.0
-    val nodeAreaPercent = 30
-    val bUseEdgeWeights = false
-    val gravity = 0.0
-    val isolatedDegreeThres = 0
-    val communitySizeThres = 0
+    val outputPath = outputDir.getAbsolutePath
+    val config = HierarchicalLayoutConfig(ConfigFactory.parseString(
+      s"""
+         |{
+         |  layout: {
+         |    input: { location = "$sourcePath" }
+         |    output : { location = "$outputPath" }
+         |    max-level : 2
+         |  }
+         |}
+       """.stripMargin)).get
+    val parameters = ForceDirectedLayoutParameters.default
 
     val fileStartTime = System.currentTimeMillis()
 
     // Hierarchical Force-Directed layout scheme
     val layouter = new HierarchicFDLayout()
 
-    layouter.determineLayout(sc,
-      maxIterations,
-      maxHierarchyLevel,
-      partitions,
-      consolidationPartitions,
-      sourceDir.getAbsolutePath,
-      dataDelimiter,
-      (layoutLength,layoutLength),
-      borderPercent,
-      nodeAreaPercent,
-      bUseEdgeWeights,
-      gravity,
-      isolatedDegreeThres,
-      communitySizeThres,
-      outputDir.getAbsolutePath)
+    layouter.determineLayout(sc, config, parameters)
 
     sourceDir.delete()
     outputDir.delete()

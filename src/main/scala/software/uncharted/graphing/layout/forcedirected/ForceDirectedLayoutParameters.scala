@@ -92,7 +92,7 @@ object ForceDirectedLayoutParameters extends ConfigParser {
   private val defaultQuadTreeNodeThreshold = 20
   private val defaultQuadTreeTheta = 1.0
   private val defaultGravity = 0.0
-  private val defaultMaxIterations = 1000
+  private val defaultMaxIterations = 500
   private val defaultUseEdgeWeights = false
   private val defaultUseNodeSizes = false
   private val defaultRandomSeed = 911L
