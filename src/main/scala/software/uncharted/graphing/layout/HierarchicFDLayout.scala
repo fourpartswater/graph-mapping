@@ -17,6 +17,7 @@ package software.uncharted.graphing.layout
 import org.apache.spark.{Accumulable, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
+import software.uncharted.graphing.layout.forcedirected.{V2, ForceDirectedLayout}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
@@ -65,7 +66,8 @@ class HierarchicFDLayout extends Serializable {
 		if (maxHierarchyLevel < 0) throw new IllegalArgumentException("maxLevel parameter must be >= 0")
 		if (nodeAreaPercent < 10 || nodeAreaPercent > 90) throw new IllegalArgumentException("nodeAreaPercent parameter must be between 10 and 90")
 
-		val forceDirectedLayouter = new ForceDirected()	//force-directed layout scheme
+//		val forceDirectedLayouter = new ForceDirected()	//force-directed layout scheme
+    val forceDirectedLayouter = new ForceDirectedLayout()
 
 		val levelStats = new Array[Seq[(String, AnyVal)]](maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
 
@@ -180,6 +182,7 @@ class HierarchicFDLayout extends Serializable {
         // parentRectangle: (Double, Double, Double, Double)
         val (parentID, ((communityNodes, communityEdges), parentRectangle)) = p
 
+        /*
 				val nodesWithCoords = forceDirectedLayouter.run(
           communityNodes,
           communityEdges,
@@ -208,6 +211,16 @@ class HierarchicFDLayout extends Serializable {
           }
           (i.node.id, ParentedLayoutNode(i.node, i.geometry, LayoutGeometry(parentX, parentY, parentR)))
 				}
+				*/
+
+        val rectLL = V2(parentRectangle._1, parentRectangle._2)
+        val parentPosition = rectLL + V2(parentRectangle._3, parentRectangle._4) * 0.5
+        val parentRadius = (parentPosition - rectLL).length
+        val parentGeometry = forcedirected.LayoutGeometry(parentPosition, parentRadius)
+
+        forceDirectedLayouter.run(communityNodes, communityEdges, parentID, parentRectangle, level).map { node =>
+          (node.id, node.inParent(parentGeometry))
+        }
 			}
 			nodeDataAll.cache
 
@@ -222,7 +235,7 @@ class HierarchicFDLayout extends Serializable {
                                           graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
                                           graphForThisLevel.vertices.map(n => Try(n._2.geometry.radius).toOption), // Get community radii
-                                          graphForThisLevel.vertices.map(n => Try(n._2.parentGeometry.radius).toOption), // Get parent radii
+                                          graphForThisLevel.vertices.map(n => Try(n._2.parentGeometry.get.radius).toOption), // Get parent radii
 			                                    Math.min(layoutDimensions._1, layoutDimensions._2),
 			                                    level == maxHierarchyLevel)
 
@@ -300,10 +313,10 @@ class HierarchicFDLayout extends Serializable {
 	//		squares
 	//	}
 
-	private def circleToRectangle(id: Long, geometry: LayoutGeometry): (Long, (Double, Double, Double, Double)) = {
+	private def circleToRectangle(id: Long, geometry: forcedirected.LayoutGeometry): (Long, (Double, Double, Double, Double)) = {
 		// calc coords of bounding box with same centre as the circle, and width = height = sqrt(2)*r
 		val rSqrt2 = geometry.radius*0.70711	// 0.70711 = 1/sqrt(2)
-		val squareCoords = (geometry.x - rSqrt2, geometry.y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
+		val squareCoords = (geometry.position.x - rSqrt2, geometry.position.y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
 		(id, squareCoords)
 	}
 
@@ -394,7 +407,7 @@ class HierarchicFDLayout extends Serializable {
     )
 	}
 
-	private def saveLayoutResults(graphWithCoords: Graph[ParentedLayoutNode, Long],
+	private def saveLayoutResults(graphWithCoords: Graph[forcedirected.LayoutNode, Long],
 	                              outputDir: String,
 	                              level: Int, bIsMaxLevel: Boolean) =	{
 
@@ -404,17 +417,17 @@ class HierarchicFDLayout extends Serializable {
         val (id, node) = vertex
 
         "node\t" + id + "\t" +
-        node.geometry.x + "\t" +
-        node.geometry.y + "\t" +
+        node.geometry.position.x + "\t" +
+        node.geometry.position.y + "\t" +
         node.geometry.radius + "\t" +
-        node.node.parentId + "\t" +
-        node.parentGeometry.x + "\t" +
-        node.parentGeometry.y + "\t" +
-        node.parentGeometry.radius+ "\t" +
-        node.node.internalNodes + "\t" +
-        node.node.degree + "\t" +
+        node.parentId + "\t" +
+        node.parentGeometry.get.position.x + "\t" +
+        node.parentGeometry.get.position.y + "\t" +
+        node.parentGeometry.get.radius+ "\t" +
+        node.internalNodes + "\t" +
+        node.degree + "\t" +
         level + "\t" +
-        node.node.metadata
+        node.metadata
       }.toOption
     }
 
@@ -425,9 +438,9 @@ class HierarchicFDLayout extends Serializable {
         val srcGeometry = et.srcAttr.geometry
         val dstGeometry = et.dstAttr.geometry
         // is this an inter-community edge (same parentID for src and dst)
-        val interCommunityEdge = if ((et.srcAttr.node.parentId != et.dstAttr.node.parentId) || bIsMaxLevel) 1 else 0
+        val interCommunityEdge = if ((et.srcAttr.parentId != et.dstAttr.parentId) || bIsMaxLevel) 1 else 0
 
-        "edge\t" + srcID + "\t" + srcGeometry.x + "\t" + srcGeometry.y + "\t" + dstID + "\t" + dstGeometry.x + "\t" + dstGeometry.y + "\t" + et.attr + "\t" + interCommunityEdge
+        "edge\t" + srcID + "\t" + srcGeometry.position.x + "\t" + srcGeometry.position.y + "\t" + dstID + "\t" + dstGeometry.position.x + "\t" + dstGeometry.position.y + "\t" + et.attr + "\t" + interCommunityEdge
       }.toOption
     }.filter(line => line != null)
 
@@ -454,4 +467,4 @@ class HierarchicFDLayout extends Serializable {
 	}
 }
 
-case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
+//case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
