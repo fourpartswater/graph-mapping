@@ -168,7 +168,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
 
     // Initialize output coordinates randomly
     val layoutNodes = convertGraphNodesToLayoutNodes(nodes, parentId, center, maxRadius, totalInternalNodes, random)
-    val terms = new ForceDirecedLayoutTerms(numNodes, maxRadius, parameters, edges.map(_.weight).max)
+    val terms = new ForceDirectedLayoutTerms(numNodes, maxRadius, parameters, edges.map(_.weight).max)
     val forces = getForces(terms, center, maxRadius, random)
     val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
     val numEdges = layoutEdges.size
@@ -186,7 +186,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
 
       // Execute forces for this iteration
       forces.foreach { force =>
-        force.apply(layoutNodes, numNodes, layoutEdges, numEdges, displacements)
+        force.apply(layoutNodes, numNodes, layoutEdges, numEdges, displacements, terms)
       }
 
       // Modify displacements as per current temperature, and store results for this iteration
@@ -211,16 +211,16 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
     layoutNodes
   }
 
-  private def getForces (terms: ForceDirecedLayoutTerms, center: V2, maxRadius: Double, random: Random): Seq[Force] = {
+  private def getForces (terms: ForceDirectedLayoutTerms, center: V2, maxRadius: Double, random: Random): Seq[Force] = {
     Seq(
       if (terms.useQuadTree) {
-        Some(new QuadTreeRepulsionForce(terms.kSq, parameters.quadTreeTheta, terms.nodeOverlapRepulsionFactor, random, terms.overlappingNodes))
+        Some(new QuadTreeRepulsionForce(random))
       } else {
-        Some(new ElementRepulsionForce(terms.kSq, terms.nodeOverlapRepulsionFactor, random, terms.overlappingNodes))
+        Some(new ElementRepulsionForce(random))
       },
-      Some(new EdgeAttractionForce(terms.kInv, terms.edgeWeightNormalizationFactor)),
+      Some(new EdgeAttractionForce()),
       if (parameters.gravity > 0.0) {
-        Some(new GravitationalForce(parameters.gravity, center, terms.kInv))
+        Some(new GravitationalForce(center))
       } else if (parameters.useNodeSizes) {
         Some(new BoundingBoxForce(center, maxRadius))
       } else {
@@ -230,7 +230,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   }
 
   private def updatePositions (layoutNodes: Array[LayoutNode], displacements: Array[V2],
-                               parentId: Long, terms: ForceDirecedLayoutTerms): Double = {
+                               parentId: Long, terms: ForceDirectedLayoutTerms): Double = {
     var largestSquaredStep = Double.MinValue
     val numNodes = layoutNodes.length
     for (n <- 0 until numNodes) {
@@ -254,7 +254,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
     largestSquaredStep
   }
 
-  private def updateTemperature (terms: ForceDirecedLayoutTerms,
+  private def updateTemperature (terms: ForceDirectedLayoutTerms,
                                  initialTotalEnergy: Double): Unit = {
     //---- Adaptive cooling function (based on Yifan Hu "Efficient, High-Quality Force-Directed Graph Drawing", 2006)
     if (terms.totalEnergy < initialTotalEnergy) {

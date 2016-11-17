@@ -147,9 +147,9 @@ object ForceDirectedLayoutParameters extends ConfigParser {
   * @param parameters The global layout parameters constraining all distributions of nodes
   * @param getMaxEdgeWeight A function to get the maximum edge weight, if it is needed.
   */
-class ForceDirecedLayoutTerms (numNodes: Int, maxRadius: Double,
-                               parameters: ForceDirectedLayoutParameters,
-                               getMaxEdgeWeight: => Double) {
+class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
+                                val parameters: ForceDirectedLayoutParameters,
+                                getMaxEdgeWeight: => Double) {
   var useQuadTree = numNodes > parameters.quadTreeNodeThreshold
   var kSq: Double = math.Pi * maxRadius * maxRadius / numNodes
   var kInv: Double = 1.0 / math.sqrt(kSq)

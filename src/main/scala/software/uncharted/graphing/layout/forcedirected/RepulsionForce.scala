@@ -18,20 +18,18 @@ import scala.util.Random
 
 
 trait RepulsionForce extends Force {
-  var nodesOverlap: Boolean
-  val overlappingNodesRepulsionFactor: Double
-  val k2: Double
   val random: Random
 
-  protected def calculateRepulsion (a: LayoutGeometry, b: LayoutGeometry): V2 = {
+  protected def calculateRepulsion (a: LayoutGeometry, b: LayoutGeometry,
+                                    terms: ForceDirectedLayoutTerms): V2 = {
     val delta = a.position - b.position
     val distance = delta.length - a.radius - b.radius
     if (distance > 0.0) {
-      delta * (k2 / (distance * distance))
+      delta * (terms.kSq / (distance * distance))
     } else {
-      nodesOverlap = true
+      terms.overlappingNodes = true
       // Extra-strong repulsion force if nodes overlap!
-      val repulsionForce = overlappingNodesRepulsionFactor * k2
+      val repulsionForce = terms.nodeOverlapRepulsionFactor * terms.kSq
       if (delta == V2.zero) {
         // perturbate a small amount in a random direction
         val perturbationDirection = random.nextDouble * 2.0 * math.Pi
@@ -43,18 +41,15 @@ trait RepulsionForce extends Force {
     }
   }
 }
-class QuadTreeRepulsionForce (val k2: Double,
-                              qtTheta: Double,
-                              val overlappingNodesRepulsionFactor: Double,
-                              val random: Random,
-                              var nodesOverlap: Boolean) extends RepulsionForce {
+class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
   def apply (nodes: Seq[LayoutNode], numNodes: Int,
              edges: Iterable[LayoutEdge], numEdges: Int,
-             displacements: Array[V2]): Unit = {
+             displacements: Array[V2],
+             terms: ForceDirectedLayoutTerms): Unit = {
     val qt = LayoutNode.createQuadTree(nodes, numNodes)
     for (i <- nodes.indices) {
       val node = nodes(i)
-      val momentaryDelta = calculateRepulsion(i, node.geometry, qt.getRoot, k2, qtTheta)
+      val momentaryDelta = calculateRepulsion(i, node.geometry, qt.getRoot, terms)
       displacements(i) = displacements(i) + momentaryDelta
     }
   }
@@ -62,8 +57,7 @@ class QuadTreeRepulsionForce (val k2: Double,
   private def calculateRepulsion (index: Int,
                                   geometry: LayoutGeometry,
                                   qn: QuadNode,
-                                  k2: Double,
-                                  theta: Double): V2 = {
+                                  terms: ForceDirectedLayoutTerms): V2 = {
     assert(qn != null)
 
     qn.getNumChildren match {
@@ -74,26 +68,26 @@ class QuadTreeRepulsionForce (val k2: Double,
         if (data.getId == index) {
           V2.zero
         } else {
-          calculateRepulsion(geometry, LayoutGeometry(V2(data.getX, data.getY), data.getSize))
+          calculateRepulsion(geometry, LayoutGeometry(V2(data.getX, data.getY), data.getSize), terms)
         }
       case _ =>
-        if (useAsPseudoNode(qn, geometry, theta)) {
+        if (useAsPseudoNode(qn, geometry, terms)) {
           // we have multiple children, but can act on them as one
           val com = V2(qn.getCenterOfMass)
-          calculateRepulsion(geometry, LayoutGeometry(com, qn.getSize)) * qn.getNumChildren
+          calculateRepulsion(geometry, LayoutGeometry(com, qn.getSize), terms) * qn.getNumChildren
         } else {
           // We have multiple children, but have to act on them separately, and sum
-          val ne = calculateRepulsion(index, geometry, qn.getNE, k2, theta)
-          val se = calculateRepulsion(index, geometry, qn.getSE, k2, theta)
-          val sw = calculateRepulsion(index, geometry, qn.getSW, k2, theta)
-          val nw = calculateRepulsion(index, geometry, qn.getNW, k2, theta)
+          val ne = calculateRepulsion(index, geometry, qn.getNE, terms)
+          val se = calculateRepulsion(index, geometry, qn.getSE, terms)
+          val sw = calculateRepulsion(index, geometry, qn.getSW, terms)
+          val nw = calculateRepulsion(index, geometry, qn.getNW, terms)
 
           ne + se + sw + nw
         }
     }
   }
 
-  private def useAsPseudoNode (qn: QuadNode, geometry: LayoutGeometry, theta: Double): Boolean = {
+  private def useAsPseudoNode (qn: QuadNode, geometry: LayoutGeometry, terms: ForceDirectedLayoutTerms): Boolean = {
     // Minimum of width and height of cell
     val length = (qn.getBounds._3 - qn.getBounds._1) min (qn.getBounds._4 - qn.getBounds._2)
     val com = V2(qn.getCenterOfMass)
@@ -103,22 +97,19 @@ class QuadTreeRepulsionForce (val k2: Double,
     //   -technically, it would be more accurate to also subtract the target node's radius above too, but the trade-off would be less efficient QuadTree usage
     //    (due to extra recursion into child quadnodes)
 
-    0 < distanceToCell && length <= distanceToCell * theta
+    0 < distanceToCell && length <= distanceToCell * terms.parameters.quadTreeTheta
   }
 }
 
-class ElementRepulsionForce (val k2: Double,
-                             val overlappingNodesRepulsionFactor: Double,
-                             val random: Random,
-                             var nodesOverlap: Boolean
-                            ) extends RepulsionForce {
+class ElementRepulsionForce (val random: Random) extends RepulsionForce {
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
-                     displacements: Array[V2]): Unit = {
+                     displacements: Array[V2],
+                     terms: ForceDirectedLayoutTerms): Unit = {
     for (n1 <- nodes.indices) {
       var d = for (n2 <- nodes.indices) {
         if (n1 != n2) {
-          displacements(n1) = displacements(n1) + calculateRepulsion(nodes(n1).geometry, nodes(n2).geometry)
+          displacements(n1) = displacements(n1) + calculateRepulsion(nodes(n1).geometry, nodes(n2).geometry, terms)
         }
       }
     }

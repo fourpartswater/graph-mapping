@@ -12,10 +12,11 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
-class EdgeAttractionForce (k_inv: Double, edgeWeightNormFactor: Option[Double]) extends Force {
+class EdgeAttractionForce extends Force {
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
-                     displacements: Array[V2]): Unit = {
+                     displacements: Array[V2],
+                     terms: ForceDirectedLayoutTerms): Unit = {
     for (edge <- edges) {
       val src = nodes(edge.srcIndex)
       val dst = nodes(edge.dstIndex)
@@ -23,7 +24,7 @@ class EdgeAttractionForce (k_inv: Double, edgeWeightNormFactor: Option[Double]) 
       val distance = delta.length - src.geometry.radius - dst.geometry.radius
       if (distance > 0) {
         // Only calculate attractive force if nodes don't overlap
-        val force = edgeWeightNormFactor.map(_ * edge.weight).getOrElse(1.0) * distance * k_inv
+        val force = terms.edgeWeightNormalizationFactor.map(_ * edge.weight).getOrElse(1.0) * distance * terms.kInv
         displacements(edge.srcIndex) = displacements(edge.srcIndex) + delta * force
         displacements(edge.dstIndex) = displacements(edge.dstIndex) - delta * force
       }

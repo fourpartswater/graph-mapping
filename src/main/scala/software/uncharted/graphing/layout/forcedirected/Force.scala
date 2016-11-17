@@ -15,5 +15,6 @@ package software.uncharted.graphing.layout.forcedirected
 trait Force {
   def apply (nodes: Seq[LayoutNode], numNodes: Int,
              edges: Iterable[LayoutEdge], numEdges: Int,
-             displacements: Array[V2]): Unit
+             displacements: Array[V2],
+             terms: ForceDirectedLayoutTerms): Unit
 }

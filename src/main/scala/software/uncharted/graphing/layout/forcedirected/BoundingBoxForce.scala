@@ -17,7 +17,8 @@ class BoundingBoxForce (center: V2, maxRadius: Double, thresholdRatio: Double = 
   private val threshold = maxRadius * thresholdRatio
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
-                     displacements: Array[V2]): Unit = {
+                     displacements: Array[V2],
+                     terms: ForceDirectedLayoutTerms): Unit = {
     for (n <- nodes.indices) {
       val delta = center - nodes(n).geometry.position
       val distance = delta.length
