@@ -148,7 +148,7 @@ object ForceDirectedLayoutParameters extends ConfigParser {
   * @param getMaxEdgeWeight A function to get the maximum edge weight, if it is needed.
   */
 class ForceDirecedLayoutTerms (numNodes: Int, maxRadius: Double,
-                               parameters: ForceDirectedLayoutParameters,
+                               val parameters: ForceDirectedLayoutParameters,
                                getMaxEdgeWeight: => Double) {
   var useQuadTree = numNodes > parameters.quadTreeNodeThreshold
   var kSq: Double = math.Pi * maxRadius * maxRadius / numNodes

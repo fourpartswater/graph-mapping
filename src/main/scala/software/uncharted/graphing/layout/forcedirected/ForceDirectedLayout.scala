@@ -197,7 +197,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       iterations += 1
     }
 
-    scaleNodesToArea(layoutNodes, bounds)
+    scaleNodesToArea(layoutNodes, bounds, terms)
 
     layoutNodes
   }
@@ -270,14 +270,16 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   }
 
   // Scale final positions to fit within the prescribed area
-  private def scaleNodesToArea (nodes: Array[LayoutNode], bounds: Circle): Unit = {
+  private def scaleNodesToArea (nodes: Array[LayoutNode], bounds: Circle, terms: ForceDirecedLayoutTerms): Unit = {
     // Find the largest distance from center currently
     Try {
       nodes.map { node =>
         ((node.geometry.center - bounds.center).length, node.geometry.radius)
       }.reduce((a, b) => if (a._1 + a._2 > b._1 + b._2) a else b)
     }.map { case (farthestDistance, radiusOfFarthestPoint) =>
-      val scale = bounds.radius / (farthestDistance + radiusOfFarthestPoint)
+      val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
+      // target max radius is bounds.radius * borderScale
+      val scale = (bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
       for (i <- nodes.indices) {
         val node = nodes(i)
         val p = node.geometry.center
@@ -363,6 +365,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
     val numNodes = nodes.size
     val rows = determineIsolatedNodeRows(minRadiusFromCenter, bounds.radius, numNodes)
     val avgOffset = (2.0 * math.Pi * rows * (minRadiusFromCenter + bounds.radius) / 2.0) / numNodes
+    val maxSize = (bounds.radius - minRadiusFromCenter) / rows
+    val nodeSize = (maxSize min avgOffset) * parameters.nodeAreaFactor * 0.5
     var row = 0 // The row currently being laid out
     var radius = isolatedRowRadius(row, rows, minRadiusFromCenter, bounds.radius)
     var rowNodes = nodesPerIsolatedRow(row, rows, minRadiusFromCenter, bounds.radius, numNodes)
@@ -384,7 +388,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       val vOffset = V2.unitVector(curOffset)
       curOffset += offsetPerItem
       i += 1
-      LayoutNode(node, bounds.center + vOffset * radius, avgOffset * parameters.nodeAreaFactor)
+      LayoutNode(node, bounds.center + vOffset * radius, nodeSize)
     }
   }
 }

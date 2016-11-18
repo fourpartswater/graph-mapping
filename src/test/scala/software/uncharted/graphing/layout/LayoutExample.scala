@@ -123,7 +123,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
          |  layout: {
          |    force-directed: {
          |      use-node-sizes: true
-         |      node-area-factor: 0.5
+         |      node-area-factor: 0.6
          |    }
          |  }
          |}
