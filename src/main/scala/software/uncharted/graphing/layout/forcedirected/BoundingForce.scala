@@ -12,14 +12,16 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
+import software.uncharted.graphing.layout.{Circle, V2}
+
 // A force to keep objects inside a bounding box
-class BoundingBoxForce (center: V2, maxRadius: Double, thresholdRatio: Double = 0.9) extends Force {
-  private val threshold = maxRadius * thresholdRatio
+class BoundingForce(bounds: Circle, thresholdRatio: Double = 0.9) extends Force {
+  private val threshold = bounds.radius * thresholdRatio
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
                      displacements: Array[V2]): Unit = {
     for (n <- nodes.indices) {
-      val delta = center - nodes(n).geometry.position
+      val delta = bounds.center - nodes(n).geometry.center
       val distance = delta.length
       if (distance > threshold) {
         displacements(n) = displacements(n) + delta * ((distance - threshold) / distance)
