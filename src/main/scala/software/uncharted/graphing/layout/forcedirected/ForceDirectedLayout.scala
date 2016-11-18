@@ -301,7 +301,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
         // TODO: Should the random vector range over [-1, 1) instead of [-0.5, 0.5)?
         bounds.center + (V2.randomVector(random) - V2(0.5, 0.5)) * bounds.radius
       }
-      val radius = ifUseNodeSizes(radiusFromArea(parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
+      val radius = ifUseNodeSizes(radiusFromArea(area * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
       layoutNodes(i) = LayoutNode(node, position, radius)
     }
     layoutNodes
