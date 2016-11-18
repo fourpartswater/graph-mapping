@@ -181,6 +181,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
 
       // Modify displacements as per current temperature, and store results for this iteration
       val initialTotalEnergy = terms.totalEnergy
+      terms.totalEnergy = 0.0
       val largestSquaredStep = updatePositions(layoutNodes, displacements, parentId, terms)
       updateTemperature(terms, initialTotalEnergy)
 
@@ -276,7 +277,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
         ((node.geometry.center - bounds.center).length, node.geometry.radius)
       }.reduce((a, b) => if (a._1 + a._2 > b._1 + b._2) a else b)
     }.map { case (farthestDistance, radiusOfFarthestPoint) =>
-      val scale = bounds.radius / farthestDistance
+      val scale = bounds.radius / (farthestDistance + radiusOfFarthestPoint)
       for (i <- nodes.indices) {
         val node = nodes(i)
         val p = node.geometry.center

@@ -156,7 +156,7 @@ class ForceDirecedLayoutTerms (numNodes: Int, maxRadius: Double,
   val squaredStepLimit = maxRadius*maxRadius * parameters.stepLimitFactor
   val initialTemperature: Double = 0.5 * maxRadius
   var temperature: Double = initialTemperature
-  var totalEnergy: Double = Double.MaxValue
+  var totalEnergy: Double = Double.MinValue
   var edgeWeightNormalizationFactor: Option[Double] = if (parameters.useEdgeWeights) {
     val maxWeight = getMaxEdgeWeight
     if (maxWeight > 0) {

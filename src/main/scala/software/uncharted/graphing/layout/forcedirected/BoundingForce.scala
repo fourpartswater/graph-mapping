@@ -21,8 +21,9 @@ class BoundingForce(bounds: Circle, thresholdRatio: Double = 0.9) extends Force 
                      edges: Iterable[LayoutEdge], numEdges: Int,
                      displacements: Array[V2]): Unit = {
     for (n <- nodes.indices) {
-      val delta = bounds.center - nodes(n).geometry.center
-      val distance = delta.length
+      val geo = nodes(n).geometry
+      val delta = bounds.center - geo.center
+      val distance = delta.length + geo.radius
       if (distance > threshold) {
         displacements(n) = displacements(n) + delta * ((distance - threshold) / distance)
       }
