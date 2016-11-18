@@ -291,7 +291,9 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
                                               bounds: Circle,
                                               totalInternalNodes: Long,
                                               random: Random): Array[LayoutNode] = {
-    val border = ifUseNodeSizes(0.0, parameters.borderPercent / 100.0 * bounds.radius)
+    val border = parameters.borderPercent / 100.0 * bounds.radius
+    val area = areaFromRadius(bounds.radius)
+
     val layoutNodes = new Array[LayoutNode](nodes.size)
     for (i <- nodes.indices) {
       val node = nodes(i)
