@@ -19,7 +19,8 @@ class BoundingForce(bounds: Circle, thresholdRatio: Double = 0.9) extends Force 
   private val threshold = bounds.radius * thresholdRatio
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
-                     displacements: Array[V2]): Unit = {
+                     displacements: Array[V2],
+                     terms: ForceDirectedLayoutTerms): Unit = {
     for (n <- nodes.indices) {
       val geo = nodes(n).geometry
       val delta = bounds.center - geo.center
