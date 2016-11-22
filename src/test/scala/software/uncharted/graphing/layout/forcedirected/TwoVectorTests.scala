@@ -13,6 +13,7 @@
 package software.uncharted.graphing.layout.forcedirected
 
 import org.scalatest.FunSpec
+import software.uncharted.graphing.layout.V2
 
 class TwoVectorTests extends FunSpec {
   describe("affine two-vectors") {

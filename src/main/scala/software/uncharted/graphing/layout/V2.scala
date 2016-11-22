@@ -10,7 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.layout.forcedirected
+package software.uncharted.graphing.layout
 
 import scala.util.Random
 
@@ -34,5 +34,3 @@ object V2 {
   def unitVector (angle: Double): V2 = V2(math.cos(angle), math.sin(angle))
   def randomVector (random: Random): V2 = V2(random.nextDouble, random.nextDouble)
 }
-
-case class LayoutGeometry (position: V2, radius: Double)

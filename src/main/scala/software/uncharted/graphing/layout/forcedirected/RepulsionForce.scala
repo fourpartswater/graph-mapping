@@ -12,7 +12,7 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
-import software.uncharted.graphing.layout.QuadNode
+import software.uncharted.graphing.layout.{Circle, V2, QuadNode}
 
 import scala.util.Random
 
@@ -20,9 +20,8 @@ import scala.util.Random
 trait RepulsionForce extends Force {
   val random: Random
 
-  protected def calculateRepulsion (a: LayoutGeometry, b: LayoutGeometry,
-                                    terms: ForceDirectedLayoutTerms): V2 = {
-    val delta = a.position - b.position
+  protected def calculateRepulsion (a: Circle, b: Circle, terms: ForceDirectedLayoutTerms): V2 = {
+    val delta = a.center - b.center
     val distance = delta.length - a.radius - b.radius
     if (distance > 0.0) {
       delta * (terms.kSq / (distance * distance))
@@ -55,7 +54,7 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
   }
 
   private def calculateRepulsion (index: Int,
-                                  geometry: LayoutGeometry,
+                                  geometry: Circle,
                                   qn: QuadNode,
                                   terms: ForceDirectedLayoutTerms): V2 = {
     assert(qn != null)
@@ -68,13 +67,14 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
         if (data.getId == index) {
           V2.zero
         } else {
-          calculateRepulsion(geometry, LayoutGeometry(V2(data.getX, data.getY), data.getSize), terms)
+          calculateRepulsion(geometry, Circle(V2(data.getX, data.getY), data.getSize), terms)
         }
       case _ =>
         if (useAsPseudoNode(qn, geometry, terms)) {
           // we have multiple children, but can act on them as one
           val com = V2(qn.getCenterOfMass)
-          calculateRepulsion(geometry, LayoutGeometry(com, qn.getSize), terms) * qn.getNumChildren
+
+          calculateRepulsion(geometry, Circle(com, qn.getSize), terms) * qn.getNumChildren
         } else {
           // We have multiple children, but have to act on them separately, and sum
           val ne = calculateRepulsion(index, geometry, qn.getNE, terms)
@@ -87,11 +87,11 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
     }
   }
 
-  private def useAsPseudoNode (qn: QuadNode, geometry: LayoutGeometry, terms: ForceDirectedLayoutTerms): Boolean = {
+  private def useAsPseudoNode (qn: QuadNode, geometry: Circle, terms: ForceDirectedLayoutTerms): Boolean = {
     // Minimum of width and height of cell
     val length = (qn.getBounds._3 - qn.getBounds._1) min (qn.getBounds._4 - qn.getBounds._2)
     val com = V2(qn.getCenterOfMass)
-    val delta = geometry.position - com
+    val delta = geometry.center - com
     val distanceToCell = delta.length - qn.getSize
     // Notes:  -account for quadNode's radius too to minimize the chance of all pseudonode's children causing over-repulsion
     //   -technically, it would be more accurate to also subtract the target node's radius above too, but the trade-off would be less efficient QuadTree usage

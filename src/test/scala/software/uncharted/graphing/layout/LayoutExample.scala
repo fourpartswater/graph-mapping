@@ -12,7 +12,7 @@
  */
 package software.uncharted.graphing.layout
 
-import java.awt.{BorderLayout, Color, Dimension, Graphics}
+import java.awt.{BorderLayout, Color, Dimension, Font, Graphics, GraphicsEnvironment}
 import java.awt.event.ActionEvent
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 import javax.swing.{AbstractAction, JFrame, JMenu, JMenuBar, JMenuItem, JPanel, JTabbedPane}
@@ -22,7 +22,7 @@ import software.uncharted.graphing.layout.forcedirected.ForceDirectedLayoutParam
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.SharedSparkContext
-import org.scalatest.{Outcome, FunSuite}
+import org.scalatest.FunSuite
 
 
 class LayoutExample extends FunSuite with SharedSparkContext {
@@ -32,7 +32,8 @@ class LayoutExample extends FunSuite with SharedSparkContext {
   }
 
   private def connectedNodeName (id: Int, level: Int, levels: Int, connectedNodesPerLevel: Int): String = {
-    val parts = for (i <- (levels - level) to 0 by -1) yield ((id / math.pow(connectedNodesPerLevel, i).round.toInt) % connectedNodesPerLevel)
+    val lp = for (i <- levels to level by -1) yield math.pow(connectedNodesPerLevel, i).round.toInt
+    val parts = for (i <- levels to level by -1) yield ((id / math.pow(connectedNodesPerLevel, i).round.toInt) % connectedNodesPerLevel)
     val hid = parts.mkString(":")
     s"connected node $hid[$id] on hierarchy level $level"
   }
@@ -116,7 +117,17 @@ class LayoutExample extends FunSuite with SharedSparkContext {
          |  }
          |}
        """.stripMargin)).get
-    val parameters = ForceDirectedLayoutParameters.default
+    val parameters = ForceDirectedLayoutParameters(ConfigFactory.parseString(
+      s"""
+         |{
+         |  layout: {
+         |    force-directed: {
+         |      use-node-sizes: true
+         |      node-area-factor: 0.6
+         |    }
+         |  }
+         |}
+       """.stripMargin)).get
 
     val fileStartTime = System.currentTimeMillis()
 
@@ -167,8 +178,10 @@ class DisplayApp (outputPath: String, levels: Int) extends JFrame {
   }
 }
 class LevelPane (outputPath: String, level: Int) extends JPanel {
-  val nodes: List[NodeEntry] = readData()
-  def readData (): List[NodeEntry] = {
+  val nodes: List[NodeEntry] = readNodeData()
+  val edges: List[EdgeEntry] = readEdgeData()
+
+  def readNodeData (): List[NodeEntry] = {
     val dataDir = new File(outputPath, "level_"+level)
     val dataFile = new File(dataDir, "part-00000")
     val reader = new BufferedReader(new InputStreamReader(new FileInputStream(dataFile)))
@@ -180,17 +193,46 @@ class LevelPane (outputPath: String, level: Int) extends JPanel {
       bnodes += NodeEntry(
         fields(1).toLong, fields(2).toDouble, fields(3).toDouble, fields(4).toDouble,
         fields(5).toLong, fields(6).toDouble, fields(7).toDouble, fields(8).toDouble,
-        fields(9).toInt, fields(10).toInt, fields(11)
+        fields(9).toInt, fields(10).toInt, fields(11).toInt, fields(12)
       )
       line = reader.readLine()
     }
+    reader.close()
+
     bnodes.toList
   }
+
+  def readEdgeData (): List[EdgeEntry] = {
+    val dataDir = new File(outputPath, "level_"+level)
+    val dataFile = new File(dataDir, "part-00001")
+    val reader = new BufferedReader(new InputStreamReader(new FileInputStream(dataFile)))
+    val bedges = MutableBuffer[EdgeEntry]()
+
+    var line = reader.readLine()
+    while (null != line) {
+      val fields = line.split("\t")
+      bedges += EdgeEntry(
+        fields(1).toLong, fields(2).toDouble, fields(3).toDouble,
+        fields(4).toLong, fields(5).toDouble, fields(6).toDouble,
+        fields(7).toLong,
+        1 == fields(8).toInt
+      )
+      line = reader.readLine()
+    }
+    reader.close()
+
+    bedges.toList
+  }
+
   override def paint (g: Graphics): Unit = {
     val size: Dimension = getSize
     def coords (x: Double, y: Double): (Int, Int) = {
       ((size.getWidth * x / 256.0).round.toInt, (size.getHeight* y / 256.0).round.toInt)
     }
+
+    g.setFont(new Font("SansSerif", Font.BOLD, level * 2 + 10))
+    val fontColor = new Color(0, 192, 0)
+
     def circle (color: Color, x: Double, y: Double, r: Double, fill: Boolean, idOpt: Option[Long] = None): Unit = {
       g.setColor(color)
       val (lx, ly) = coords(x, y)
@@ -200,17 +242,33 @@ class LevelPane (outputPath: String, level: Int) extends JPanel {
       if (fill) g.fillOval(lx - dx, ly - dy, 2*dx+1, 2*dy+1)
       else g.drawOval(lx - dx, ly - dy, 2*dx+1, 2*dy+1)
       idOpt.foreach{id =>
-        g.setColor(Color.BLACK)
+        g.setColor(fontColor)
         g.drawString(""+id, lx, ly)
       }
     }
+
     g.setColor(Color.WHITE)
     g.fillRect(0, 0, size.getWidth.toInt, size.getHeight.toInt)
 
     // draw nodes
     for (node <- nodes) {
-      circle(Color.BLUE, node.x, node.y, node.r, true /*, Some(node.id) */)
+      circle(Color.BLUE, node.x, node.y, node.r, true, Some(node.id))
       circle(Color.RED, node.px, node.py, node.pr, false)
+    }
+
+    // draw edges
+    val internalEdgeColor = new Color(0, 128, 128)
+    val externalEdgeColor = new Color(128, 128, 0)
+    for (edge <- edges) {
+      val (sx, sy) = coords(edge.sx, edge.sy)
+      val (dx, dy) = coords(edge.dx, edge.dy)
+      if (edge.external) {
+        g.setColor(externalEdgeColor)
+        g.drawLine(sx, sy, dx, dy)
+      } else {
+        g.setColor(internalEdgeColor)
+        g.drawLine(sx, sy, dx, dy)
+      }
     }
 
     // Draw tick marks
@@ -234,4 +292,5 @@ class LevelPane (outputPath: String, level: Int) extends JPanel {
   }
 }
 
-case class NodeEntry (id: Long, x: Double, y: Double, r: Double, pid:Long, px: Double, py: Double, pr: Double, internal: Int, degree: Int, metadata: String)
+case class NodeEntry (id: Long, x: Double, y: Double, r: Double, pid:Long, px: Double, py: Double, pr: Double, internal: Int, degree: Int, level: Int, metadata: String)
+case class EdgeEntry (sid: Long, sx: Double, sy: Double, did: Long, dx: Double, dy: Double, weight: Long, external: Boolean)

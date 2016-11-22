@@ -17,11 +17,10 @@ package software.uncharted.graphing.layout
 import scala.util.Try
 import scala.collection.JavaConverters._
 
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.{Accumulable, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
-import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, V2, ForceDirectedLayout}
+import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayout}
 
 
 
@@ -45,7 +44,7 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutPara
  *
  **/
 class HierarchicFDLayout extends Serializable {
-  private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig, level: Int): Graph[GraphNode, Long] = {
+  private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig, level: Int): (Graph[GraphNode, Long], Option[Long]) = {
     // parse edge data
     val gparser = new GraphCSVParser
     val rawData = config.inputParts
@@ -54,23 +53,29 @@ class HierarchicFDLayout extends Serializable {
 
     val edges = gparser.parseEdgeData(sc, rawData, config.inputDelimiter, 1, 2, 3)
 
-    val nodes =
-      if (level == config.maxHierarchyLevel) {
-        // parse node data ... format is (nodeID, parent community ID, internal number of nodes, degree, metadata)
-        val ndata = gparser.parseNodeData(sc, rawData, config.inputDelimiter, 1, 2, 3, 4)
-        // for the top hierarachy level, force the 'parentID' of all nodes to the largest community,
-        // so the largest community will be placed in the centre of the graph layout
-        val topParentID = ndata.map(n => (n.id, n.internalNodes)).top(1)(Ordering.by(_._2))(0)._1
+    val rawNodeData = gparser.parseNodeData(sc, rawData, config.inputDelimiter, 1, 2, 3, 4)
 
-        // force parentID = topParentID for top level group
-        ndata.map(node => GraphNode(node.id, topParentID, node.internalNodes, node.degree, node.metadata))
-      } else {
-        gparser.parseNodeData(sc, rawData, config.inputDelimiter, 1, 2, 3, 4)
-      }
+    val rootNode = if (level == config.maxHierarchyLevel) {
+      // If we're on the top hierarchy level, other parts of the system will need to know the root node.
+      Some(rawNodeData.map(n => (n.id, n.internalNodes)).top(1)(Ordering.by(_._2))(0)._1)
+    } else {
+      None
+    }
 
-    Graph(nodes.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
-      (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0)
-    })
+    val nodes = if (level == config.maxHierarchyLevel) {
+      // for the top hierarachy level, force the 'parentID' of all nodes to the largest community,
+      // so the largest community will be placed in the centre of the graph layout
+      rawNodeData.map(node => GraphNode(node.id, rootNode.get, node.internalNodes, node.degree, node.metadata))
+    } else {
+      rawNodeData
+    }
+
+    (
+      Graph(nodes.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
+        (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0)
+      }),
+      rootNode
+      )
   }
 
   def getIntraCommunityEdgesByCommunity (graph: Graph[GraphNode, Long],
@@ -108,10 +113,10 @@ class HierarchicFDLayout extends Serializable {
   case class LayoutData (parentId: Long,
                          nodes: Iterable[GraphNode],
                          edges: Iterable[GraphEdge],
-                         bounds: (Double, Double, Double, Double))
+                         bounds: Circle)
 
   def getLayoutData (graph: Graph[GraphNode, Long],
-                     lastLevelLayout: RDD[(Long, (Double, Double, Double, Double))],
+                     lastLevelLayout: RDD[(Long, Circle)],
                      config: HierarchicalLayoutConfig,
                      level: Int): RDD[LayoutData] = {
     // join raw nodes with intra-community edges (key is parent ID), AND join with lastLevelLayout so have access
@@ -136,13 +141,13 @@ class HierarchicFDLayout extends Serializable {
       throw new IllegalArgumentException("nodeAreaFactor parameter must be between 0.1 and 0.9")
     }
 
-    val forceDirectedLayouter = new ForceDirectedLayout()
+    val forceDirectedLayouter = new ForceDirectedLayout(layoutParameters)
 
 		val levelStats = new Array[Seq[(String, AnyVal)]](layoutConfig.maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
 
 		// init results for 'parent group' rectangle with group ID -1 (because top hierarchical communities don't
     // have valid parents).  Rectangle format is left coord, bottom coord, width, height
-		var lastLevelLayout = sc.parallelize(Seq(-1L -> (0.0, 0.0, layoutConfig.layoutSize, layoutConfig.layoutSize)))
+		var lastLevelLayoutOpt: Option[RDD[(Long, Circle)]] = None
 
     for (level <- layoutConfig.maxHierarchyLevel to 0 by -1) {
 			println("Starting Force Directed Layout for hierarchy level " + level)
@@ -150,26 +155,29 @@ class HierarchicFDLayout extends Serializable {
       // and num internal nodes, and the parent community ID.
       // Group by parent community, and do Group-in-Box layout once for each parent community.
       // Then consolidate results and save in format (community id, rectangle in 'global coordinates')
-      val graph = getGraph(sc, layoutConfig, level)
+      val (graph, rootNode) = getGraph(sc, layoutConfig, level)
       val edges = graph.edges.cache()
 
       val scaleFactors = sc.collectionAccumulator[Double]("scale factors")
 
+      val parentLevelLayout = lastLevelLayoutOpt.getOrElse{
+        val halfSize = layoutConfig.layoutSize / 2.0
+        sc.parallelize(Seq(rootNode.get -> Circle(V2(halfSize, halfSize), halfSize)))
+      }
+
 			// perform force-directed layout algorithm on all nodes and edges in a given parent community
 			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
-			val nodeDataAll = getLayoutData(graph, lastLevelLayout, layoutConfig, level).flatMap { p =>
-        val rectLL = V2(p.bounds._1, p.bounds._2)
-        val parentPosition = rectLL + V2(p.bounds._3, p.bounds._4) * 0.5
-        val parentRadius = (parentPosition - rectLL).length
-        val parentGeometry = forcedirected.LayoutGeometry(parentPosition, parentRadius)
-
+			val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
         forceDirectedLayouter.run(p.nodes, p.edges, p.parentId, p.bounds, level).map { node =>
-          (node.id, node.inParent(parentGeometry))
+          (node.id, node.inParent(p.bounds))
         }
 			}.cache
 
 			val graphForThisLevel = Graph(nodeDataAll, graph.edges)	// create a graph of the layout results for this level
 
+      val all = nodeDataAll.collect
+      val nodesA = graphForThisLevel.vertices.collect
+      val edgesA = graphForThisLevel.edges.collect()
 			levelStats(level) = calcLayoutStats(level,
                                           graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
@@ -184,35 +192,18 @@ class HierarchicFDLayout extends Serializable {
 
 			if (level > 0) {
 				val levelLayout = nodeDataAll.map { data =>
-          // convert x,y coords and community radius of this community to a square bounding box for next hierarchical level
-          circleToRectangle(data._1, data._2.geometry)
+          // Just store the geometry of each parent
+          (data._1, data._2.geometry)
         }.cache
 
-				lastLevelLayout.unpersist(blocking=false)
-				lastLevelLayout = levelLayout
+        lastLevelLayoutOpt.foreach(_.unpersist(false))
+        lastLevelLayoutOpt = Some(levelLayout)
 			}
 			nodeDataAll.unpersist(blocking=false)
 			edges.unpersist(blocking=false)
 		}
 
 		saveLayoutStats(sc, levelStats, layoutConfig.output)	// save layout stats for all hierarchical levels
-	}
-
-	//----------------------
-	// For a node location, take the x,y coords and radius, and convert to a bounding box (square) contained
-	// within the circle (square diagonal == circle diameter).  To be used as a bounding box for the FD layout of the next hierarchical level communities
-	//	private def circlesToRectangles(nodeCoords: Array[(Long, Double, Double, Double)]): Iterable[(Long, (Double, Double, Double, Double))] = {
-	//		val squares = nodeCoords.map(n => {
-	//			                             circleToRectangle(n)
-	//		                             })
-	//		squares
-	//	}
-
-	private def circleToRectangle(id: Long, geometry: forcedirected.LayoutGeometry): (Long, (Double, Double, Double, Double)) = {
-		// calc coords of bounding box with same centre as the circle, and width = height = sqrt(2)*r
-		val rSqrt2 = geometry.radius*0.70711	// 0.70711 = 1/sqrt(2)
-		val squareCoords = (geometry.position.x - rSqrt2, geometry.position.y - rSqrt2, 2.0*rSqrt2, 2.0*rSqrt2)	// (x,y of left-bottem corner, width, height)
-		(id, squareCoords)
 	}
 
 	private def calcLayoutStats(level: Int,
@@ -311,9 +302,9 @@ class HierarchicFDLayout extends Serializable {
       Try{
         val (id, node) = vertex
 
-        List("node", id,
-          node.geometry.position.x, node.geometry.position.y, node.geometry.radius,
-          node.parentGeometry.get.position.x, node.parentGeometry.get.position.y, node.parentGeometry.get.radius,
+        List("node",
+          id, node.geometry.center.x, node.geometry.center.y, node.geometry.radius,
+          node.parentId, node.parentGeometry.get.center.x, node.parentGeometry.get.center.y, node.parentGeometry.get.radius,
           node.internalNodes, node.degree, level, node.metadata
         ).mkString("\t")
       }.toOption
@@ -329,8 +320,8 @@ class HierarchicFDLayout extends Serializable {
         val interCommunityEdge = if ((et.srcAttr.parentId != et.dstAttr.parentId) || bIsMaxLevel) 1 else 0
 
         List("edge",
-          srcID, srcGeometry.position.x, srcGeometry.position.y,
-          dstID, dstGeometry.position.x, dstGeometry.position.y,
+          srcID, srcGeometry.center.x, srcGeometry.center.y,
+          dstID, dstGeometry.center.x, dstGeometry.center.y,
           et.attr, interCommunityEdge
         ).mkString("\t")
       }.toOption

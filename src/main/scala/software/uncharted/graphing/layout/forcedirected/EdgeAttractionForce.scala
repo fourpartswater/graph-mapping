@@ -12,6 +12,12 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
+
+
+import software.uncharted.graphing.layout.V2
+
+
+
 class EdgeAttractionForce extends Force {
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
@@ -20,7 +26,7 @@ class EdgeAttractionForce extends Force {
     for (edge <- edges) {
       val src = nodes(edge.srcIndex)
       val dst = nodes(edge.dstIndex)
-      val delta = dst.geometry.position - src.geometry.position
+      val delta = dst.geometry.center - src.geometry.center
       val distance = delta.length - src.geometry.radius - dst.geometry.radius
       if (distance > 0) {
         // Only calculate attractive force if nodes don't overlap

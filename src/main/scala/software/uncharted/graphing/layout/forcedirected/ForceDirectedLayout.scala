@@ -15,7 +15,7 @@ package software.uncharted.graphing.layout.forcedirected
 
 
 import scala.util.{Random, Try}
-import software.uncharted.graphing.layout.{GraphEdge, GraphNode}
+import software.uncharted.graphing.layout._
 
 
 
@@ -23,22 +23,25 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,
-           boundingBox: (Double, Double, Double, Double),
+           bounds: Circle,
            hierarchyLevel: Int): Iterable[LayoutNode] = {
     nodes.size match {
       case 0 =>
         throw new IllegalArgumentException("Attempt to layout 0 nodes")
       case 1 =>
-        oneNodeLayout (nodes, parentId, boundingBox)
+        oneNodeLayout (nodes, parentId, bounds)
       case 2 | 3 | 4 =>
-        smallNodeLayout(nodes, parentId, boundingBox)
+        smallNodeLayout(nodes, parentId, bounds)
       case _ =>
-        generalLayout(nodes, edges, parentId, boundingBox, hierarchyLevel)
+        generalLayout(nodes, edges, parentId, bounds, hierarchyLevel)
     }
   }
 
-  /* An approximation of the radius of a figure with the given area */
+  /* The radius of a circle with the given area */
   private def radiusFromArea (area: Double): Double = math.sqrt(area / math.Pi)
+  /* The area of a circle with the given radius */
+  private def areaFromRadius (radius: Double): Double = radius * radius * math.Pi
+
 
   /* simple function to encapsulate the common case of doing things differently if we are using node sizes or not
    * in one line.
@@ -57,45 +60,34 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   // do this?
   def oneNodeLayout (nodes: Iterable[GraphNode],
                      parentId: Long,
-                     boundingBox: (Double, Double, Double, Double)): Iterable[LayoutNode] = {
+                     bounds: Circle): Iterable[LayoutNode] = {
     assert(1 == nodes.size)
 
-    val x = (boundingBox._1 + boundingBox._3) / 2.0
-    val y = (boundingBox._2 + boundingBox._4) / 2.0
-    val radius = ifUseNodeSizes({
-      val boundingBoxArea = (boundingBox._3 - boundingBox._1) * (boundingBox._4 - boundingBox._2)
-      val nodeArea = parameters.nodeAreaFactor * boundingBoxArea
-      radiusFromArea(nodeArea)
-    }, 0.0)
-
-    Array(LayoutNode(nodes.head, x, y, radius))
+    Array(LayoutNode(nodes.head, bounds.center, ifUseNodeSizes(bounds.radius, 0.0)))
   }
 
   // Precalculate relative locations of small layouts, so we don't have to do lots of parallel trig calculations
   private val smallNodeLayouts = Map(
-    1 -> List((1.0, 0.0)),
-    2 -> List((1.0, 0.0), (-1.0, 0.0)),
-    3 -> List((1.0, 0.0), (math.sqrt(3.0) / 2.0, -0.5), (-math.sqrt(3.0) / 2.0, -0.5)),
-    4 -> List((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0))
+    1 -> List(V2(1.0, 0.0)),
+    2 -> List(V2(1.0, 0.0), V2(-1.0, 0.0)),
+    3 -> List(V2(1.0, 0.0), V2(math.sqrt(3.0) / 2.0, -0.5), V2(-math.sqrt(3.0) / 2.0, -0.5)),
+    4 -> List(V2(1.0, 0.0), V2(0.0, 1.0), V2(-1.0, 0.0), V2(0.0, -1.0))
   )
 
   // Lay out a small (<5) number of nodes, for which the layout is guaranteed (because of the small number of nodes)
   // to be a central primary node with satelites evenly spaced around it.
   def smallNodeLayout (nodes: Iterable[GraphNode],
                        parentId: Long,
-                       boundingBox: (Double, Double, Double, Double)): Iterable[LayoutNode] = {
+                       bounds: Circle): Iterable[LayoutNode] = {
     assert(1 < nodes.size && nodes.size <= 4)
 
-    val bbCenter = ((boundingBox._1 + boundingBox._3) / 2.0, (boundingBox._2 + boundingBox._4) / 2.0)
-    val bbRange = (boundingBox._3- boundingBox._1, boundingBox._4 - boundingBox._2)
-    val bbArea = bbRange._1 * bbRange._2
-    val parentRadius = radiusFromArea(bbArea)
+    val parentArea = areaFromRadius(bounds.radius)
 
     // Determine radii - proportional to the proportion of internal nodes in each node
     val totalInternalNodes = nodes.map(_.internalNodes).sum
     val radii = nodes.map { node =>
       if (parameters.useNodeSizes) {
-        val nodeArea = bbArea * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes
+        val nodeArea = parentArea * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes
         (node.id, radiusFromArea(nodeArea))
       } else {
         (node.id, 0.0)
@@ -104,35 +96,35 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
     val primaryNodeRadius = radii.getOrElse(parentId, 0.0)
     val maxRadius = radii.filter(_._1 != parentId).values.max
     val nonPrimaryPoints = radii.count(_._1 != parentId)
-    val scaleFactor = ifUseNodeSizes(parentRadius / (primaryNodeRadius + 2.0 * maxRadius), 1.0)
+    val scaleFactor = ifUseNodeSizes(bounds.radius / (primaryNodeRadius + 2.0 * maxRadius), 1.0)
 
     // Map to each input node, putting the primary one (the one with the same id as the parent) in the center,
     // and locating the rest around it like satelites.
     var nonPrimaryPointIndex = 0
     nodes.map { node =>
       val radius = radii(node.id)
-      val (x, y) =
+      val position =
         if (node.id == parentId) {
           // Primary node
-          (0.0, 0.0)
+          V2(0.0, 0.0)
         } else {
           // Non-primary node. - use precalculated relative locations.
           val relativeLocation = smallNodeLayouts(nonPrimaryPoints)(nonPrimaryPointIndex)
           val distanceFromParent = radius + primaryNodeRadius
           nonPrimaryPointIndex += 1
-          ( bbCenter._1 + relativeLocation._1 * distanceFromParent * scaleFactor,
-            bbCenter._2 + relativeLocation._2 * distanceFromParent * scaleFactor)
+
+          bounds.center + relativeLocation * distanceFromParent * scaleFactor
         }
 
       // Combine node and location information.
-      LayoutNode(node, x, y, radius)
+      LayoutNode(node, position, radius)
     }
   }
 
   def generalLayout (nodes: Iterable[GraphNode],
                      edges: Iterable[GraphEdge],
                      parentId: Long,
-                     boundingBox: (Double, Double, Double, Double),
+                     bounds: Circle,
                      hierarchyLevel: Int): Iterable[LayoutNode] = {
     // Manually layout isolated nodes
     val (connectedNodes, isolatedNodes) = ifUseNodeSizes(
@@ -140,36 +132,34 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       (nodes, Iterable[GraphNode]())
     )
 
-    val bbCenter = V2((boundingBox._1 + boundingBox._3) / 2.0, (boundingBox._2 + boundingBox._4) / 2.0)
-    val bbRange = (boundingBox._3- boundingBox._1, boundingBox._4 - boundingBox._2)
-    val bbArea = bbRange._1 * bbRange._2
-    val parentRadius = radiusFromArea(bbArea)
+    val parentArea = areaFromRadius(bounds.radius)
 
     // Allocate area to isolated nodes and connected nodes according to the total number of contained internal nodes
     // To do this, we allocate the area for the connected nodes, and the remainder goes to isolated nodes
     val isolatedInternalNodes = isolatedNodes.map(_.internalNodes).sum
     val connectedInternalNodes = connectedNodes.map(_.internalNodes).sum
     val totalInternalNodes = isolatedInternalNodes + connectedInternalNodes
-    val collectedRadius = radiusFromArea(bbArea * connectedInternalNodes / totalInternalNodes)
+    val collectedRadius = radiusFromArea(parentArea * connectedInternalNodes / totalInternalNodes)
 
-    val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bbCenter, collectedRadius, parentRadius)
-    val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId, bbCenter,
-      collectedRadius, connectedInternalNodes, hierarchyLevel)
+    val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bounds, collectedRadius)
+    val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
+      new Circle(bounds.center, collectedRadius),
+      connectedInternalNodes, hierarchyLevel)
 
     isolatedLayout ++ connectedLayout
   }
 
 
 
-  def layoutConnectedNodes (nodes: Seq[GraphNode], edges: Iterable[GraphEdge], parentId: Long, center: V2,
-                            maxRadius: Double, totalInternalNodes: Long, hierarchyLevel: Int): Iterable[LayoutNode] = {
+  def layoutConnectedNodes (nodes: Seq[GraphNode], edges: Iterable[GraphEdge], parentId: Long, bounds: Circle,
+                            totalInternalNodes: Long, hierarchyLevel: Int): Iterable[LayoutNode] = {
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
     // Initialize output coordinates randomly
-    val layoutNodes = convertGraphNodesToLayoutNodes(nodes, parentId, center, maxRadius, totalInternalNodes, random)
-    val terms = new ForceDirectedLayoutTerms(numNodes, maxRadius, parameters, edges.map(_.weight).max)
-    val forces = getForces(terms, center, maxRadius, random)
+    val layoutNodes = convertGraphNodesToLayoutNodes(nodes, parentId, bounds, totalInternalNodes, random)
+    val terms = new ForceDirectedLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
+    val forces = getForces(terms, bounds, random)
     val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
     val numEdges = layoutEdges.size
 
@@ -191,6 +181,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
 
       // Modify displacements as per current temperature, and store results for this iteration
       val initialTotalEnergy = terms.totalEnergy
+      terms.totalEnergy = 0.0
       val largestSquaredStep = updatePositions(layoutNodes, displacements, parentId, terms)
       updateTemperature(terms, initialTotalEnergy)
 
@@ -206,12 +197,12 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       iterations += 1
     }
 
-    scaleNodesToArea(layoutNodes, center, maxRadius)
+    scaleNodesToArea(layoutNodes, bounds, terms)
 
     layoutNodes
   }
 
-  private def getForces (terms: ForceDirectedLayoutTerms, center: V2, maxRadius: Double, random: Random): Seq[Force] = {
+  private def getForces (terms: ForceDirectedLayoutTerms, bounds: Circle, random: Random): Seq[Force] = {
     Seq(
       if (terms.useQuadTree) {
         Some(new QuadTreeRepulsionForce(random))
@@ -220,9 +211,9 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       },
       Some(new EdgeAttractionForce()),
       if (parameters.gravity > 0.0) {
-        Some(new GravitationalForce(center))
+        Some(new GravitationalForce(bounds.center))
       } else if (parameters.useNodeSizes) {
-        Some(new BoundingBoxForce(center, maxRadius))
+        Some(new BoundingForce(bounds))
       } else {
         None
       }
@@ -248,7 +239,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
         largestSquaredStep = squaredStep max largestSquaredStep
         terms.totalEnergy = terms.totalEnergy + squaredStep
 
-        layoutNodes(n) = LayoutNode(node, node.geometry.position + displacement, node.geometry.radius)
+        layoutNodes(n) = LayoutNode(node, node.geometry.center + displacement, node.geometry.radius)
       }
     }
     largestSquaredStep
@@ -279,37 +270,43 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   }
 
   // Scale final positions to fit within the prescribed area
-  private def scaleNodesToArea (nodes: Array[LayoutNode], center: V2, maxRadius: Double): Unit = {
+  private def scaleNodesToArea (nodes: Array[LayoutNode], bounds: Circle, terms: ForceDirectedLayoutTerms): Unit = {
     // Find the largest distance from center currently
     Try {
       nodes.map { node =>
-        ((node.geometry.position - center).length, node.geometry.radius)
+        ((node.geometry.center - bounds.center).length, node.geometry.radius)
       }.reduce((a, b) => if (a._1 + a._2 > b._1 + b._2) a else b)
     }.map { case (farthestDistance, radiusOfFarthestPoint) =>
-      val scale = maxRadius / farthestDistance
+      val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
+      // target max radius is bounds.radius * borderScale
+      val scale = (bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
       for (i <- nodes.indices) {
         val node = nodes(i)
-        val p = node.geometry.position
+        val p = node.geometry.center
         val r = node.geometry.radius
-        nodes(i) = LayoutNode(node, center + (p - center) * scale, r)
+        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r)
       }
     }
   }
 
   private def convertGraphNodesToLayoutNodes (nodes: Seq[GraphNode],
-                                              parentId: Long, center: V2, maxRadius: Double, totalInternalNodes: Long,
+                                              parentId: Long,
+                                              bounds: Circle,
+                                              totalInternalNodes: Long,
                                               random: Random): Array[LayoutNode] = {
-    val border = ifUseNodeSizes(0.0, parameters.borderPercent / 100.0 * maxRadius)
+    val border = parameters.borderPercent / 100.0 * bounds.radius
+    val area = areaFromRadius(bounds.radius)
+
     val layoutNodes = new Array[LayoutNode](nodes.size)
     for (i <- nodes.indices) {
       val node = nodes(i)
       val position = if (node.id == parentId) {
-        center
+        bounds.center
       } else {
         // TODO: Should the random vector range over [-1, 1) instead of [-0.5, 0.5)?
-        center + (V2.randomVector(random) - V2(0.5, 0.5)) * maxRadius
+        bounds.center + (V2.randomVector(random) - V2(0.5, 0.5)) * bounds.radius
       }
-      val radius = ifUseNodeSizes(radiusFromArea(parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
+      val radius = ifUseNodeSizes(radiusFromArea(area * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
       layoutNodes(i) = LayoutNode(node, position, radius)
     }
     layoutNodes
@@ -363,15 +360,16 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
   }
 
   def layoutIsolatedNodes (nodes: Iterable[GraphNode],
-                           center: V2,
-                           minRadiusFromCenter: Double,
-                           maxRadiusFromCenter: Double): Iterable[LayoutNode] = {
+                           bounds: Circle,
+                           minRadiusFromCenter: Double): Iterable[LayoutNode] = {
     val numNodes = nodes.size
-    val rows = determineIsolatedNodeRows(minRadiusFromCenter, maxRadiusFromCenter, numNodes)
-    val avgOffset = (2.0 * math.Pi * rows * (minRadiusFromCenter + maxRadiusFromCenter) / 2.0) / numNodes
+    val rows = determineIsolatedNodeRows(minRadiusFromCenter, bounds.radius, numNodes)
+    val avgOffset = (2.0 * math.Pi * rows * (minRadiusFromCenter + bounds.radius) / 2.0) / numNodes
+    val maxSize = (bounds.radius - minRadiusFromCenter) / rows
+    val nodeSize = (maxSize min avgOffset) * parameters.nodeAreaFactor * 0.5
     var row = 0 // The row currently being laid out
-    var radius = isolatedRowRadius(row, rows, minRadiusFromCenter, maxRadiusFromCenter)
-    var rowNodes = nodesPerIsolatedRow(row, rows, minRadiusFromCenter, maxRadiusFromCenter, numNodes)
+    var radius = isolatedRowRadius(row, rows, minRadiusFromCenter, bounds.radius)
+    var rowNodes = nodesPerIsolatedRow(row, rows, minRadiusFromCenter, bounds.radius, numNodes)
     var i = 0   // Items in the current row already placed
     var curOffset = 0.0 // Radians offset for placement of current item
     var offsetPerItem = 2.0 * math.Pi / rowNodes
@@ -381,8 +379,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
         // next row
         i = 0
         row = row + 1
-        radius = isolatedRowRadius(row, rows, minRadiusFromCenter, maxRadiusFromCenter)
-        rowNodes = nodesPerIsolatedRow(row, rows, minRadiusFromCenter, maxRadiusFromCenter, numNodes)
+        radius = isolatedRowRadius(row, rows, minRadiusFromCenter, bounds.radius)
+        rowNodes = nodesPerIsolatedRow(row, rows, minRadiusFromCenter, bounds.radius, numNodes)
         curOffset = 0.0
         offsetPerItem = 2.0 * math.Pi / rowNodes
       }
@@ -390,7 +388,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDire
       val vOffset = V2.unitVector(curOffset)
       curOffset += offsetPerItem
       i += 1
-      LayoutNode(node, center + vOffset * radius, avgOffset * parameters.nodeAreaFactor)
+      LayoutNode(node, bounds.center + vOffset * radius, nodeSize)
     }
   }
 }
