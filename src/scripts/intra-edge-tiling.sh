@@ -113,19 +113,21 @@ echo spark-submit \
 echo >> intra-edge-tiling.log
 echo >> intra-edge-tiling.log
 
-spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	|& tee -a intra-edge-tiling.log
+if [ "${DEBUG}" != "true" ]; then
+	spark-submit \
+		--num-executors ${EXECUTORS} \
+		--executor-memory 10g \
+		--executor-cores 4 \
+		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
+		--driver-class-path ${EXTRA_JARS} \
+		--jars `echo ${EXTRA_JARS} | tr : ,` \
+		--class ${MAIN_CLASS} \
+		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+		${MAIN_JAR} \
+		output.conf tiling.conf graph.conf \
+		${CONFIGURATION} \
+		|& tee -a intra-edge-tiling.log
+fi
 
 
 

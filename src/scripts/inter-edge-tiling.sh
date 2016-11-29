@@ -66,12 +66,12 @@ echo EXECUTORS: ${EXECUTORS} >> inter-edge-tiling.log
 echo LEVELS: ${LEVELS[@]} >> inter-edge-tiling.log
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> inter-edge-tiling.log
 
-echo
-echo Removing old tile set
-echo "disable '${DATATABLE}'" > clear-hbase-table
-echo "drop '${DATATABLE}'" >> clear-hbase-table
-
-hbase shell < clear-hbase-table
+# echo
+# echo Removing old tile set
+# echo "disable '${DATATABLE}'" > clear-hbase-table
+# echo "drop '${DATATABLE}'" >> clear-hbase-table
+# 
+# hbase shell < clear-hbase-table
 
 
 
@@ -110,20 +110,21 @@ echo spark-submit \
 echo >> inter-edge-tiling.log
 echo >> inter-edge-tiling.log
 
-spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	|& tee -a inter-edge-tiling.log
-
+if [ "${DEBUG}" != "true" ]; then
+	spark-submit \
+		--num-executors ${EXECUTORS} \
+		--executor-memory 10g \
+		--executor-cores 4 \
+		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
+		--driver-class-path ${EXTRA_JARS} \
+		--jars `echo ${EXTRA_JARS} | tr : ,` \
+		--class ${MAIN_CLASS} \
+		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+		${MAIN_JAR} \
+		output.conf tiling.conf graph.conf \
+		${CONFIGURATION} \
+		|& tee -a inter-edge-tiling.log
+fi
 
 
 ENDTIME=$(date +%s)
