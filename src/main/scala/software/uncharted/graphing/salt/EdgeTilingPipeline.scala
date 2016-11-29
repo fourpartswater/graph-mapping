@@ -16,47 +16,28 @@ package software.uncharted.graphing.salt
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{Column, DataFrame, SQLContext}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
 import software.uncharted.xdata.ops.util.BasicOperations
 import software.uncharted.xdata.ops.util.DebugOperations
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.ops.util.DataFrameOperations
+import software.uncharted.xdata.sparkpipe.config.TilingConfig
+import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 
-object EdgeTilingPipeline extends Logging {
-
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sqlc = SparkConfig(config)
-    try {
-      execute(sqlc, config)
-    } finally {
-      sqlc.sparkContext.stop()
-    }
-  }
-
-  def execute (sqlc: SQLContext, config: Config): Unit = {
-    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
-    val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
+object EdgeTilingPipeline extends AbstractJob {
+  def execute (session: SparkSession, config: Config): Unit = {
+	val tilingConfig = parseTilingParameters(config)
+    val outputConfig = parseOutputOperation(config)
     val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
+      tileHierarchyLevel(session, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
   }
 
@@ -74,32 +55,29 @@ object EdgeTilingPipeline extends Logging {
     ))
   }
 
-  def tileHierarchyLevel (sqlc: SQLContext,
+  def tileHierarchyLevel (session: SparkSession,
                           hierarchyLevel: Int,
                           zoomLevels: Seq[Int],
                           tileConfig: TilingConfig,
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
+    import DataFrameOperations._
     import BasicOperations._
     import DebugOperations._
     import BasicSaltOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import RDDIO.mutateContextFcn
     import software.uncharted.xdata.ops.{io => XDataIO}
 
     val edgeFcn: Option[DataFrame => DataFrame] = graphConfig.edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
     }
 
-    val awsAccessKey = System.getenv("AWS_ACCESS_KEY")
-    val awsSecretKey = System.getenv("AWS_SECRET_KEY")
-
-    Pipe(sqlc)
+    Pipe(session.sparkContext)
       .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null),
+      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null),
                       Some(getSchema)))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
