@@ -2,7 +2,7 @@
 
 MEM=4g
 MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
-SCALA_JAR=/opt/scala-2.10.4/lib/scala-library.jar
+SCALA_JAR=/opt/scala-2.11.7/lib/scala-library.jar
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Community
 
 
@@ -10,7 +10,7 @@ MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Community
 DATASET=
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1
@@ -35,6 +35,11 @@ else
 	ARGS="edges.bin -l -1 -v"
 fi
 
+if [ -e weights.bin ]
+then
+        ARGS="${ARGS} -w weights.bin"
+fi
+
 case ${DATASET} in
 
 	affinity-nd)
@@ -50,6 +55,12 @@ case ${DATASET} in
 		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MeanAnalytic4"
 		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MinAnalytic5"
 		;;
+
+    grant-graph)
+            ARGS="${ARGS} -nd 10"
+            ARGS="${ARGS} -ac software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
+            ;;
+
 
 esac
 

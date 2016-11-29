@@ -14,6 +14,9 @@ package software.uncharted.graphing.analytics
 
 
 
+import java.io.{File, FileNotFoundException}
+
+import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import software.uncharted.salt.core.analytic.Aggregator
 
 
@@ -78,20 +81,38 @@ trait CustomGraphAnalytic[T] extends Serializable {
     * Take two processed, aggregated values, and determine the maximum value of the pair.
     */
   def max (left: String, right: String): String
+
+  /**
+    * Initialize a new instance of the aggregator using configuration parameters.
+    * @param configs Configuration to use for initialization
+    * @return Configured instance
+    */
+  def initialize(configs: Config): CustomGraphAnalytic[T]
 }
 object CustomGraphAnalytic {
   /**
     * Given a class name, construct an instance of the Custom Graph Analytic that class name describes, using a
     * no-argument constructor.
+    *
     * @param className The class name of the custom graph analytic to construct
     * @return An instance of the named analytic.
     */
-  def apply (className: String): CustomGraphAnalytic[_] = {
+  def apply (className: String, configName: String): CustomGraphAnalytic[_] = {
     val rawClass = this.getClass.getClassLoader.loadClass(className)
     if (!classOf[CustomGraphAnalytic[_]].isAssignableFrom(rawClass))
       throw new IllegalArgumentException(s"$className is not a CustomGraphAnalytic")
     val analyticClass = rawClass.asInstanceOf[Class[CustomGraphAnalytic[_]]]
-    analyticClass.getConstructor().newInstance()
+    var instance = analyticClass.getConstructor().newInstance()
+
+    val file = new File(configName)
+    if (file.exists()) {
+      val configs = ConfigFactory.parseReader(scala.io.Source.fromFile(file).bufferedReader()).resolve()
+      instance = instance.initialize(configs)
+    } else if (!configName.isEmpty()) {
+      throw new FileNotFoundException("Configuration file not found: " + configName)
+    }
+
+    instance
   }
 
   /**

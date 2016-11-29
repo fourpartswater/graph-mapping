@@ -16,21 +16,18 @@ package software.uncharted.graphing.clustering.usc
 
 import java.util.Date
 
-import scala.collection.generic.Growable
-import scala.collection.mutable.ListBuffer
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.graphx.{Edge, Graph => SparkGraph}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.util.CollectionAccumulator
+import org.apache.spark.{SparkConf, SparkContext}
+import software.uncharted.graphing.clustering.ClusteringStatistics
+import software.uncharted.graphing.utilities.ArgumentParser
+import software.uncharted.graphing.utilities.GraphOperations._
+
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.util.Try
-
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.graphx.{Graph => SparkGraph, Edge}
-import org.apache.spark.{Accumulable, SparkConf, SparkContext}
-import org.apache.spark.rdd.RDD
-
-
-import software.uncharted.graphing.clustering.ClusteringStatistics
-import software.uncharted.graphing.utilities.{ArgumentParser, GraphOperations}
-import GraphOperations._
-
 
 
 /**
@@ -143,7 +140,7 @@ object USCLouvainRunner {
     val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
 
     // Set up a clustering statistics accumulator
-    val stats = sc.accumulableCollection(ListBuffer[ClusteringStatistics]())
+    val stats = sc.collectionAccumulator[ClusteringStatistics]("stats")
 
     println("Randomness: "+r)
     subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
@@ -164,7 +161,7 @@ object USCLouvainRunner {
     println("\texternal links: " + resultGraph.numExternalLinks)
     println("\tTimestamp: "+new Date())
 
-    stats.value.foreach(println)
+    stats.value.asScala.foreach(println)
   }
 
   /**
@@ -173,7 +170,7 @@ object USCLouvainRunner {
    */
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)
                    (input: RDD[SubGraph[Long]],
-                    stats: Accumulable[_ <: Growable[ClusteringStatistics], ClusteringStatistics]) = {
+                    stats: CollectionAccumulator[ClusteringStatistics]) = {
     println("Starting first pass on "+input.partitions.length+" partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
       def logStat (stat: String, value: String) =
@@ -190,7 +187,7 @@ object USCLouvainRunner {
       c1.one_level(randomize)
       val result = c1.getReducedSubgraphWithVertexMap(getVertexMap = true)
       c1.clusteringStatistics.foreach(cs =>
-        stats += cs.addLevelAndPartition(1, partition)
+        stats.add(cs.addLevelAndPartition(1, partition))
       )
       logStat("first pass", "complete")
 
@@ -234,7 +231,7 @@ object USCLouvainRunner {
         c.clusteringStatistics.foreach { cs =>
           val levelStats = cs.addLevelAndPartition(level, -1)
           println("\tLevel stats: "+levelStats)
-          stats += levelStats
+          stats.add(levelStats)
         }
 
         logStat("consolidation", "done", level)

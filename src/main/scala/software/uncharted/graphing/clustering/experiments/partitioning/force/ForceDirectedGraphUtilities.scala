@@ -110,8 +110,8 @@ class VertexMotionGenerator (dimension: Int = 2) extends TripletCalculation[(Vec
                            edgeWeightFcn: ED => Double): Graph[(VD, Vector, Double), ED] = {
     val sc = g.vertices.context
 
-    val centralForce = sc.accumulator(0.0)
-    val pointForce = sc.accumulator(0.0)
+    val centralForce = sc.doubleAccumulator("centralForce")
+    val pointForce = sc.doubleAccumulator("pointForce")
 
     val extractVertexInfo: (VertexId, (VD, Vector, Double)) => (Vector, Double) =
       (id, data) => (data._2, data._3)
@@ -125,8 +125,8 @@ class VertexMotionGenerator (dimension: Int = 2) extends TripletCalculation[(Vec
 
         val totalForce = graphForceOpt.map(graphForce => (graphForce * 10) + centerForce).getOrElse(centerForce)
 
-        centralForce += centerForce.length
-        graphForceOpt.foreach(gf => pointForce += gf.length)
+        centralForce.add(centerForce.length)
+        graphForceOpt.foreach(gf => pointForce.add(gf.length))
 
         // Use a fraction of total force, so movement is slow
         (data, position + totalForce/20.0, weight)

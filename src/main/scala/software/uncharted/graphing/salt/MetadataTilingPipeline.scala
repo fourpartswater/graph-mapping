@@ -15,24 +15,23 @@ package software.uncharted.graphing.salt
 
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
-import software.uncharted.xdata.ops.util.BasicOperations
-import software.uncharted.xdata.ops.util.DebugOperations
+import software.uncharted.sparkpipe.Pipe
+import software.uncharted.xdata.ops.salt.BasicSaltOperations
+import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
 import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
-import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.salt.BasicSaltOperations
 
 
 
@@ -48,39 +47,39 @@ object MetadataTilingPipeline extends Logging {
   }
 
   def execute (config: Config): Unit = {
-    val sqlc = SparkConfig(config)
+    val sparkSession = SparkConfig(config)
     try {
-      execute(sqlc, config)
+      execute(sparkSession, config)
     } finally {
-      sqlc.sparkContext.stop()
+      sparkSession.sparkContext.stop()
     }
   }
 
-  def execute (sqlc: SQLContext, config: Config): Unit = {
+  def execute (sparkSession: SparkSession, config: Config): Unit = {
     val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
     val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sqlc, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
+      tileHierarchyLevel(sparkSession, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
   }
 
-  def tileHierarchyLevel(sqlc: SQLContext,
+  def tileHierarchyLevel(sparkSession: SparkSession,
                          hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
                          tilingConfig: TilingConfig,
                          graphConfig: GraphConfig,
                          outputOperation: OutputOperation): Unit = {
     import BasicOperations._
-    import DebugOperations._
     import BasicSaltOperations._
+    import DebugOperations._
+    import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
-    import RDDIO.mutateContextFcn
 
-    val rawData = Pipe(sqlc)
+    val rawData = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Input data for hierarchy level $hierarchyLevel: "))
 
@@ -104,7 +103,7 @@ object MetadataTilingPipeline extends Logging {
     val nodeData = rawData
       .to(regexFilter("^node.*"))
       .to(countRDDRowsOp("Node data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(nodeSchema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), nodeSchema))
       .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
@@ -116,7 +115,7 @@ object MetadataTilingPipeline extends Logging {
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sqlc, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(edgeSchema)))
+      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), edgeSchema))
       .to(countDFRowsOp("Parsed edge data: "))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
       .to(countRDDRowsOp("Graph edges: "))

@@ -18,6 +18,7 @@ import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
@@ -63,8 +64,9 @@ object EdgeTilingPipeline extends AbstractJob {
                           outputOperation: OutputOperation): Unit = {
     import DataFrameOperations._
     import BasicOperations._
-    import DebugOperations._
     import BasicSaltOperations._
+    import DataFrameOperations._
+    import DebugOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
     import software.uncharted.xdata.ops.{io => XDataIO}
 
@@ -77,8 +79,8 @@ object EdgeTilingPipeline extends AbstractJob {
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null),
-                      Some(getSchema)))
+//      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(getSchema)))
+      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
       .to(countDFRowsOp("Required edges: " ))
