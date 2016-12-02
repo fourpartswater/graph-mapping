@@ -102,7 +102,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     val outDir = new File("layout-example-output")
     outDir
   }
-  test("Example of layout application, to be used to debug through the process") {
+  ignore("Example of layout application, to be used to debug through the process") {
     val sourceDir = makeSource
     val sourcePath = sourceDir.getAbsolutePath
     val outputDir = getOutputLocation
