@@ -13,6 +13,8 @@
 package software.uncharted.graphing.layout
 
 
+import java.util.Date
+
 import scala.util.{Failure, Success}
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
@@ -31,6 +33,8 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
     * @param config  The job configuration
     */
   override def execute(session: SparkSession, config: Config): Unit = {
+    // scalastyle:off
+    println("Full configuration is "+config)
     val hierarchicalLayoutConfig = HierarchicalLayoutConfig(config) match {
       case Success(s) => s
       case Failure(f) =>
@@ -49,7 +53,9 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
 		// Hierarchical Force-Directed layout scheme
 		val layouter = new HierarchicFDLayout()
 
+    println("\n\n\nStarting layout at "+new Date)
 		layouter.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
+    println("Layout complete at "+new Date+"\n\n\n")
 
 		val fileEndTime = System.currentTimeMillis()
 		println("Finished hierarchic graph layout job in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")

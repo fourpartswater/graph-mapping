@@ -150,11 +150,12 @@ class HierarchicFDLayout extends Serializable {
 		var lastLevelLayoutOpt: Option[RDD[(Long, Circle)]] = None
 
     for (level <- layoutConfig.maxHierarchyLevel to 0 by -1) {
-			println("Starting Force Directed Layout for hierarchy level " + level)
+			println(s"\n\n\nStarting Force Directed Layout for hierarchy level $level\n\n\n")
       // For each hierarchical level > 0, get community ID's, community degree (num outgoing edges),
       // and num internal nodes, and the parent community ID.
       // Group by parent community, and do Group-in-Box layout once for each parent community.
       // Then consolidate results and save in format (community id, rectangle in 'global coordinates')
+      println(s"\n\nGetting graph nodes and edges for hierarchy level $level\n\n")
       val (graph, rootNode) = getGraph(sc, layoutConfig, level)
       val edges = graph.edges.cache()
 
@@ -165,6 +166,7 @@ class HierarchicFDLayout extends Serializable {
         sc.parallelize(Seq(rootNode.get -> Circle(V2(halfSize, halfSize), halfSize)))
       }
 
+      println(s"\n\nDoing actual layout for hierarchy level $level\n\n")
 			// perform force-directed layout algorithm on all nodes and edges in a given parent community
 			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
 			val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
@@ -178,6 +180,7 @@ class HierarchicFDLayout extends Serializable {
       val all = nodeDataAll.collect
       val nodesA = graphForThisLevel.vertices.collect
       val edgesA = graphForThisLevel.edges.collect()
+      println(s"\n\nCalculating stats for hierarchy level $level\n\n")
 			levelStats(level) = calcLayoutStats(level,
                                           graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
@@ -187,6 +190,7 @@ class HierarchicFDLayout extends Serializable {
 			                                    level == layoutConfig.maxHierarchyLevel)
 
 			// save layout results for this hierarchical level
+      println(s"\n\nSaving layout for hierarchy level $level\n\n")
 			saveLayoutResults(graphForThisLevel, layoutConfig.output, level, level == layoutConfig.maxHierarchyLevel)
       println("Layout done.  Scale factors used: "+scaleFactors.value.asScala.mkString("[", ", ", "]"))
 
