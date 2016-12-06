@@ -13,12 +13,11 @@
 package software.uncharted.graphing.layout
 
 
+import scala.util.{Failure, Success}
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.{SparkConf, SparkContext}
 import software.uncharted.graphing.layout.forcedirected.ForceDirectedLayoutParameters
-import software.uncharted.graphing.utilities.ArgumentParser
 import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 
 
@@ -32,13 +31,17 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
     * @param config  The job configuration
     */
   override def execute(session: SparkSession, config: Config): Unit = {
-    val hierarchicalLayoutConfig = HierarchicalLayoutConfig(config).getOrElse {
-      error("Couldn't read hierarchical layout configuration")
-      sys.exit(-1)
+    val hierarchicalLayoutConfig = HierarchicalLayoutConfig(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read hierarchical layout configuration", f)
+        sys.exit(-1)
     }
-    val forceDirectedLayoutConfig = ForceDirectedLayoutParameters(config).getOrElse{
-      error("Couldn't read force-directed layout configuration")
-      sys.exit(-1)
+    val forceDirectedLayoutConfig = ForceDirectedLayoutParameters(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read force-directed layout configuration", f)
+        sys.exit(-1)
     }
 
 		val fileStartTime = System.currentTimeMillis()
