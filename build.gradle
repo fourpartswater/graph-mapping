@@ -6,7 +6,7 @@ version = "0.1-SNAPSHOT"
 ext {
   dependencyScalaVersion = "2.11"
   scalaVersion = "2.11.8"
-  sparkVersion = "2.0.1"
+  sparkVersion = "2.0.2"
   hbaseVersion = "1.2.3"
   cdhVersion="1.2.3"
 }
