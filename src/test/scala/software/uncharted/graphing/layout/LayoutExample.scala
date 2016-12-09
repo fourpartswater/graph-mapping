@@ -107,7 +107,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     val sourcePath = sourceDir.getAbsolutePath
     val outputDir = getOutputLocation
     val outputPath = outputDir.getAbsolutePath
-    val config = HierarchicalLayoutConfig(ConfigFactory.parseString(
+    val config = HierarchicalLayoutConfigParser.parse(ConfigFactory.parseString(
       s"""
          |{
          |  layout: {

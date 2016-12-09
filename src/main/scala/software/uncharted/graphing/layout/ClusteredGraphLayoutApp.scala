@@ -33,7 +33,7 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
     * @param config  The job configuration
     */
   override def execute(session: SparkSession, config: Config): Unit = {
-    val hierarchicalLayoutConfig = HierarchicalLayoutConfig(config) match {
+    val hierarchicalLayoutConfig = HierarchicalLayoutConfigParser.parse(config) match {
       case Success(s) => s
       case Failure(f) =>
         error("Couldn't read hierarchical layout configuration", f)

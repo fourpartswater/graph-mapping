@@ -41,7 +41,7 @@ case class HierarchicalLayoutConfig(input: String,
                                     maxHierarchyLevel: Int,
                                     communitySizeThreshold: Int)
 
-object HierarchicalLayoutConfig extends ConfigParser {
+object HierarchicalLayoutConfigParser extends ConfigParser {
   private val SECTION_KEY = "layout"
   private val INPUT_LOCATION_KEY = "input.location"
   private val INPUT_PARTS_KEY = "input.parts"
@@ -56,7 +56,7 @@ object HierarchicalLayoutConfig extends ConfigParser {
   private val defaultLayoutSize = 256.0
   private val defaultCommunitySizeThreshold = 0
 
-  def apply(config: Config): Try[HierarchicalLayoutConfig] = {
+  def parse(config: Config): Try[HierarchicalLayoutConfig] = {
     Try {
       val section = config.getConfig(SECTION_KEY)
 
