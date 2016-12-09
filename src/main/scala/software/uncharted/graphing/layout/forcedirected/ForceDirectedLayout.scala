@@ -19,7 +19,7 @@ import software.uncharted.graphing.layout._
 
 
 
-class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters = ForceDirectedLayoutParameters.default) extends Serializable {
+class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,

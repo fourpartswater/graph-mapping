@@ -60,7 +60,9 @@ class GraphCSVParser {
                     edgeDstIDindex: Int=2,
                     edgeWeightIndex: Int=3): RDD[Edge[Long]] = {
 
-    rawData.flatMap(row =>
+    rawData.mapPartitionsWithIndex { case (partition, iterator) =>
+        iterator
+    }.flatMap(row =>
       {
         val tokens = row.split(delimiter).map(_.trim())
         if (tokens(0) == "edge") {

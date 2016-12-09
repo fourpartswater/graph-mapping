@@ -63,12 +63,7 @@ case class ForceDirectedLayoutParameters (
 /**
   * Global parameters
   */
-object ForceDirectedLayoutParameters extends ConfigParser {
-  // num of nodes threshold for whether or not to use quadtree decomposition
-  val QT_NODE_THRES = 20
-  // theta value for quadtree decomposition
-  // (>= 0; lower value gives more accurate repulsion force results, but is less efficient)
-  val QT_THETA = 1.0
+object ForceDirectedLayoutParametersParser extends ConfigParser {
 
   private val SECTION_KEY = "layout.force-directed"
   private val OVERLAPPING_NODES_REPULSION_FACTOR_KEY = "overlapping-nodes-repulsion-factor"
@@ -84,20 +79,20 @@ object ForceDirectedLayoutParameters extends ConfigParser {
   private val USE_NODE_SIZES_KEY = "use-node-sizes"
   private val RANDOM_SEED_KEY = "random-seed"
 
-  private val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
-  private val defaultNodeAreaFactor = 0.3
-  private val defaultStepLimitFactor = 0.001
-  private val defaultBorderPercent = 2.0
-  private val defaultIsolatedDegreeThreshold = 0
-  private val defaultQuadTreeNodeThreshold = 20
-  private val defaultQuadTreeTheta = 1.0
-  private val defaultGravity = 0.0
-  private val defaultMaxIterations = 500
-  private val defaultUseEdgeWeights = false
-  private val defaultUseNodeSizes = false
-  private val defaultRandomSeed = 911L
+  private[forcedirected] val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
+  private[forcedirected] val defaultNodeAreaFactor = 0.3
+  private[forcedirected] val defaultStepLimitFactor = 0.001
+  private[forcedirected] val defaultBorderPercent = 2.0
+  private[forcedirected] val defaultIsolatedDegreeThreshold = 0
+  private[forcedirected] val defaultQuadTreeNodeThreshold = 20
+  private[forcedirected] val defaultQuadTreeTheta = 1.0
+  private[forcedirected] val defaultGravity = 0.0
+  private[forcedirected] val defaultMaxIterations = 500
+  private[forcedirected] val defaultUseEdgeWeights = false
+  private[forcedirected] val defaultUseNodeSizes = false
+  private[forcedirected] val defaultRandomSeed = 911L
 
-  def apply(config: Config): Try[ForceDirectedLayoutParameters] = {
+  def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
     Try {
       val section = config.getConfig(SECTION_KEY)
 
@@ -116,14 +111,6 @@ object ForceDirectedLayoutParameters extends ConfigParser {
         getRandomSeed(section)
       )
     }
-  }
-
-  def default: ForceDirectedLayoutParameters = {
-    ForceDirectedLayoutParameters(
-      defaultOverlappingNodesRepulsionFactor, defaultNodeAreaFactor, defaultStepLimitFactor, defaultBorderPercent,
-      defaultIsolatedDegreeThreshold, defaultQuadTreeNodeThreshold, defaultQuadTreeTheta, defaultGravity,
-      defaultMaxIterations, defaultUseEdgeWeights, defaultUseNodeSizes, Some(defaultRandomSeed)
-    )
   }
 
   private def getRandomSeed(config: Config): Option[Long] = {

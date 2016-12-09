@@ -18,7 +18,7 @@ import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputSt
 import javax.swing.{AbstractAction, JFrame, JMenu, JMenuBar, JMenuItem, JPanel, JTabbedPane}
 
 import com.typesafe.config.ConfigFactory
-import software.uncharted.graphing.layout.forcedirected.ForceDirectedLayoutParameters
+import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayoutParametersParser}
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.SharedSparkContext
@@ -117,7 +117,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
          |  }
          |}
        """.stripMargin)).get
-    val parameters = ForceDirectedLayoutParameters(ConfigFactory.parseString(
+    val parameters = ForceDirectedLayoutParametersParser.parse(ConfigFactory.parseString(
       s"""
          |{
          |  layout: {

@@ -44,10 +44,21 @@ class ForceDirectedLayoutTests extends FunSpec {
   )
   private val epsilon = 1E-12
 
+  def defaultParameters: ForceDirectedLayoutParameters = {
+    import ForceDirectedLayoutParametersParser._
+    ForceDirectedLayoutParameters(
+      defaultOverlappingNodesRepulsionFactor, defaultNodeAreaFactor, defaultStepLimitFactor, defaultBorderPercent,
+      defaultIsolatedDegreeThreshold, defaultQuadTreeNodeThreshold, defaultQuadTreeTheta, defaultGravity,
+      defaultMaxIterations, defaultUseEdgeWeights, defaultUseNodeSizes, Some(defaultRandomSeed)
+    )
+  }
+
+
   describe("Force-directed layout of graphs") {
+
     val unitCircle = Circle(V2(0.0, 0.0), 1.0)
     it("Should lay out a simple 5-node graph in a circle when ignoring node size") {
-      val arranger = new ForceDirectedLayout
+      val arranger = new ForceDirectedLayout(defaultParameters)
       val layout = arranger.run(g5._1, g5._2, 1L, unitCircle, 1).map{ node =>
         (node.id, node)
       }.toMap
@@ -68,7 +79,7 @@ class ForceDirectedLayoutTests extends FunSpec {
           |  }
           |}
         """.stripMargin)
-      val parameters = ForceDirectedLayoutParameters(config).get
+      val parameters = ForceDirectedLayoutParametersParser.parse(config).get
       val arranger = new ForceDirectedLayout(parameters)
       val layout = arranger.run(g5._1, g5._2, 1L, unitCircle, 1).map{ node =>
         (node.id, node)
@@ -90,7 +101,7 @@ class ForceDirectedLayoutTests extends FunSpec {
     describe("#layoutIsolatedNodes") {
       val circle15 = Circle(V2(0.0, 0.0), 15.0)
       val nodes = (1L to 1000L).map(n => GraphNode(n, n, 1, 0, s"Node $n"))
-      val arranger = new ForceDirectedLayout
+      val arranger = new ForceDirectedLayout(defaultParameters)
       it("should lay things out in the allotted space only") {
         val results = arranger.layoutIsolatedNodes(nodes, circle15, 10.0)
         results.foreach { r =>
