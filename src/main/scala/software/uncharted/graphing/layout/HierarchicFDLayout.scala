@@ -99,7 +99,7 @@ class HierarchicFDLayout extends Serializable {
 
   def getNodesByCommunity (graph: Graph[GraphNode, Long],
                            config: HierarchicalLayoutConfig): RDD[(Long, Iterable[GraphNode])] = {
-    // Collect nodes by community, and store with parent ID as map key
+    // Group nodes by community, and store with parent ID as map key
     val nodes = graph.vertices.map { case (id, node) =>
       (node.parentId, node)
     }
@@ -177,10 +177,10 @@ class HierarchicFDLayout extends Serializable {
 
 			val graphForThisLevel = Graph(nodeDataAll, graph.edges)	// create a graph of the layout results for this level
 
-      val all = nodeDataAll.collect
-      val nodesA = graphForThisLevel.vertices.collect
-      val edgesA = graphForThisLevel.edges.collect()
-      println(s"\n\nCalculating stats for hierarchy level $level\n\n")
+      val numRaw = nodeDataAll.count
+      val numNodes = graphForThisLevel.vertices.count
+      val numEdges = graphForThisLevel.edges.count
+      println(s"Layout done on level $level with $numRaw raw data rows, $numNodes nodes, and $numEdges edges.  Calculating layout stats")
 			levelStats(level) = calcLayoutStats(level,
                                           graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
 			                                    graphForThisLevel.edges.count,
@@ -188,11 +188,13 @@ class HierarchicFDLayout extends Serializable {
                                           graphForThisLevel.vertices.map(n => Try(n._2.parentGeometry.get.radius).toOption), // Get parent radii
 			                                    layoutConfig.layoutSize,
 			                                    level == layoutConfig.maxHierarchyLevel)
+      println(s"Layout stats for level $level:")
+      levelStats(level).foreach(stat => println("\t"+stat._1+": "+stat._2))
 
 			// save layout results for this hierarchical level
-      println(s"\n\nSaving layout for hierarchy level $level\n\n")
+      println(s"Saving layout for hierarchy level $level")
 			saveLayoutResults(graphForThisLevel, layoutConfig.output, level, level == layoutConfig.maxHierarchyLevel)
-      println("Layout done.  Scale factors used: "+scaleFactors.value.asScala.mkString("[", ", ", "]"))
+      println("Layout done.  Scale factors used: "+scaleFactors.value.asScala.mkString("[", ", ", "]")+"\n\n\n")
 
 			if (level > 0) {
 				val levelLayout = nodeDataAll.map { data =>
