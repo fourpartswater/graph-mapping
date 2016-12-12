@@ -137,6 +137,8 @@ echo spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-cores 4 \
 	--executor-memory 10g \
+	--master yarn \
+	--deploy-mode client \
 	${MAIN_JAR} \
 	debug layout.conf >> layout.log
 
@@ -145,6 +147,8 @@ spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-cores 4 \
 	--executor-memory 10g \
+	--master yarn \
+	--deploy-mode client \
 	${MAIN_JAR} \
 	debug layout.conf |& tee -a layout.log
 
