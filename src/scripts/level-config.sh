@@ -78,7 +78,16 @@ function getPartitions {
 function getExecutors {
 	DATASET=$1
 	PARTITIONS=$( getPartitions ${DATASET} )
-	echo $(expr $(expr ${PARTITIONS} + 7) / 8)
+	EXECUTORS=$(( (${PARTITIONS} + 7) / 8 ))
+	if [ -z ${MAX_EXECUTORS+x} ]; then
+		echo ${EXECUTORS}
+	else
+		if [ "${MAX_EXECUTORS}" -lt "${EXECUTORS}" ]; then
+			echo ${MAX_EXECUTORS}
+		else
+			echo ${EXECUTORS}
+		fi
+	fi
 }
 
 # Convert from a list of level sizes to the level parameters needed by tiling
