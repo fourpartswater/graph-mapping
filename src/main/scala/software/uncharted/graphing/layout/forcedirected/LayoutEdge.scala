@@ -19,3 +19,7 @@ package software.uncharted.graphing.layout.forcedirected
   * @param weight The weight of this edge
   */
 case class LayoutEdge (srcIndex: Int, dstIndex: Int, weight: Long)
+object LayoutEdge {
+  def copy (that: LayoutEdge): LayoutEdge =
+    LayoutEdge(that.srcIndex, that.dstIndex, that.weight)
+}

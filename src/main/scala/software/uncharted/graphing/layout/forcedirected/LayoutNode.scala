@@ -28,6 +28,8 @@ class LayoutNode (_id: Long, _parentId: Long, _internalNodes: Long, _degree: Int
   }
 }
 object LayoutNode {
+  def copy (that: LayoutNode): LayoutNode =
+    new LayoutNode(that.id, that.parentId, that.internalNodes, that.degree, that.metadata, that.geometry, that.parentGeometry)
   def apply (node: GraphNode, x: Double, y: Double, radius: Double): LayoutNode =
     new LayoutNode(node.id, node.parentId, node.internalNodes, node.degree, node.metadata, Circle(V2(x, y), radius), None)
   def apply (node: GraphNode, position: V2, radius: Double): LayoutNode =
@@ -37,7 +39,7 @@ object LayoutNode {
 
   def createQuadTree (nodes: Iterable[LayoutNode], numNodes: Int): QuadTree = {
     val (minP, maxP) = nodes.map(n => (n.geometry.center, n.geometry.center)).reduce((a, b) =>
-      (a._1 min b._1, a._1 max b._1)
+      (a._1 min b._1, a._2 max b._2)
     )
 
     // Create the quad tree

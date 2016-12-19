@@ -13,13 +13,20 @@
 package software.uncharted.graphing.layout.forcedirected
 
 
-
+import scala.collection.mutable
 import scala.util.{Random, Try}
 import software.uncharted.graphing.layout._
 
 
 
 class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
+  private var iterationCallback: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit] = None
+  def setIterationCallback (fcnOpt: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit]): Unit =
+    iterationCallback = fcnOpt
+  private var isolatedNodeCallback: Option[Iterable[LayoutNode] => Unit] = None
+  def setIsolatedNodeCallback (fcnOpt: Option[Iterable[LayoutNode] => Unit]): Unit =
+    isolatedNodeCallback = fcnOpt
+
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,
@@ -142,6 +149,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val collectedRadius = radiusFromArea(parentArea * connectedInternalNodes / totalInternalNodes)
 
     val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bounds, collectedRadius)
+    isolatedNodeCallback.foreach(_(isolatedLayout))
+
     val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
       new Circle(bounds.center, collectedRadius),
       connectedInternalNodes, hierarchyLevel)
@@ -169,6 +178,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     var overlappingNodes = false
     println(s"Starting force-directed layout on $numNodes nodes and $numEdges edges...")
     while (!done) {
+      iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
+
       overlappingNodes = false
 
       // node displacements for this iteration
