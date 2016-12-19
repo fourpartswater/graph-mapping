@@ -141,7 +141,9 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
   var kSq: Double = math.Pi * maxRadius * maxRadius / numNodes
   var kInv: Double = 1.0 / math.sqrt(kSq)
   val squaredStepLimit = maxRadius*maxRadius * parameters.stepLimitFactor
-  val initialTemperature: Double = 0.5 * maxRadius
+  // Initial temperature determining how fast the layout cools.  This used to be half maxRadius; I've lowered it
+  // significantly because the the layout was bouncing around a lot under the old number.
+  val initialTemperature: Double = 0.1 * maxRadius
   var temperature: Double = initialTemperature
   var totalEnergy: Double = Double.MinValue
   var edgeWeightNormalizationFactor: Option[Double] = if (parameters.useEdgeWeights) {
@@ -156,8 +158,9 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
   }
 
   var overlappingNodes: Boolean = false
-  // constant used for extra strong repulsion force if node regions overlap
-  val nodeOverlapRepulsionFactor = maxRadius * maxRadius / (parameters.stepLimitFactor * parameters.stepLimitFactor)
+  // constant used for extra strong repulsion force if node regions overlap.  Quadruple what it used to be, and still
+  // probably a little too low.
+  val nodeOverlapRepulsionFactor = (1000.0 * 1000.0) / (maxRadius * maxRadius)
   // Used to update some parameters every nth iteration
   var progressCount = 0
 }
