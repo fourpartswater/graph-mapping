@@ -216,7 +216,7 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
       pauseControl.release()
     }
   })
-  var speed = 30
+  var speed = 600
   var timer: Option[Timer] = None
   val speedField = new JTextField(s"$speed")
   private val MILLI_PER_MINUTE = 60000
@@ -240,6 +240,19 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
       }
     }
   })
+  val drawChoice: JButton = new JButton(new AbstractAction("Show penultimate nodes") {
+    override def actionPerformed(actionEvent: ActionEvent): Unit = {
+      if (graphPanel.showPenultimateNodes) {
+        graphPanel.showPenultimateNodes = false
+        drawChoice.setText("Show penultimate nodes")
+      } else {
+        graphPanel.showPenultimateNodes = true
+        drawChoice.setText("Show ultimate nodes")
+      }
+      graphPanel.invalidate()
+      graphPanel.repaint()
+    }
+  })
   val exit = new JButton(new AbstractAction("quit") {
     override def actionPerformed(actionEvent: ActionEvent): Unit = {
       sys.exit(0)
@@ -255,8 +268,9 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
   controlPanel.add(speedField,                          new GBC(1, 1, width=2, anchor = GridBagConstraints.WEST, xWeight = 1.0))
   controlPanel.add(step,                                new GBC(0, 2, width=3))
   controlPanel.add(playPause,                           new GBC(0, 3, width=3))
-  controlPanel.add(generalInfo,                         new GBC(0, 4, width=3, height=2, yWeight=1.0, anchor = GridBagConstraints.NORTHWEST, fill=GridBagConstraints.HORIZONTAL))
-  controlPanel.add(exit,                                new GBC(2, 5, anchor=GridBagConstraints.SOUTHEAST, fill = GridBagConstraints.NONE))
+  controlPanel.add(drawChoice,                          new GBC(0, 4, width=3))
+  controlPanel.add(generalInfo,                         new GBC(0, 5, width=3, height=2, yWeight=1.0, anchor = GridBagConstraints.NORTHWEST, fill=GridBagConstraints.HORIZONTAL))
+  controlPanel.add(exit,                                new GBC(2, 6, anchor=GridBagConstraints.SOUTHEAST, fill = GridBagConstraints.NONE))
   val split = new JSplitPane
   split.setLeftComponent(graphPanel)
   split.setRightComponent(controlPanel)
@@ -271,56 +285,52 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
 }
 
 class GraphPanel extends JPanel {
+  private[layout] var showPenultimateNodes = false
   private var isolatedNodeModel: Array[LayoutNode] = new Array[LayoutNode](0)
   private var nodeModel:         Array[LayoutNode] = new Array[LayoutNode](0)
+  private var lastNodeModel:     Array[LayoutNode] = new Array[LayoutNode](0)
   private var edgeModel:         Array[LayoutEdge] = new Array[LayoutEdge](0)
   def setIsolatedModel (nodes: Array[LayoutNode]): Unit =
     isolatedNodeModel = nodes
   def setModel (nodes: Array[LayoutNode], edges: Array[LayoutEdge]): Unit = {
+    lastNodeModel = nodeModel
     nodeModel = nodes
     edgeModel = edges
     invalidate()
     repaint()
   }
 
-  override def paint(g: Graphics): Unit = {
-    g.setColor(Color.BLACK)
-    val s = getSize()
-    g.fillRect(0, 0, s.width, s.height)
-
-    if (!nodeModel.isEmpty) {
-      //      val maxDX = nodeModel.map(_.geometry.center.x - 128.0).map(_.abs).reduce(_ max _) * 1.2
-      //      val maxDY = nodeModel.map(_.geometry.center.y - 128.0).map(_.abs).reduce(_ max _) * 1.2
-      val cx = s.width/2
-      val cy = s.height/2
-      //      val scale = (cx / maxDX) max (cy / maxDY)
-      val scale = 2.0
-
-      // draw edges
+  private def getNodes = if (showPenultimateNodes) {
+    lastNodeModel
+  } else {
+    nodeModel
+  }
+  private def getGeo (node: LayoutNode) = {
+    val latest = node.geometry
+    //        val penultimate = lastNodeModel.get(node.id).map(_.geometry.center).getOrElse(latest.center)
+    //        Circle((latest.center + penultimate) / 2.0, latest.radius)
+    latest
+  }
+  private def paintEdges (g: Graphics, cx: Int, cy: Int, scale: Double): Unit = {
+    if (!edgeModel.isEmpty && !getNodes.isEmpty) {
       g.setColor(Color.green.darker().darker())
       for (edge <- edgeModel) {
-        val srcGeo = nodeModel(edge.srcIndex).geometry
-        val dstGeo = nodeModel(edge.dstIndex).geometry
+        val srcGeo = getGeo(getNodes(edge.srcIndex))
+        val dstGeo = getGeo(getNodes(edge.dstIndex))
         val sx = cx + ((srcGeo.center.x - 128.0) * scale).round.toInt
         val sy = cy + ((srcGeo.center.y - 128.0) * scale).round.toInt
         val dx = cx + ((dstGeo.center.x - 128.0) * scale).round.toInt
         val dy = cy + ((dstGeo.center.y - 128.0) * scale).round.toInt
         g.drawLine(sx, sy, dx, dy)
       }
+    }
+  }
 
-      // Draw communities on top of them
+  private def paintConnectedCommunities (g: Graphics, cx: Int, cy: Int, scale: Double): Unit = {
+    if (!getNodes.isEmpty) {
       g.setColor(Color.LIGHT_GRAY)
-      for (node <- nodeModel) {
-        val geo = node.geometry
-        val x = cx + ((geo.center.x - 128.0) * scale).round.toInt
-        val y = cy + ((geo.center.y - 128.0) * scale).round.toInt
-        val r = (geo.radius * scale).round.toInt max 2
-        g.drawOval(x - r, y - r, 2 * r + 1, 2 * r + 1)
-        // g.drawString(s"${node.id}", x, y)
-      }
-      g.setColor(Color.DARK_GRAY)
-      for (node <- isolatedNodeModel) {
-        val geo = node.geometry
+      for (node <- getNodes) {
+        val geo = getGeo(node)
         val x = cx + ((geo.center.x - 128.0) * scale).round.toInt
         val y = cy + ((geo.center.y - 128.0) * scale).round.toInt
         val r = (geo.radius * scale).round.toInt max 2
@@ -328,6 +338,34 @@ class GraphPanel extends JPanel {
         // g.drawString(s"${node.id}", x, y)
       }
     }
+  }
+
+  private def paintIsolatedCommunities (g: Graphics, cx: Int, cy: Int, scale: Double): Unit = {
+    if (!isolatedNodeModel.isEmpty) {
+      // Draw communities on top of them
+      g.setColor(Color.DARK_GRAY)
+      for (node <- isolatedNodeModel) {
+        val geo = getGeo(node)
+        val x = cx + ((geo.center.x - 128.0) * scale).round.toInt
+        val y = cy + ((geo.center.y - 128.0) * scale).round.toInt
+        val r = (geo.radius * scale).round.toInt max 2
+        g.drawOval(x - r, y - r, 2 * r + 1, 2 * r + 1)
+      }
+    }
+  }
+
+  override def paint(g: Graphics): Unit = {
+    g.setColor(Color.BLACK)
+    val s = getSize()
+    g.fillRect(0, 0, s.width, s.height)
+
+    val cx = s.width / 2
+    val cy = s.height / 2
+    val scale = 2.0
+
+    paintEdges(g, cx, cy, scale)
+    paintConnectedCommunities(g, cx, cy, scale)
+    paintIsolatedCommunities(g, cx, cy, scale)
   }
 }
 

@@ -227,6 +227,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     }
 
     scaleNodesToArea(layoutNodes, bounds, terms)
+    iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
 
     layoutNodes
   }
