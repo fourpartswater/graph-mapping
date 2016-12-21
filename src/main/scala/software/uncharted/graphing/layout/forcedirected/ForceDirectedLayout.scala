@@ -128,6 +128,19 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     }
   }
 
+  /*
+   * Get the external degree of each node - i.e., the degree of its connections to other nodes.
+   */
+  private def edgeBasedExternalNodeDegrees (edges: Iterable[GraphEdge]): scala.collection.Map[Long, Long] = {
+    val weights = mutable.Map[Long, Long]()
+    edges.foreach { edge =>
+      if (edge.srcId != edge.dstId) {
+        weights(edge.srcId) = weights.getOrElse(edge.srcId, 0L) + edge.weight
+        weights(edge.dstId) = weights.getOrElse(edge.dstId, 0L) + edge.weight
+      }
+    }
+    weights
+  }
   def generalLayout (nodes: Iterable[GraphNode],
                      edges: Iterable[GraphEdge],
                      parentId: Long,
@@ -135,7 +148,12 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
                      hierarchyLevel: Int): Iterable[LayoutNode] = {
     // Manually layout isolated nodes
     val (connectedNodes, isolatedNodes) = ifUseNodeSizes(
-      nodes.partition(_.degree > parameters.isolatedDegreeThreshold),
+      {
+        val externalDegrees = edgeBasedExternalNodeDegrees(edges)
+        nodes.partition { node =>
+          externalDegrees.getOrElse(node.id, 0L) > parameters.isolatedDegreeThreshold
+        }
+      },
       (nodes, Iterable[GraphNode]())
     )
 
