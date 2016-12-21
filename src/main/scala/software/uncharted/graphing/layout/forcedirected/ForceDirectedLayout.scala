@@ -212,7 +212,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
       val initialTotalEnergy = terms.totalEnergy
       terms.totalEnergy = 0.0
       val largestSquaredStep = updatePositions(layoutNodes, displacements, parentId, terms)
-      updateTemperature(terms, initialTotalEnergy)
+      updateTemperature(terms, initialTotalEnergy, iterations)
 
       //---- Check if system has adequately converged (note: we allow iterations to go higher than maxIterations here, due to adaptive cooling routine)
       if ( ((iterations >= 1.5f * parameters.maxIterations) ||
@@ -275,9 +275,13 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   }
 
   private def updateTemperature (terms: ForceDirectedLayoutTerms,
-                                 initialTotalEnergy: Double): Unit = {
+                                 initialTotalEnergy: Double,
+                                 iterations: Int): Unit = {
     //---- Adaptive cooling function (based on Yifan Hu "Efficient, High-Quality Force-Directed Graph Drawing", 2006)
-    if (terms.totalEnergy < initialTotalEnergy) {
+    val m = terms.parameters.maxIterations.toDouble
+    val i = iterations.toDouble
+    val randomHeatingChance = 0.2 * math.pow((m - i) / m, terms.parameters.randomHeatingDeceleration)
+    if (terms.totalEnergy < initialTotalEnergy && math.random < randomHeatingChance) {
       // system energy (movement) is decreasing, so keep temperature constant
       // or increase slightly to prevent algorithm getting stuck in a local minimum
       terms.progressCount += 1
