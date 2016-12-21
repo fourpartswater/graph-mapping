@@ -313,7 +313,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
         val node = nodes(i)
         val p = node.geometry.center
         val r = node.geometry.radius
-        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r)
+        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r * scale)
       }
     }
   }
