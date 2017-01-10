@@ -17,7 +17,23 @@ package software.uncharted.graphing.layout.forcedirected
 import software.uncharted.graphing.layout.V2
 
 
-
+/**
+  * A force that implements a 1/r^2 gravitational force towards the center of a layout
+  *
+  * Two of the general force-directed layout terms are used here:
+  *
+  * <ul>
+  *   <li>kInv</li>
+  *   <li>gravity</li>
+  * </u>
+  *
+  * The product of these two is taken to be the gravitational constant of the universe.
+  *
+  * I think there may be something wrong with the math here - it looks like this is implementing an r^2 force, not a
+  * 1/r^2 force
+  *
+  * @param center The center towards which gravity flows
+  */
 class GravitationalForce (center: V2) extends Force {
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
