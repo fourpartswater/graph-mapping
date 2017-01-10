@@ -17,7 +17,11 @@ import software.uncharted.graphing.layout.{Circle, V2, QuadNode}
 import scala.util.Random
 
 
-trait RepulsionForce extends Force {
+/**
+  * A root trait from which to derive forces implementing repulsion between nodes.  This just contains the common code
+  * that defines the matho of said repulsion
+  */
+private[forcedirected] trait RepulsionForce extends Force {
   val random: Random
 
   protected def calculateRepulsion (a: Circle, b: Circle, terms: ForceDirectedLayoutTerms): V2 = {
@@ -40,6 +44,12 @@ trait RepulsionForce extends Force {
     }
   }
 }
+
+/**
+  * A force implementing repulsion between nodes.  This implementation takes the possible shortcut of storing nodes in
+  * a quad tree, and using that to approximate the repulsion between distant nodes
+  * @param random
+  */
 class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
   def apply (nodes: Seq[LayoutNode], numNodes: Int,
              edges: Iterable[LayoutEdge], numEdges: Int,

@@ -31,9 +31,20 @@ import software.uncharted.graphing.layout._
   */
 class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
   private var iterationCallback: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit] = None
+  private var isolatedNodeCallback: Option[Iterable[LayoutNode] => Unit] = None
+
+  /**
+    * Set a callback that will get called once on each iteration of the force-direct layout on connected nodes
+    * @param fcnOpt The function to be called; parameters are the laid out connected nodes and edges, the number of
+    *               iterations, and the current temperature.
+    */
   def setIterationCallback (fcnOpt: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit]): Unit =
     iterationCallback = fcnOpt
-  private var isolatedNodeCallback: Option[Iterable[LayoutNode] => Unit] = None
+
+  /**
+    * Set a callback that will get called once isolated nodes are laid out
+    * @param fcnOpt The function to be called; parameters are the laid out isolated nodes
+    */
   def setIsolatedNodeCallback (fcnOpt: Option[Iterable[LayoutNode] => Unit]): Unit =
     isolatedNodeCallback = fcnOpt
 
