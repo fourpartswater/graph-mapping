@@ -14,9 +14,30 @@ package software.uncharted.graphing.layout.forcedirected
 
 import software.uncharted.graphing.layout.{Circle, V2}
 
-// A force to keep objects inside a bounding box
+/**
+  * A force that keeps objects within a bounding circle, by pressing them inward severely when they reach beyond it.
+  *
+  * @param bounds The bounding circle which should ideally contain objects
+  * @param thresholdRatio The ratio of the distance of an object from the center of our bounds, to the ideal radius of
+  *                       those bounds, beyond which objects will be pushed back towards the center.  The farther
+  *                       beyond this threshold, the harder the object will be pushed.
+  */
 class BoundingForce(bounds: Circle, thresholdRatio: Double = 0.9) extends Force {
   private val threshold = bounds.radius * thresholdRatio
+
+  /**
+    * Apply our bounding force to the nodes of a graph
+    *
+    * @param nodes The current layout of the nodes of the graph
+    * @param numNodes The number of nodes in the graph (included just to avoid having to recalculate it all the time,
+    *                 since the list of nodes could be long)
+    * @param edges The current layout of the edges of the graph
+    * @param numEdges The number of edges in the graph (included similarly as for numNodes)
+    * @param displacements The current displacement of each node, so far, in the current iteration of force
+    *                      application. This is kept separate from the layout until all forces have had a chance to
+    *                      act, so as to avoid confusing force interactions.
+    * @param terms The parameters and terms describing the current force-directed layout
+    */
   override def apply(nodes: Seq[LayoutNode], numNodes: Int,
                      edges: Iterable[LayoutEdge], numEdges: Int,
                      displacements: Array[V2],
