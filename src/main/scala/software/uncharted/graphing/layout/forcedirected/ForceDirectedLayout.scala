@@ -13,7 +13,7 @@
 package software.uncharted.graphing.layout.forcedirected
 
 
-
+import scala.collection.mutable
 import scala.util.{Random, Try}
 import software.uncharted.graphing.layout._
 
@@ -30,6 +30,13 @@ import software.uncharted.graphing.layout._
   * For instance, I'm not sure if they should get passed into the class, or inot the run method.
   */
 class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
+  private var iterationCallback: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit] = None
+  def setIterationCallback (fcnOpt: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit]): Unit =
+    iterationCallback = fcnOpt
+  private var isolatedNodeCallback: Option[Iterable[LayoutNode] => Unit] = None
+  def setIsolatedNodeCallback (fcnOpt: Option[Iterable[LayoutNode] => Unit]): Unit =
+    isolatedNodeCallback = fcnOpt
+
   /**
     * Run the force-directed layout algorithm on a "graph".
     *
@@ -143,6 +150,20 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     }
   }
 
+  /*
+   * Get the external degree of each node - i.e., the degree of its connections to other nodes.
+   */
+  private def edgeBasedExternalNodeDegrees (edges: Iterable[GraphEdge]): scala.collection.Map[Long, Long] = {
+    val weights = mutable.Map[Long, Long]()
+    edges.foreach { edge =>
+      if (edge.srcId != edge.dstId) {
+        weights(edge.srcId) = weights.getOrElse(edge.srcId, 0L) + edge.weight
+        weights(edge.dstId) = weights.getOrElse(edge.dstId, 0L) + edge.weight
+      }
+    }
+    weights
+  }
+
   // Lay out an arbitrarily large number of nodes
   private def generalLayout (nodes: Iterable[GraphNode],
                              edges: Iterable[GraphEdge],
@@ -150,7 +171,12 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
                              bounds: Circle): Iterable[LayoutNode] = {
     // Manually layout isolated nodes
     val (connectedNodes, isolatedNodes) = ifUseNodeSizes(
-      nodes.partition(_.degree > parameters.isolatedDegreeThreshold),
+      {
+        val externalDegrees = edgeBasedExternalNodeDegrees(edges)
+        nodes.partition { node =>
+          externalDegrees.getOrElse(node.id, 0L) > parameters.isolatedDegreeThreshold
+        }
+      },
       (nodes, Iterable[GraphNode]())
     )
 
@@ -164,6 +190,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val collectedRadius = radiusFromArea(parentArea * connectedInternalNodes / totalInternalNodes)
 
     val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bounds, collectedRadius)
+    isolatedNodeCallback.foreach(_(isolatedLayout))
+
     val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
       new Circle(bounds.center, collectedRadius),
       connectedInternalNodes)
@@ -195,8 +223,9 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     var done = false
     var iterations = 1
     var overlappingNodes = false
-    println(s"Starting force-directed layout on $numNodes nodes and $numEdges edges...")
     while (!done) {
+      iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
+
       overlappingNodes = false
 
       // node displacements for this iteration
@@ -211,7 +240,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
       val initialTotalEnergy = terms.totalEnergy
       terms.totalEnergy = 0.0
       val largestSquaredStep = updatePositions(layoutNodes, displacements, parentId, terms)
-      updateTemperature(terms, initialTotalEnergy)
+      updateTemperature(terms, initialTotalEnergy, iterations)
 
       //---- Check if system has adequately converged (note: we allow iterations to go higher than maxIterations here, due to adaptive cooling routine)
       if ( ((iterations >= 1.5f * parameters.maxIterations) ||
@@ -226,6 +255,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     }
 
     scaleNodesToArea(layoutNodes, bounds, terms)
+    iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
 
     layoutNodes
   }
@@ -274,9 +304,13 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   }
 
   private def updateTemperature (terms: ForceDirectedLayoutTerms,
-                                 initialTotalEnergy: Double): Unit = {
+                                 initialTotalEnergy: Double,
+                                 iterations: Int): Unit = {
     //---- Adaptive cooling function (based on Yifan Hu "Efficient, High-Quality Force-Directed Graph Drawing", 2006)
-    if (terms.totalEnergy < initialTotalEnergy) {
+    val m = terms.parameters.maxIterations.toDouble
+    val i = iterations.toDouble
+    val randomHeatingChance = 0.2 * math.pow((m - i) / m, terms.parameters.randomHeatingDeceleration)
+    if (terms.totalEnergy < initialTotalEnergy && math.random < randomHeatingChance) {
       // system energy (movement) is decreasing, so keep temperature constant
       // or increase slightly to prevent algorithm getting stuck in a local minimum
       terms.progressCount += 1
@@ -312,7 +346,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
         val node = nodes(i)
         val p = node.geometry.center
         val r = node.geometry.radius
-        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r)
+        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r * scale)
       }
     }
   }

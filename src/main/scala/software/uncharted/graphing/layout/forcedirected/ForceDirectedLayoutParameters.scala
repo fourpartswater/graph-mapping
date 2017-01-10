@@ -38,6 +38,12 @@ import scala.util.{Try, Random}
   *                       strength of 1.
   * @param useNodeSizes True to use node sizes when determining layout.  Not sure what the results of leaving this
   *                     false would be
+  * @param randomHeatingDeceleration A parameter that determines how quickly the insertion random intermittent heating
+  *                                  events (so as to prevent getting trapped in local minima) decelerates.  The higher
+  *                                  the number, the more quickly the random heating decelerates (i.e, the less often
+  *                                  the random heating occurs).  A value of 1.0, the default, means the chance of
+  *                                  random heating when it might be called for decreases linearly over the course of
+  *                                  a layout.
   * @param randomSeed A potential random seed to allow consistency when repeating layouts.
   */
 case class ForceDirectedLayoutParameters (
@@ -52,6 +58,7 @@ case class ForceDirectedLayoutParameters (
                                          maxIterations: Int,
                                          useEdgeWeights: Boolean,
                                          useNodeSizes: Boolean,
+                                         randomHeatingDeceleration: Double,
                                          randomSeed: Option[Long]
                                          ) {
   lazy val alphaCool = capToBounds(1.0 + math.log(stepLimitFactor) * 4.0 / maxIterations, 0.8, 0.99)
@@ -77,6 +84,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private val MAX_ITERATIONS_KEY = "max-iterations"
   private val USE_EDGE_WEIGHTS_KEY = "use-edge-weights"
   private val USE_NODE_SIZES_KEY = "use-node-sizes"
+  private val RANDOM_HEATING_KEY = "random-heating-deceleration"
   private val RANDOM_SEED_KEY = "random-seed"
 
   private[forcedirected] val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
@@ -90,6 +98,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private[forcedirected] val defaultMaxIterations = 500
   private[forcedirected] val defaultUseEdgeWeights = false
   private[forcedirected] val defaultUseNodeSizes = false
+  private[forcedirected] val defaultRandomHeating = 1.0
   private[forcedirected] val defaultRandomSeed = 911L
 
   def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
@@ -108,6 +117,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
         getInt(section, MAX_ITERATIONS_KEY, defaultMaxIterations),
         getBoolean(section, USE_EDGE_WEIGHTS_KEY, defaultUseEdgeWeights),
         getBoolean(section, USE_NODE_SIZES_KEY, defaultUseNodeSizes),
+        getDouble(section, RANDOM_HEATING_KEY, defaultRandomHeating),
         getRandomSeed(section)
       )
     }
@@ -141,7 +151,9 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
   var kSq: Double = math.Pi * maxRadius * maxRadius / numNodes
   var kInv: Double = 1.0 / math.sqrt(kSq)
   val squaredStepLimit = maxRadius*maxRadius * parameters.stepLimitFactor
-  val initialTemperature: Double = 0.5 * maxRadius
+  // Initial temperature determining how fast the layout cools.  This used to be half maxRadius; I've lowered it
+  // significantly because the the layout was bouncing around a lot under the old number.
+  val initialTemperature: Double = 0.1 * maxRadius
   var temperature: Double = initialTemperature
   var totalEnergy: Double = Double.MinValue
   var edgeWeightNormalizationFactor: Option[Double] = if (parameters.useEdgeWeights) {
@@ -156,8 +168,9 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
   }
 
   var overlappingNodes: Boolean = false
-  // constant used for extra strong repulsion force if node regions overlap
-  val nodeOverlapRepulsionFactor = maxRadius * maxRadius / (parameters.stepLimitFactor * parameters.stepLimitFactor)
+  // constant used for extra strong repulsion force if node regions overlap.  Quadruple what it used to be, and still
+  // probably a little too low.
+  val nodeOverlapRepulsionFactor = (1000.0 * 1000.0) / (maxRadius * maxRadius)
   // Used to update some parameters every nth iteration
   var progressCount = 0
 }

@@ -6,9 +6,8 @@ version = "0.1-SNAPSHOT"
 ext {
   dependencyScalaVersion = "2.11"
   scalaVersion = "2.11.8"
-  sparkVersion = "2.0.2"
-  hbaseVersion = "1.2.3"
-  cdhVersion="1.2.3"
+  sparkVersion = "2.0.1"
+  hbaseVersion = "1.0.0-cdh5.5.2"
 }
 
 // Extra setup needed for plugins
@@ -120,6 +119,7 @@ ext {
       exclude group: "org.mortbay.jetty"
       exclude group: "org.jboss.netty", module: "netty"
       exclude group: "io.netty", module: "netty"
+      exclude group: "org.apache.hadoop", module: "hadoop-core"
     })
   }
 

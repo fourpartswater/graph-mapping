@@ -51,6 +51,10 @@ function parseArguments {
 				shift
 				NEXT_LEVELS=$1
 				;;
+			-m | --max-executors )
+				shift
+				export MAX_EXECUTORS=$1
+				;;
 			-base )
 				shift
 				BASE_LOCATION=$1
