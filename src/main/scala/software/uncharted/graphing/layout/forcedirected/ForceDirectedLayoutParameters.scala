@@ -61,14 +61,16 @@ case class ForceDirectedLayoutParameters (
                                          randomHeatingDeceleration: Double,
                                          randomSeed: Option[Long]
                                          ) {
+  /** The amount by which to multiply the temperature when cooling when all is going well */
   lazy val alphaCool = capToBounds(1.0 + math.log(stepLimitFactor) * 4.0 / maxIterations, 0.8, 0.99)
+  /** The amount by which to multiply the temperature when cooling when there are overlapping nodes */
   lazy val alphaCoolSlow = capToBounds(1.0 + math.log(stepLimitFactor) * 2.0 / maxIterations, 0.8, 0.99)
 
   private def capToBounds (value: Double, minValue: Double, maxValue: Double): Double =
     ((value min maxValue) max minValue)
 }
 /**
-  * Global parameters
+  * A parser for reading force-directed layout parameters
   */
 object ForceDirectedLayoutParametersParser extends ConfigParser {
 
@@ -101,6 +103,12 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private[forcedirected] val defaultRandomHeating = 1.0
   private[forcedirected] val defaultRandomSeed = 911L
 
+  /**
+    * Extract force-directed layout configuration details from a more general configuration set
+    *
+    * @param config The general configuration set
+    * @return Those portions of the configuration directly relevant to force-directed layout
+    */
   def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
     Try {
       val section = config.getConfig(SECTION_KEY)
@@ -167,9 +175,10 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
     None
   }
 
+  // Variable sed to track whether there are overlapping nodes left in the layout
   var overlappingNodes: Boolean = false
-  // constant used for extra strong repulsion force if node regions overlap.
+  // Constant used for extra strong repulsion force if node regions overlap.
   val nodeOverlapRepulsionFactor = 64.0
-  // Used to update some parameters every nth iteration
+  // Variable used to update some parameters every nth iteration
   var progressCount = 0
 }
