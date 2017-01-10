@@ -170,7 +170,7 @@ class HierarchicFDLayout extends Serializable {
 			// perform force-directed layout algorithm on all nodes and edges in a given parent community
 			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
 			val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
-        forceDirectedLayouter.run(p.nodes, p.edges, p.parentId, p.bounds, level).map { node =>
+        forceDirectedLayouter.run(p.nodes, p.edges, p.parentId, p.bounds).map { node =>
           (node.id, node.inParent(p.bounds))
         }
 			}.cache

@@ -18,13 +18,35 @@ import scala.util.{Random, Try}
 import software.uncharted.graphing.layout._
 
 
-
+/**
+  * A class that knows how to run a force-directed layout on a graph. The heart of the algorithm is in
+  * layoutConnectedNodes; all other routines are administration, or handle simple cases that don't require forces
+  * in a deterministic manner.
+  *
+  * @param parameters The parameters governing how the force-directed layout algorithm is to run.
+  *
+  * TODO: This class should have the force set passed in.  I will make that change soon, but not in this checkin -
+  * I will soon have a second use case for it, and would like to do so then, when I can see both ways it is needed.
+  * For instance, I'm not sure if they should get passed into the class, or inot the run method.
+  */
 class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
+  /**
+    * Run the force-directed layout algorithm on a "graph".
+    *
+    * "Graph" here should be taken to mean a set of nodes and edges; there may be other nodes and edges too that are
+    * not laid out, and aren't passed into this method, so what is being laid out could really a sub-graph -
+    * this method doesn't really care.
+    *
+    * @param nodes The nodes of the graph
+    * @param edges The edges of the graph
+    * @param parentId The ID of the common parent node of all nodes in the graph.
+    * @param bounds The bounding circle in which the graph is to be laid out
+    * @return The input nodes, augmented with their positions and sizes.
+    */
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,
-           bounds: Circle,
-           hierarchyLevel: Int): Iterable[LayoutNode] = {
+           bounds: Circle): Iterable[LayoutNode] = {
     nodes.size match {
       case 0 =>
         throw new IllegalArgumentException("Attempt to layout 0 nodes")
@@ -33,7 +55,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
       case 2 | 3 | 4 =>
         smallNodeLayout(nodes, parentId, bounds)
       case _ =>
-        generalLayout(nodes, edges, parentId, bounds, hierarchyLevel)
+        generalLayout(nodes, edges, parentId, bounds)
     }
   }
 
@@ -58,7 +80,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   // Lay out a single node - obviously in the identical location as its parent
   // Note that this does, however, shrink the area of the node to nodeAreaFactor * the parent area - why do we
   // do this?
-  def oneNodeLayout (nodes: Iterable[GraphNode],
+  private def oneNodeLayout (nodes: Iterable[GraphNode],
                      parentId: Long,
                      bounds: Circle): Iterable[LayoutNode] = {
     assert(1 == nodes.size)
@@ -76,9 +98,9 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
 
   // Lay out a small (<5) number of nodes, for which the layout is guaranteed (because of the small number of nodes)
   // to be a central primary node with satelites evenly spaced around it.
-  def smallNodeLayout (nodes: Iterable[GraphNode],
-                       parentId: Long,
-                       bounds: Circle): Iterable[LayoutNode] = {
+  private def smallNodeLayout (nodes: Iterable[GraphNode],
+                               parentId: Long,
+                               bounds: Circle): Iterable[LayoutNode] = {
     assert(1 < nodes.size && nodes.size <= 4)
 
     val parentArea = areaFromRadius(bounds.radius)
@@ -121,11 +143,11 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     }
   }
 
-  def generalLayout (nodes: Iterable[GraphNode],
-                     edges: Iterable[GraphEdge],
-                     parentId: Long,
-                     bounds: Circle,
-                     hierarchyLevel: Int): Iterable[LayoutNode] = {
+  // Lay out an arbitrarily large number of nodes
+  private def generalLayout (nodes: Iterable[GraphNode],
+                             edges: Iterable[GraphEdge],
+                             parentId: Long,
+                             bounds: Circle): Iterable[LayoutNode] = {
     // Manually layout isolated nodes
     val (connectedNodes, isolatedNodes) = ifUseNodeSizes(
       nodes.partition(_.degree > parameters.isolatedDegreeThreshold),
@@ -144,15 +166,21 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bounds, collectedRadius)
     val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
       new Circle(bounds.center, collectedRadius),
-      connectedInternalNodes, hierarchyLevel)
+      connectedInternalNodes)
 
     isolatedLayout ++ connectedLayout
   }
 
 
 
-  def layoutConnectedNodes (nodes: Seq[GraphNode], edges: Iterable[GraphEdge], parentId: Long, bounds: Circle,
-                            totalInternalNodes: Long, hierarchyLevel: Int): Iterable[LayoutNode] = {
+  // Lay out an arbitrarily large number of connected nodes (i.e., nodes that do have a sufficient connection to others
+  // in thier community).  This routine is the one that actually performs force-directed layout; all other layout
+  // routines in this class are deterministic.
+  private def layoutConnectedNodes (nodes: Seq[GraphNode],
+                                    edges: Iterable[GraphEdge],
+                                    parentId: Long,
+                                    bounds: Circle,
+                                    totalInternalNodes: Long): Iterable[LayoutNode] = {
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
@@ -359,9 +387,11 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     (items * circumI / circumTotal).round.toInt
   }
 
-  def layoutIsolatedNodes (nodes: Iterable[GraphNode],
-                           bounds: Circle,
-                           minRadiusFromCenter: Double): Iterable[LayoutNode] = {
+  // Lay out an arbitrarily large number of isolated nodes (i.e. nodes that don't have a sufficient connect to other
+  // nodes in their community)
+  private[forcedirected] def layoutIsolatedNodes (nodes: Iterable[GraphNode],
+                                                  bounds: Circle,
+                                                  minRadiusFromCenter: Double): Iterable[LayoutNode] = {
     val numNodes = nodes.size
     val rows = determineIsolatedNodeRows(minRadiusFromCenter, bounds.radius, numNodes)
     val avgOffset = (2.0 * math.Pi * rows * (minRadiusFromCenter + bounds.radius) / 2.0) / numNodes

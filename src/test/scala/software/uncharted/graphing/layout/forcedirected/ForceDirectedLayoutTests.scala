@@ -59,7 +59,7 @@ class ForceDirectedLayoutTests extends FunSpec {
     val unitCircle = Circle(V2(0.0, 0.0), 1.0)
     it("Should lay out a simple 5-node graph in a circle when ignoring node size") {
       val arranger = new ForceDirectedLayout(defaultParameters)
-      val layout = arranger.run(g5._1, g5._2, 1L, unitCircle, 1).map{ node =>
+      val layout = arranger.run(g5._1, g5._2, 1L, unitCircle).map{ node =>
         (node.id, node)
       }.toMap
 
@@ -81,7 +81,7 @@ class ForceDirectedLayoutTests extends FunSpec {
         """.stripMargin)
       val parameters = ForceDirectedLayoutParametersParser.parse(config).get
       val arranger = new ForceDirectedLayout(parameters)
-      val layout = arranger.run(g5._1, g5._2, 1L, unitCircle, 1).map{ node =>
+      val layout = arranger.run(g5._1, g5._2, 1L, unitCircle).map{ node =>
         (node.id, node)
       }.toMap
 
