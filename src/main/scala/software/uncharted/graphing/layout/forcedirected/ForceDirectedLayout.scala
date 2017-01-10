@@ -353,6 +353,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
       val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
       // target max radius is bounds.radius * borderScale
       val scale = (bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
+      // Scale both the size of each node, and the vector defining its position relative to its parent node location.
       for (i <- nodes.indices) {
         val node = nodes(i)
         val p = node.geometry.center
