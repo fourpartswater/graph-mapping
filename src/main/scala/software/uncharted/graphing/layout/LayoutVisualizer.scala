@@ -101,8 +101,7 @@ object LayoutVisualizer extends AbstractJob with Logging {
         arranger.run(
           nodes, edges,
           parentId,
-          dataParameters.bounds,
-          dataParameters.level)
+          dataParameters.bounds)
       }
     }, "Force-directed layout")
     layoutThread.setDaemon(true)
