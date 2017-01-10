@@ -51,9 +51,9 @@ class HierarchicFDLayout extends Serializable {
       .map(p => sc.textFile(config.input + "/level_" + level, p))
       .orElse(Some(sc.textFile(config.input + "/level_" + level))).get
 
-    val edges = gparser.parseEdgeData(sc, rawData, config.inputDelimiter, 1, 2, 3)
+    val edges = gparser.parseEdgeData(rawData, config.inputDelimiter, 1, 2, 3)
 
-    val rawNodeData = gparser.parseNodeData(sc, rawData, config.inputDelimiter, 1, 2, 3, 4)
+    val rawNodeData = gparser.parseNodeData(rawData, config.inputDelimiter, 1, 2, 3, 4)
 
     val rootNode = if (level == config.maxHierarchyLevel) {
       // If we're on the top hierarchy level, other parts of the system will need to know the root node.

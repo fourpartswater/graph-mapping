@@ -23,6 +23,27 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutPara
 import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 
 
+/**
+  * A job that takes a hierarchically clustered graph and lays it out using a force-directed layout algorithm that has
+  * two three main forces:
+  *
+  * <ul>
+  *   <li> A general repulsion force between all nodes </li>
+  *   <li> An attraction force between nodes that are linked by an edge </li>
+  *   <li> A general gravitational or boundary force, to keep nodes from getting too far away from the center </li>
+  * </ul>
+  *
+  * As the graph is clustered hierarchically, the layout also happens hierarchically.  This means that the single
+  * community containing all nodes is placed in the center and given an area. All its direct children are then laid
+  * out within its area, and each given an area.  All their children are then laid out within their respective parents'
+  * area, and given their own area, etc, until all nodes are placed.
+  *
+  * The input is the output of the louvain clustering algorithm - see
+  * software.uncharted.graphing.clustering.unithread.Community.display_partition
+  *
+  * The output transforms nodes to include location, size, parent location, parent size, and hierarchy level.  See
+  * HierarchicFDLayout.saveLayoutResults for details
+  */
 object ClusteredGraphLayoutApp extends AbstractJob with Logging {
 
 
