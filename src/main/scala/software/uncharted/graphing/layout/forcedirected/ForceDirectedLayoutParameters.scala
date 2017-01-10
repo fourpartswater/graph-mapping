@@ -168,9 +168,8 @@ class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
   }
 
   var overlappingNodes: Boolean = false
-  // constant used for extra strong repulsion force if node regions overlap.  Quadruple what it used to be, and still
-  // probably a little too low.
-  val nodeOverlapRepulsionFactor = (1000.0 * 1000.0) / (maxRadius * maxRadius)
+  // constant used for extra strong repulsion force if node regions overlap.
+  val nodeOverlapRepulsionFactor = 64.0
   // Used to update some parameters every nth iteration
   var progressCount = 0
 }
