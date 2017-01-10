@@ -12,6 +12,10 @@
   */
 package software.uncharted.graphing.layout
 
-case class Circle(center: V2, radius: Double) {
-
-}
+/**
+  * A simple class to represent a geometric circle, used mostly to describe circular bounds in the layout process
+  *
+  * @param center The center of the circle
+  * @param radius The radius of the circle
+  */
+case class Circle(center: V2, radius: Double)
