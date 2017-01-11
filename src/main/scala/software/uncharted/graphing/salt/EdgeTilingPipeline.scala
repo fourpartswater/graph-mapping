@@ -30,6 +30,13 @@ import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 
+/**
+  * A job to produce a set of tiles showing the edges in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set, of course.
+  */
 object EdgeTilingPipeline extends AbstractJob {
   def execute (session: SparkSession, config: Config): Unit = {
 	val tilingConfig = parseTilingParameters(config)

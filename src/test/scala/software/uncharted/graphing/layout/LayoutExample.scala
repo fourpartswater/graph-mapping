@@ -25,6 +25,16 @@ import org.apache.spark.SharedSparkContext
 import org.scalatest.FunSuite
 
 
+/**
+  * The purpose of this test isn't to run each build to test the layout application.
+  *
+  * It is more to provide a known, simple case in which to debug the layout application.
+  *
+  * This may be superceded by the LayoutVisualizer, except that the LayoutVisualizer requires data, whereas this makes
+  * its own data - and a siple, comprehensible dataset at that.
+  *
+  * For this reason, its only test is set to 'ignored' by default.
+  */
 class LayoutExample extends FunSuite with SharedSparkContext {
   def levelWeight (level: Int, connectedNodesPerLevel: Int): Int = {
     if (0 == level) 0
@@ -141,6 +151,9 @@ class LayoutExample extends FunSuite with SharedSparkContext {
   }
 }
 
+/**
+  * A simple visualization app to show the results of the above test.
+  */
 object DisplayApp {
   def main (args: Array[String]): Unit = {
     val app = new DisplayApp("layout-example-output", 3)

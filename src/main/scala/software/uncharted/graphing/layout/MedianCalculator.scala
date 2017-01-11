@@ -16,7 +16,7 @@ import org.apache.spark.Accumulator
 import org.apache.spark.rdd.RDD
 
 /**
-  * Created by nkronenfeld on 08/09/16.
+  * An object that can calculate the median of a dataset
   */
 object MedianCalculator {
   def median (dataset: RDD[Double], r: Int): Double = {
