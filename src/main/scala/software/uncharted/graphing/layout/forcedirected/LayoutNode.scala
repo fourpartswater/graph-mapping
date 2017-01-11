@@ -16,6 +16,7 @@ import software.uncharted.graphing.layout.{Circle, V2, GraphNode, QuadTree}
 
 
 /**
+  * A graph node augmented with layout information
   *
   * @param geometry The layout geometry of this node
   * @param parentGeometry The layout geometry of this node's parent, if known
