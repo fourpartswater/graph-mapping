@@ -89,7 +89,7 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
              edges: Iterable[LayoutEdge], numEdges: Int,
              displacements: Array[V2],
              terms: ForceDirectedLayoutTerms): Unit = {
-    val qt = LayoutNode.createQuadTree(nodes, numNodes)
+    val qt = LayoutNode.createQuadTree(nodes)
     for (i <- nodes.indices) {
       val node = nodes(i)
       val momentaryDelta = calculateRepulsion(i, node.geometry, qt.getRoot, terms)

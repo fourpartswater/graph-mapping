@@ -122,8 +122,8 @@ object LayoutVisualizer extends AbstractJob with Logging {
     (nodes, edges, iteration, temperature) => {
       // Copy data for visualization
       val nodesCopy = new Array[LayoutNode](nodes.length)
-      for (n <- nodes.indices) nodesCopy(n) = LayoutNode.copy(nodes(n))
-      val edgesCopy = edges.map(e => LayoutEdge.copy(e)).toArray
+      for (n <- nodes.indices) nodesCopy(n) = nodes(n)
+      val edgesCopy = edges.toArray
       val minG = nodesCopy.map(_.geometry.center).reduce(_ min _)
       val maxG = nodesCopy.map(_.geometry.center).reduce(_ max _)
       val n = nodesCopy.length
