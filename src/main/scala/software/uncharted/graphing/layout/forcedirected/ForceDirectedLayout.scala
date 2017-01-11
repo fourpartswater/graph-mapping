@@ -228,7 +228,6 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val terms = new ForceDirectedLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
     val forces = getForces(terms, bounds, random)
     val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
-    val numEdges = layoutEdges.size
 
     // Actually run the force-directed algorithm
     var done = false
@@ -244,7 +243,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
 
       // Execute forces for this iteration
       forces.foreach { force =>
-        force.apply(layoutNodes, numNodes, layoutEdges, numEdges, displacements, terms)
+        force.apply(layoutNodes, layoutEdges, displacements, terms)
       }
 
       // Modify displacements as per current temperature, and store results for this iteration

@@ -35,8 +35,18 @@ import software.uncharted.graphing.layout.V2
   * @param center The center towards which gravity flows
   */
 class GravitationalForce (center: V2) extends Force {
-  override def apply(nodes: Seq[LayoutNode], numNodes: Int,
-                     edges: Iterable[LayoutEdge], numEdges: Int,
+  /**
+    * Apply the force of gravity to all nodes in the graph
+    *
+    * @param nodes The current layout of the nodes of the graph
+    * @param edges The current layout of the edges of the graph
+    * @param displacements The current displacement of each node, so far, in the current iteration of force
+    *                      application. This is kept separate from the layout until all forces have had a chance to
+    *                      act, so as to avoid confusing force interactions.
+    * @param terms The parameters and terms describing the current force-directed layout
+    */
+  override def apply(nodes: Seq[LayoutNode],
+                     edges: Iterable[LayoutEdge],
                      displacements: Array[V2],
                      terms: ForceDirectedLayoutTerms): Unit = {
     for (n <- nodes.indices) {
