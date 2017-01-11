@@ -18,25 +18,23 @@ import software.uncharted.graphing.layout.V2
 
 
 /**
-  * A force that implements a 1/r^2 gravitational force towards the center of a layout
+  * A force that impleents a r^2 constraint towards the center of a layout
   *
   * Two of the general force-directed layout terms are used here:
   *
   * <ul>
   *   <li>kInv</li>
-  *   <li>gravity</li>
+  *   <li>proportionalConstraint</li>
   * </u>
   *
-  * The product of these two is taken to be the gravitational constant of the universe.
+  * The force applied to a node is in the direction of the the defined center, with a magnitude that is the square of
+  * the distance to the center, times the product of these two constants.
   *
-  * I think there may be something wrong with the math here - it looks like this is implementing an r^2 force, not a
-  * 1/r^2 force
-  *
-  * @param center The center towards which gravity flows
+  * @param center The center around which nodes are constrained
   */
-class GravitationalForce (center: V2) extends Force {
+class ProportionalConstrainingForce(center: V2) extends Force {
   /**
-    * Apply the force of gravity to all nodes in the graph
+    * Apply our constraining force to all nodes in the graph
     *
     * @param nodes The current layout of the nodes of the graph
     * @param edges The current layout of the edges of the graph
@@ -53,7 +51,7 @@ class GravitationalForce (center: V2) extends Force {
       val delta = center - nodes(n).geometry.center
       val distance = delta.length - nodes(n).geometry.radius
       if (distance > 0) {
-        displacements(n) = displacements(n) + delta * (distance * terms.kInv * terms.parameters.gravity)
+        displacements(n) = displacements(n) + delta * (distance * terms.kInv * terms.parameters.proportionalConstraint)
       }
     }
   }

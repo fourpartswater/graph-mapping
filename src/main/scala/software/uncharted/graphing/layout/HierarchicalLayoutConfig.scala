@@ -22,15 +22,18 @@ import scala.util.Try
 
 /**
   * @param input The location of the input data
-  * @param inputParts The number of partitions into which to break up the input
+  * @param inputParts The number of partitions into which to break up the input.  Optional; if not present, the number
+  *                   of partitions is chosen automatically by Spark.
   * @param inputDelimiter The delimiter used between fields in the input data.  Default is tab-delimited.
   * @param output The location to which to output layout results
-  * @param outputParts The number of partitions into which to break up the output
+  * @param outputParts The number of partitions into which to break up the output.  Optional; if not present, the
+  *                    number of partitions is chosen automatically by Spark.
   * @param layoutSize The desired height and width of the total node layout region.  Default is 256.0
   * @param maxHierarchyLevel The maximum clustering level used when determining graph layout
   * @param communitySizeThreshold A threshold measuring the necessary number of internal nodes a community must have
-  *                               to be laid out.  Smaller communities are ignored.  Default is 0 (i.e., no communities
-  *                               ignored)
+  *                               to be laid out.  Communities with a number of internal nodes <= this number are
+  *                               ignored.  This parameter is ignored on hierarchy level 0.  Default is 0 (i.e., no
+  *                               communities are ignored)
   */
 case class HierarchicalLayoutConfig(input: String,
                                     inputParts: Option[Int],

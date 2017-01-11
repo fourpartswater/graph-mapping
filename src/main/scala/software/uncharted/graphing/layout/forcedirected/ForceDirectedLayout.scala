@@ -278,8 +278,8 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
         Some(new ElementRepulsionForce(random))
       },
       Some(new EdgeAttractionForce()),
-      if (parameters.gravity > 0.0) {
-        Some(new GravitationalForce(bounds.center))
+      if (parameters.proportionalConstraint > 0.0) {
+        Some(new ProportionalConstrainingForce(bounds.center))
       } else if (parameters.useNodeSizes) {
         Some(new BoundingForce(bounds))
       } else {

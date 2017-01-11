@@ -48,7 +48,7 @@ class ForceDirectedLayoutTests extends FunSpec {
     import ForceDirectedLayoutParametersParser._
     ForceDirectedLayoutParameters(
       defaultOverlappingNodesRepulsionFactor, defaultNodeAreaFactor, defaultStepLimitFactor, defaultBorderPercent,
-      defaultIsolatedDegreeThreshold, defaultQuadTreeNodeThreshold, defaultQuadTreeTheta, defaultGravity,
+      defaultIsolatedDegreeThreshold, defaultQuadTreeNodeThreshold, defaultQuadTreeTheta, defaultProportionalConstraint,
       defaultMaxIterations, defaultUseEdgeWeights, defaultUseNodeSizes, defaultRandomHeating, Some(defaultRandomSeed)
     )
   }

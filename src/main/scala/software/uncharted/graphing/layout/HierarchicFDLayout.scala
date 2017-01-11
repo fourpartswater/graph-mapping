@@ -25,24 +25,9 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutPara
 
 
 /**
- *  Hierarchical Force-Directed layout algorithm
- *
- *  sc = spark context
- *  maxIterations = max iterations to use for force-directed layout algorithm. Default = 500
- *  partitions = The number of partitions into which to read the raw data. Default = 0 (automatically chosen by Spark)
- *  consolidationPartitions = The number of partitions for data processing. Default= 0 (chosen based on input partitions)
- *	sourceDir = The source directory where to find clustered graph data
- * 	delimiter = Delimiter for the source graph data. Default is comma-delimited
- *  layoutDimensions = Total desired width and height of the node layout region. Default is (256.0, 256.0)
- *  borderPercent = Percent of parent bounding box to leave as whitespace between neighbouring communities during initial layout.  Default = 2 %
- *	bUseEdgeWeights = Use edge weights (if available) as part of attraction force calculation. Default = false.
- *  nodeAreaPercent = Used for hierarchical levels > 0 to determine the area of all community 'circles' within the boundingBox vs whitespace. Default is 20 percent
- *  gravity = strength of gravity force to use to prevent outer nodes from spreading out too far.  Force-directed layout only.  Default = 0.0 (no gravity)
- *  isolatedDegreeThres = degree threshold used to define 'leaf communities'.  Such leaf communities are automatically laid out in an outer radial/spiral pattern.  Default = 0
- *  communitySizeThres = community size threshold used to exclude communities with < communitySizeThres nodes from layout, in order to speed up layout of very large parent communities.
- *  					 Only used for hierarchy level > 0.  Default = 0
- *
- **/
+  * Hierarchical algorithm that runs force-Directed layout on each community, starting at the most inclusive level,
+  * laying out each community within the area of its parent.
+  **/
 class HierarchicFDLayout extends Serializable {
   private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig, level: Int): (Graph[GraphNode, Long], Option[Long]) = {
     // parse edge data

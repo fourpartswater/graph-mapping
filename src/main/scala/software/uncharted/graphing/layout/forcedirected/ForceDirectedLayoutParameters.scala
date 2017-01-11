@@ -23,19 +23,24 @@ import scala.util.{Try, Random}
   * General parameters on how force-directed layout should be run
   *
   * @param overlappingNodeRepulsionFactor A factor affecting how much overlapping nodes push each other away.
-  * @param nodeAreaFactor The proportion of a node that children should expect to cover
+  * @param nodeAreaFactor The proportion of a node that children should expect to cover.  Default is 0.3
   * @param stepLimitFactor A factor affecting how fast the layout is allowed to converge
-  * @param borderPercent
-  * @param isolatedDegreeThreshold Nodes with degree <= this number will be considered "isolated", and will not be
-  *                                laid out in the central area
+  * @param borderPercent Percent of parent bounding box to leave as whitespace between neighbouring communities
+  *                      during initial layout.  Default = 2%
+  * @param isolatedDegreeThreshold Nodes with external degree <= this number will be considered "isolated", and will
+  *                                not be laid out in the central area.  Default is 0.
   * @param quadTreeNodeThreshold If there are more nodes than this threshold, use a quad tree when calculating
   *                              repulsion forces
   * @param quadTreeTheta When a quad tree cell is smaller than this proportion times the distance to the node in
   *                      question, treat the whole cell as a point source with respect to repulsion forces.
-  * @param gravity Gravitational constant governing how centered nodes stay
-  * @param maxIterations The maximum number of iterations to take to achieve layout convergence
+  * @param proportionalConstraint A constant governing how strong a proportional constraint towards the center is.
+  *                               If non-0, a proportional constraint will be used that pushes nodes towards the
+  *                               center, pushing harder the farther they are from the center.  If 0, a bounding
+  *                               force will be used instead that doesn't push nodes until they cross a boundary,
+  *                               but pushes them strongly towards the center once that boundary is crossed.
+  * @param maxIterations The maximum number of iterations to take to achieve layout convergence.  Default is 500.
   * @param useEdgeWeights True to use edge weights when determining layout; false to assume all edges have a
-  *                       strength of 1.
+  *                       strength of 1.  Default is false.
   * @param useNodeSizes True to use node sizes when determining layout.  Not sure what the results of leaving this
   *                     false would be
   * @param randomHeatingDeceleration A parameter that determines how quickly the insertion random intermittent heating
@@ -47,19 +52,19 @@ import scala.util.{Try, Random}
   * @param randomSeed A potential random seed to allow consistency when repeating layouts.
   */
 case class ForceDirectedLayoutParameters (
-                                         overlappingNodeRepulsionFactor: Double,
-                                         nodeAreaFactor: Double,
-                                         stepLimitFactor: Double,
-                                         borderPercent: Double,
-                                         isolatedDegreeThreshold: Int,
-                                         quadTreeNodeThreshold: Int,
-                                         quadTreeTheta: Double,
-                                         gravity: Double,
-                                         maxIterations: Int,
-                                         useEdgeWeights: Boolean,
-                                         useNodeSizes: Boolean,
-                                         randomHeatingDeceleration: Double,
-                                         randomSeed: Option[Long]
+                                           overlappingNodeRepulsionFactor: Double,
+                                           nodeAreaFactor: Double,
+                                           stepLimitFactor: Double,
+                                           borderPercent: Double,
+                                           isolatedDegreeThreshold: Int,
+                                           quadTreeNodeThreshold: Int,
+                                           quadTreeTheta: Double,
+                                           proportionalConstraint: Double,
+                                           maxIterations: Int,
+                                           useEdgeWeights: Boolean,
+                                           useNodeSizes: Boolean,
+                                           randomHeatingDeceleration: Double,
+                                           randomSeed: Option[Long]
                                          ) {
   /** The amount by which to multiply the temperature when cooling when all is going well */
   lazy val alphaCool = capToBounds(1.0 + math.log(stepLimitFactor) * 4.0 / maxIterations, 0.8, 0.99)
@@ -82,7 +87,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private val ISOLATED_DEGREE_THRESHOLD_KEY = "isolated-degree-threshold"
   private val QUAD_TREE_NODE_THRESHOLD_KEY = "quad-tree-node-threshold"
   private val QUAD_TREE_TEHTA_KEY = "quad-tree-theta"
-  private val GRAVITY_KEY = "gravity"
+  private val PROPORTIONAL_CONSTRAINT_KEY = "proportional-constraint"
   private val MAX_ITERATIONS_KEY = "max-iterations"
   private val USE_EDGE_WEIGHTS_KEY = "use-edge-weights"
   private val USE_NODE_SIZES_KEY = "use-node-sizes"
@@ -96,7 +101,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private[forcedirected] val defaultIsolatedDegreeThreshold = 0
   private[forcedirected] val defaultQuadTreeNodeThreshold = 20
   private[forcedirected] val defaultQuadTreeTheta = 1.0
-  private[forcedirected] val defaultGravity = 0.0
+  private[forcedirected] val defaultProportionalConstraint = 0.0
   private[forcedirected] val defaultMaxIterations = 500
   private[forcedirected] val defaultUseEdgeWeights = false
   private[forcedirected] val defaultUseNodeSizes = false
@@ -121,7 +126,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
         getInt(section, ISOLATED_DEGREE_THRESHOLD_KEY, defaultIsolatedDegreeThreshold),
         getInt(section, QUAD_TREE_NODE_THRESHOLD_KEY, defaultQuadTreeNodeThreshold),
         getDouble(section, QUAD_TREE_TEHTA_KEY, defaultQuadTreeTheta),
-        getDouble(section, GRAVITY_KEY, defaultGravity),
+        getDouble(section, PROPORTIONAL_CONSTRAINT_KEY, defaultProportionalConstraint),
         getInt(section, MAX_ITERATIONS_KEY, defaultMaxIterations),
         getBoolean(section, USE_EDGE_WEIGHTS_KEY, defaultUseEdgeWeights),
         getBoolean(section, USE_NODE_SIZES_KEY, defaultUseNodeSizes),
