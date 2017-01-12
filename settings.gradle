@@ -6,10 +6,9 @@ ext {
     }
     f = new File(settingsDir, "../$fileName")
     if (f.exists() && f.isDirectory()) {
-      println "Including project $projectName from ${f.getPath()}"
       include ":$projectName"
       project(":$projectName").projectDir = f
-    }
+	}
   }
 }
 
@@ -17,6 +16,5 @@ ext {
 if (settings.hasProperty('useProjects')) {
   includeProject('salt-core', 'salt')
   includeProject('sparkpipe-core')
-  includeProject('sparkpipe-salt-ops')
   includeProject('xdata-pipeline-ops')
 }

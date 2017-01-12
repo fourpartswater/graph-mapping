@@ -66,12 +66,12 @@ echo EXECUTORS: ${EXECUTORS} >> inter-edge-tiling.log
 echo LEVELS: ${LEVELS[@]} >> inter-edge-tiling.log
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> inter-edge-tiling.log
 
-echo
-echo Removing old tile set
-echo "disable '${DATATABLE}'" > clear-hbase-table
-echo "drop '${DATATABLE}'" >> clear-hbase-table
-
-hbase shell < clear-hbase-table
+# echo
+# echo Removing old tile set
+# echo "disable '${DATATABLE}'" > clear-hbase-table
+# echo "drop '${DATATABLE}'" >> clear-hbase-table
+# 
+# hbase shell < clear-hbase-table
 
 
 
@@ -85,7 +85,9 @@ fi
 
 
 # Extra jars needed by tiling processes
-EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.jar:/opt/cloudera/parcels/CDH/lib/hbase/lib/hbase-client-1.0.0-cdh5.5.2.jar
+HBASE_VERSION=1.0.0-cdh5.5.2
+HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
+EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
 
 
 
@@ -110,20 +112,21 @@ echo spark-submit \
 echo >> inter-edge-tiling.log
 echo >> inter-edge-tiling.log
 
-spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	|& tee -a inter-edge-tiling.log
-
+if [ "${DEBUG}" != "true" ]; then
+	spark-submit \
+		--num-executors ${EXECUTORS} \
+		--executor-memory 10g \
+		--executor-cores 4 \
+		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
+		--driver-class-path ${EXTRA_JARS} \
+		--jars `echo ${EXTRA_JARS} | tr : ,` \
+		--class ${MAIN_CLASS} \
+		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+		${MAIN_JAR} \
+		output.conf tiling.conf graph.conf \
+		${CONFIGURATION} \
+		|& tee -a inter-edge-tiling.log
+fi
 
 
 ENDTIME=$(date +%s)

@@ -51,6 +51,18 @@ function parseArguments {
 				shift
 				NEXT_LEVELS=$1
 				;;
+			-m | --max-executors )
+				shift
+				export MAX_EXECUTORS=$1
+				;;
+			-base )
+				shift
+				BASE_LOCATION=$1
+				echo Set base directory to ${BASE_LOCATION}
+				;;
+			-debug )
+				export DEBUG=true
+				;;
 		esac
 		shift
 	done

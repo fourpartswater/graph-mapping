@@ -88,7 +88,9 @@ fi
 
 
 # Extra jars needed by tiling processes
-EXTRA_JARS=/opt/cloudera/parcels/CDH/lib/hbase/lib/htrace-core-3.2.0-incubating.jar:/opt/cloudera/parcels/CDH/lib/hbase/lib/hbase-client-1.0.0-cdh5.5.2.jar
+HBASE_VERSION=1.0.0-cdh5.5.2
+HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
+EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
 
 
 
@@ -113,19 +115,21 @@ echo spark-submit \
 echo >> intra-edge-tiling.log
 echo >> intra-edge-tiling.log
 
-spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	|& tee -a intra-edge-tiling.log
+if [ "${DEBUG}" != "true" ]; then
+	spark-submit \
+		--num-executors ${EXECUTORS} \
+		--executor-memory 10g \
+		--executor-cores 4 \
+		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
+		--driver-class-path ${EXTRA_JARS} \
+		--jars `echo ${EXTRA_JARS} | tr : ,` \
+		--class ${MAIN_CLASS} \
+		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+		${MAIN_JAR} \
+		output.conf tiling.conf graph.conf \
+		${CONFIGURATION} \
+		|& tee -a intra-edge-tiling.log
+fi
 
 
 

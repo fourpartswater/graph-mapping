@@ -16,46 +16,36 @@ package software.uncharted.graphing.salt
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.log4j.{Level, Logger}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.{BasicOperations, DebugOperations, DataFrameOperations}
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.ops.util.BasicOperations
+import software.uncharted.xdata.ops.util.DebugOperations
+import software.uncharted.xdata.ops.util.DataFrameOperations
+import software.uncharted.xdata.sparkpipe.config.TilingConfig
+import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 
-object EdgeTilingPipeline extends Logging {
-
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sparkSession = SparkConfig(config)
-    try {
-      execute(sparkSession, config)
-    } finally {
-      sparkSession.sparkContext.stop()
-    }
-  }
-
-  def execute (sparkSession: SparkSession, config: Config): Unit = {
-    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
-    val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
+/**
+  * A job to produce a set of tiles showing the edges in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set, of course.
+  */
+object EdgeTilingPipeline extends AbstractJob {
+  def execute (session: SparkSession, config: Config): Unit = {
+	val tilingConfig = parseTilingParameters(config)
+    val outputConfig = parseOutputOperation(config)
     val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
-      tileHierarchyLevel(sparkSession, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
+      tileHierarchyLevel(session, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
   }
 
@@ -73,12 +63,13 @@ object EdgeTilingPipeline extends Logging {
     ))
   }
 
-  def tileHierarchyLevel (sparkSession: SparkSession,
+  def tileHierarchyLevel (session: SparkSession,
                           hierarchyLevel: Int,
                           zoomLevels: Seq[Int],
                           tileConfig: TilingConfig,
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
+    import DataFrameOperations._
     import BasicOperations._
     import BasicSaltOperations._
     import DataFrameOperations._
@@ -90,12 +81,13 @@ object EdgeTilingPipeline extends Logging {
       filterA(new Column("isInterCommunity") === value)
     }
 
-    Pipe(sparkSession.sparkContext)
+    Pipe(session.sparkContext)
       .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-      .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
+//      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(getSchema)))
+      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
       .to(countDFRowsOp("Required edges: " ))

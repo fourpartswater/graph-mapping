@@ -7,8 +7,7 @@ ext {
   dependencyScalaVersion = "2.11"
   scalaVersion = "2.11.8"
   sparkVersion = "2.0.1"
-  hbaseVersion = "1.2.3"
-  cdhVersion="1.2.3"
+  hbaseVersion = "1.0.0-cdh5.5.2"
 }
 
 // Extra setup needed for plugins
@@ -31,7 +30,7 @@ apply plugin: 'maven-publish'
 apply plugin: 'distribution'
 apply plugin: 'idea'
 apply plugin: 'com.github.maiflai.scalatest'
-
+apply plugin: 'scalaStyle'
 
 
 // Gradle/intellij don't work properly together with 1.8
@@ -81,6 +80,16 @@ test {
 
 }
 
+// configure scala style checking plugin
+scalaStyle {
+  configLocation = "scalastyle_config.xml"
+  includeTestSourceDirectory = true
+  source = sourceSets.main.allScala
+  testSource = sourceSets.test.allScala
+  failOnWarning = false
+  verbose = true
+}
+
 // Configure a jar task to build a fat jar, run it before the assembly step
 task assemblyJar(type: Jar) {
   classifier = "assembly"
@@ -120,24 +129,32 @@ ext {
       exclude group: "org.mortbay.jetty"
       exclude group: "org.jboss.netty", module: "netty"
       exclude group: "io.netty", module: "netty"
+      exclude group: "org.apache.hadoop", module: "hadoop-core"
     })
   }
 
   // A function that defines a project dependency if the useProjects option is set, otherwise fetches
   // from maven.
   optionalProjectDependency = { dependencyName ->
+    boolean projectExists = false
     depends = getDependencies()
     projectName = ":" + depends.create(dependencyName).getName()
-    subprojectNames = project.subprojects.collect { it.name }
-    if (project.hasProperty('useProjects') && subprojectNames.contains(projectName)) {
+
+    for (p in project.getAllprojects()) {
+	  if (":"+p.getName() == projectName) projectExists = true
+	}
+
+    if (projectExists) {
+	  println("Depending on "+dependencyName+" directly")
       dependencies {
         compile project(projectName)
       }
-    } else {
+	} else {
+	  println("Depending on "+dependencyName+" through Maven")
       dependencies {
         compile dependencyName
       }
-    }
+	}
   }
 }
 
