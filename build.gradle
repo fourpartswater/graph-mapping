@@ -137,24 +137,24 @@ ext {
   // from maven.
   optionalProjectDependency = { dependencyName ->
     boolean projectExists = false
-    depends = getDependencies()
-    projectName = ":" + depends.create(dependencyName).getName()
+      depends = getDependencies()
+      projectName = ":" + depends.create(dependencyName).getName()
 
-    for (p in project.getAllprojects()) {
-	  if (":"+p.getName() == projectName) projectExists = true
-	}
+      for (p in project.getAllprojects()) {
+        if (":"+p.getName() == projectName) projectExists = true
+      }
 
-    if (projectExists) {
-	  println("Depending on "+dependencyName+" directly")
-      dependencies {
-        compile project(projectName)
-      }
-	} else {
-	  println("Depending on "+dependencyName+" through Maven")
-      dependencies {
-        compile dependencyName
-      }
-	}
+    if (projectExists && useProjects && useProjects == 'true') {
+      println("Depending on "+dependencyName+" directly")
+        dependencies {
+          compile project(projectName)
+        }
+    } else {
+      println("Depending on "+dependencyName+" through Maven")
+        dependencies {
+          compile dependencyName
+        }
+    }
   }
 }
 
