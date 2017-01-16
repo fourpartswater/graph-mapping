@@ -121,6 +121,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
                                bounds: Circle): Iterable[LayoutNode] = {
     assert(1 < nodes.size && nodes.size <= 4)
 
+    val epsilon = 1E-6
     val parentArea = areaFromRadius(bounds.radius)
 
     // Determine radii - proportional to the proportion of internal nodes in each node
@@ -136,7 +137,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val primaryNodeRadius = radii.getOrElse(parentId, 0.0)
     val maxRadius = radii.filter(_._1 != parentId).values.max
     val nonPrimaryPoints = radii.count(_._1 != parentId)
-    val scaleFactor = ifUseNodeSizes(bounds.radius / (primaryNodeRadius + 2.0 * maxRadius), 1.0)
+    val scaleFactor = ifUseNodeSizes(bounds.radius / (primaryNodeRadius + 2.0 * maxRadius + 2 * epsilon), 1.0)
 
     // Map to each input node, putting the primary one (the one with the same id as the parent) in the center,
     // and locating the rest around it like satelites.
@@ -146,18 +147,18 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
       val position =
         if (node.id == parentId) {
           // Primary node
-          V2(0.0, 0.0)
+          bounds.center
         } else {
           // Non-primary node. - use precalculated relative locations.
           val relativeLocation = smallNodeLayouts(nonPrimaryPoints)(nonPrimaryPointIndex)
-          val distanceFromParent = radius + primaryNodeRadius
+          val distanceFromParent = radius + primaryNodeRadius + epsilon
           nonPrimaryPointIndex += 1
 
           bounds.center + relativeLocation * distanceFromParent * scaleFactor
         }
 
       // Combine node and location information.
-      LayoutNode(node, position, radius)
+      LayoutNode(node, position, radius * scaleFactor)
     }
   }
 
