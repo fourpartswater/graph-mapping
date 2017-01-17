@@ -12,7 +12,7 @@
   */
 package software.uncharted.graphing.layout
 
-import org.apache.spark.Accumulator
+import org.apache.spark.util.LongAccumulator
 import org.apache.spark.rdd.RDD
 
 /**
@@ -44,14 +44,14 @@ object MedianCalculator {
     }.collect()
 
     // Combine our partition medians, and see which is closest to the real median
-    val potentialMids: Set[(Double, Accumulator[Int], Accumulator[Int])] =
-      partitionMids.flatMap((a: Array[Double]) => a).toSet.map((m: Double) => (m, sc.accumulator(0), sc.accumulator(0)))
+    val potentialMids: Set[(Double, LongAccumulator, LongAccumulator)] =
+      partitionMids.flatMap((a: Array[Double]) => a).toSet.map((m: Double) => (m, sc.longAccumulator("potentialMidsAccumulatorLess"),sc.longAccumulator("potentialMidsAccumulatorMore")))
 
 
     dataset.foreach{n =>
       potentialMids.foreach{case (m, less, more) =>
-        if (n < m) less += 1
-        if (n > m) more += 1
+        if (n < m) less.add(1)
+        if (n > m) more.add(1)
       }
     }
 

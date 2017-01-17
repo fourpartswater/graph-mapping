@@ -14,7 +14,7 @@ package software.uncharted.graphing.analytics
 
 
 
-import net.liftweb.json.JsonAST.{JString, JValue}
+import net.liftweb.json.JsonAST.JString
 import org.json4s.JField
 import software.uncharted.salt.core.analytic.Aggregator
 
