@@ -90,7 +90,7 @@ echo Starting at `date`
 STARTTIME=$(date +%s)
 echo java -cp ${MAIN_JAR}:${SCALA_JAR} -Xmx${MEM} ${MAIN_CLASS} ${CONVERT_ARGS} |& tee convert.log
 echo
-java -cp ${MAIN_JAR}:${SCALA_JAR} ${MAIN_CLASS} ${CONVERT_ARGS} |& tee convert.log
+java -cp ${MAIN_JAR}:${SCALA_JAR} -Xmx${MEM} ${MAIN_CLASS} ${CONVERT_ARGS} |& tee convert.log
 ENDTIME=$(date +%s)
 
 echo >> convert.log
