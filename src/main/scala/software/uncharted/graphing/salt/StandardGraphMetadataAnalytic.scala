@@ -21,10 +21,6 @@ import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.apache.spark.sql.{Row, DataFrame}
 import software.uncharted.salt.core.analytic.Aggregator
 
-import scala.util.parsing.json.JSON
-
-
-
 /**
   * Constructs a standard graph metadata analytic that can read data from the given dataframe schema, and extract and
   * aggregate information from a dataframe with that schema.
@@ -74,7 +70,7 @@ object GraphRecord {
   def fromString(string: String): GraphRecord = {
     import JSONParserUtils._
 
-    JSON.parseFull(string).map(_ match {
+    Some(net.liftweb.json.parse(string).values).map(_ match {
       case m: Map[_, _] =>
         val mm = m.asInstanceOf[Map[String, Any]]
         val numCommunities = getInt(mm, "numCommunities").get
@@ -402,3 +398,5 @@ class GraphMetadataAggregator extends Aggregator[GraphCommunity, GraphRecord, Gr
     )
   }
 }
+
+

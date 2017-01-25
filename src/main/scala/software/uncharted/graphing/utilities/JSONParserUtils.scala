@@ -22,6 +22,7 @@ object JSONParserUtils {
 
   def getInt(json: Map[String, Any], key: String): Option[Int] =
     json.get(key).map(_ match {
+      case b: BigInt => b.toInt
       case i: Int => i
       case l: Long => l.toInt
       case f: Float => f.toInt
@@ -30,6 +31,7 @@ object JSONParserUtils {
 
   def getLong(json: Map[String, Any], key: String): Option[Long] =
     json.get(key).map(_ match {
+      case b: BigInt => b.toLong
       case i: Int => i.toLong
       case l: Long => l
       case f: Float => f.toLong
