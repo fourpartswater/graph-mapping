@@ -187,6 +187,10 @@ class HierarchicFDLayout extends Serializable {
           (data._1, data._2.geometry)
         }.cache
 
+        // Force the evaluation of the map!
+        val levelCount = levelLayout.count()
+        println(s"\n\nLevel $level has $levelCount nodes.\n\n")
+
         lastLevelLayoutOpt.foreach(_.unpersist(false))
         lastLevelLayoutOpt = Some(levelLayout)
 			}
