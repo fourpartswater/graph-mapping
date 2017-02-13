@@ -83,7 +83,7 @@ class Exporter {
       node(10),
       level,  //Data also contains level.
       "",
-      node.drop(12) //Treat all other columns as metadata/
+      node.drop(12) //Treat all other columns as metadata.
     )
 
     val edgeBuilder = (edge: Array[String]) => new ClusteredEdge(
