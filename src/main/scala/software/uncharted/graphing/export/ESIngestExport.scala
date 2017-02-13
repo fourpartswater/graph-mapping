@@ -20,7 +20,7 @@ object ESIngestExport {
   def main(args: Array[String]) {
     val argParser = new ArgumentParser(args)
 
-    val sc = new SparkContext(new SparkConf().setAppName("Node Tiling"))
+    val sc = new SparkContext(new SparkConf().setAppName("Layout Data Extraction"))
 
     val sourceLayoutDir = argParser.getStringOption("sourceLayout", "The source directory where to find graph layout data", None).get
     val outputDir = argParser.getStringOption("output", "The output location where to save data", None).get
@@ -38,7 +38,7 @@ object ESIngestExport {
       maxHierarchyLevel)
 
     val fileEndTime = System.currentTimeMillis()
-    println("Finished extracting data for ES ingestion in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")
+    println("Finished extracting data for downstream ingestion in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")
 
     println("Data extracted and available at " + outputDir)
   }

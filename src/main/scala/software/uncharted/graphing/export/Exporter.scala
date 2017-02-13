@@ -22,14 +22,16 @@ class Exporter {
     this.sc = sc
 
     var allNodes: RDD[ClusteredNode] = sc.emptyRDD[ClusteredNode]
+    var allEdges: RDD[ClusteredEdge] = sc.emptyRDD[ClusteredEdge]
     var communityRDD: RDD[(String, String)] = sc.emptyRDD[(String, String)]
+
     //Work from top to bottom to generate the data extract.
     for(level <- maxLevel to 0 by -1) {
       //Get the data for the level.
-      val levelData = extractLevel(sourceLayoutDir, dataDelimiter, level)
+      val (levelNode, levelEdge) = extractLevel(sourceLayoutDir, dataDelimiter, level)
 
-      //Join it to the previous level's community subset.
-      val levelDataCommunity = levelData.map(node => (node.parentId, node))
+      //Join the node data to the previous level's community subset.
+      val levelDataCommunity = levelNode.map(node => (node.parentId, node))
       val levelDataJoined = levelDataCommunity.leftOuterJoin(communityRDD)
 
       //Create the community hierarchy field.
@@ -53,42 +55,61 @@ class Exporter {
 
       //Add the level's data to the final set.
       allNodes = allNodes.union(levelDataCommunityHierarchy)
+      allEdges = allEdges.union(levelEdge)
 
       //Create the community subset, which is used to generate the hierarchy field.
       communityRDD = levelDataCommunityHierarchy.map(node => (node.nodeId, node.inclusiveHierarchy()))
     }
 
-    //Save the complete dataset.
-    allNodes.saveAsTextFile(outputDir)
+    //Save the complete datasets.
+    allNodes.saveAsTextFile(outputDir + "/nodes")
+    allEdges.saveAsTextFile(outputDir + "/edges")
   }
 
-  private def extractLevel(sourceLayoutDir:String, delimiter:String, level:Int): RDD[ClusteredNode] = {
+  private def extractLevel(sourceLayoutDir:String, delimiter:String, level:Int): (RDD[ClusteredNode], RDD[ClusteredEdge]) = {
 
     val layoutData = sc.textFile(sourceLayoutDir + "/level_" + level)
 
-    //Only keep node lines.
+    val nodeBuilder = (node: Array[String]) => new ClusteredNode(
+      node(1),
+      node(2),
+      node(3),
+      node(4),
+      node(5),
+      node(6),
+      node(7),
+      node(8),
+      node(9),
+      node(10),
+      level,  //Data also contains level.
+      "",
+      node.drop(12) //Treat all other columns as metadata/
+    )
+
+    val edgeBuilder = (edge: Array[String]) => new ClusteredEdge(
+      edge(1),
+      edge(2),
+      edge(3),
+      edge(4),
+      edge(5),
+      edge(6),
+      edge(7),
+      edge(8),
+      level
+    )
+
+    //Split into node & edge sets.
     val layoutNode = layoutData.filter(line => line.startsWith("node"))
+    val layoutEdge = layoutData.filter(line => line.startsWith("edge"))
 
     //Map the data to columns.
-    val layoutSplit = layoutNode.map(line => line.split(delimiter))
+    val nodeSplit = layoutNode.map(line => line.split(delimiter))
+    val edgeSplit = layoutEdge.map(line => line.split(delimiter))
 
-    //Wrap the data in clustered node instances.
-    val combinedData = layoutSplit.map(node =>
-      new ClusteredNode(
-        node(1),
-        node(2),
-        node(3),
-        node(4),
-        node(5),
-        node(6),
-        node(7),
-        node(8),
-        node(9),
-        node(10),
-        level,  //Data also contains level.
-        "",
-        node.drop(12))) //Treat all other columns as metadata/
+    //Wrap the data in clustered instances.
+    val combinedNode = nodeSplit.map(line => nodeBuilder(line))
+    val combinedEdge = edgeSplit.map(line => edgeBuilder(line))
 
-    return combinedData
+    return (combinedNode, combinedEdge)
   }
 }
