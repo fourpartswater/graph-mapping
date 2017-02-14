@@ -67,7 +67,7 @@ class S3Client(accessKey: String, secretKey: String) extends Logging {
       if (compress) { meta.setContentEncoding("gzip") }
 
       s3Client.putObject(new PutObjectRequest(bucketName, key, is, meta) // scalastyle:ignore
-        .withCannedAcl(CannedAccessControlList.PublicRead))
+        .withCannedAcl(CannedAccessControlList.Private))
       true
     } catch {
       case e: Exception => error(s"Failed to upload $key", e); false
