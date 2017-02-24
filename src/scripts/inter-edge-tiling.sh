@@ -70,7 +70,7 @@ echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> inter-edge-tiling.log
 # echo Removing old tile set
 # echo "disable '${DATATABLE}'" > clear-hbase-table
 # echo "drop '${DATATABLE}'" >> clear-hbase-table
-# 
+#
 # hbase shell < clear-hbase-table
 
 
@@ -95,37 +95,83 @@ EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-cl
 STARTTIME=$(date +%s)
 echo Starting tiling
 
-echo Run command: >> inter-edge-tiling.log
-echo spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	>> inter-edge-tiling.log
-echo >> inter-edge-tiling.log
-echo >> inter-edge-tiling.log
+if [ "${CLUSTER}" == "true" ]; then
+    echo Deploying in cluster mode!
 
-if [ "${DEBUG}" != "true" ]; then
-	spark-submit \
-		--num-executors ${EXECUTORS} \
-		--executor-memory 10g \
-		--executor-cores 4 \
-		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
-		--driver-class-path ${EXTRA_JARS} \
-		--jars `echo ${EXTRA_JARS} | tr : ,` \
-		--class ${MAIN_CLASS} \
-		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-		${MAIN_JAR} \
-		output.conf tiling.conf graph.conf \
-		${CONFIGURATION} \
-		|& tee -a inter-edge-tiling.log
+    EDJO=
+    EDJO="${EDJO} -Ds3Output.awsAccessKey=${AWS_ACCESS_KEY}"
+    EDJO="${EDJO} -Ds3Output.awsSecretKey=${AWS_SECRET_KEY}"
+
+    echo spark-submit \
+        --num-executors ${EXECUTORS} \
+        --executor-memory 10g \
+        --executor-cores 4 \
+        --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+        --driver-class-path ${EXTRA_JARS} \
+        --jars `echo ${EXTRA_JARS} | tr : ,` \
+        --class ${MAIN_CLASS} \
+        --master yarn \
+        --deploy-mode cluster \
+        --conf spark.yarn.dist.files="output.conf,tiling.conf,graph.conf,${CONFIGURATION}" \
+        --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}" \
+        ${MAIN_JAR} \
+        output.conf tiling.conf graph.conf \
+        ${CONFIGURATION} \
+        >> inter-edge-tiling.log
+    echo >> inter-edge-tiling.log
+    echo >> inter-edge-tiling.log
+
+    if [ "${DEBUG}" != "true" ]; then
+        spark-submit \
+            --num-executors ${EXECUTORS} \
+            --executor-memory 10g \
+            --executor-cores 4 \
+            --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+            --driver-class-path ${EXTRA_JARS} \
+            --jars `echo ${EXTRA_JARS} | tr : ,` \
+            --class ${MAIN_CLASS} \
+            --master yarn \
+            --deploy-mode cluster \
+            --conf spark.yarn.dist.files="output.conf,tiling.conf,graph.conf,${CONFIGURATION}" \
+            --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}" \
+            ${MAIN_JAR} \
+            output.conf tiling.conf graph.conf \
+            ${CONFIGURATION} \
+            |& tee -a inter-edge-tiling.log
+    fi
+else
+    echo Run command: >> inter-edge-tiling.log
+    echo spark-submit \
+        --num-executors ${EXECUTORS} \
+        --executor-memory 10g \
+        --executor-cores 4 \
+        --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+        --driver-class-path ${EXTRA_JARS} \
+        --jars `echo ${EXTRA_JARS} | tr : ,` \
+        --class ${MAIN_CLASS} \
+        --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+        ${MAIN_JAR} \
+        output.conf tiling.conf graph.conf \
+        ${CONFIGURATION} \
+        >> inter-edge-tiling.log
+    echo >> inter-edge-tiling.log
+    echo >> inter-edge-tiling.log
+
+    if [ "${DEBUG}" != "true" ]; then
+        spark-submit \
+            --num-executors ${EXECUTORS} \
+            --executor-memory 10g \
+            --executor-cores 4 \
+            --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+            --driver-class-path ${EXTRA_JARS} \
+            --jars `echo ${EXTRA_JARS} | tr : ,` \
+            --class ${MAIN_CLASS} \
+            --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+            ${MAIN_JAR} \
+            output.conf tiling.conf graph.conf \
+            ${CONFIGURATION} \
+            |& tee -a inter-edge-tiling.log
+    fi
 fi
 
 

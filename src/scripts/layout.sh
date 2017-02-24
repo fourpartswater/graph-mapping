@@ -18,11 +18,14 @@ DATASET=
 REMOVE_EXISTING=false
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1
 			;;
+        -cluster )
+            export CLUSTER=true
+            ;;
 		-r | --refresh )
 			REMOVE_EXISTING=true
 	esac
@@ -132,25 +135,64 @@ export DATASET
 export MAX_LEVEL
 export PARTS
 
-echo spark-submit \
-	--class ${MAIN_CLASS} \
-	--num-executors ${EXECUTORS} \
-	--executor-cores 4 \
-	--executor-memory 10g \
-	--master yarn \
-	--deploy-mode client \
-	${MAIN_JAR} \
-	debug layout.conf >> layout.log
+if [ "${CLUSTER}" == "true" ]; then
+    echo Deploying in cluster mode!
 
-spark-submit \
-	--class ${MAIN_CLASS} \
-	--num-executors ${EXECUTORS} \
-	--executor-cores 4 \
-	--executor-memory 10g \
-	--master yarn \
-	--deploy-mode client \
-	${MAIN_JAR} \
-	debug layout.conf |& tee -a layout.log
+    EDJO=
+    EDJO="${EDJO} -Dlayout.input.location=${BASE_LOCATION}/${DATASET}/clusters"
+    EDJO="${EDJO} -Dlayout.input.parts=${PARTS}"
+    EDJO="${EDJO} -Dlayout.output.location=${BASE_LOCATION}/${DATASET}/layout"
+    EDJO="${EDJO} -Dlayout.output.parts=${PARTS}"
+    EDJO="${EDJO} -Dlayout.max-level=${MAX_LEVEL}"
+
+    echo spark-submit \
+        --class ${MAIN_CLASS} \
+        --num-executors ${EXECUTORS} \
+        --executor-cores 4 \
+        --executor-memory 10g \
+        --master yarn \
+        --deploy-mode cluster \
+        --conf spark.yarn.dist.files="layout.conf" \
+        --conf "spark.driver.extraJavaOptions=${EDJO}" \
+        ${MAIN_JAR} \
+        debug layout.conf |& tee -a layout.log
+
+
+    spark-submit \
+        --class ${MAIN_CLASS} \
+        --num-executors ${EXECUTORS} \
+        --executor-cores 4 \
+        --executor-memory 10g \
+        --master yarn \
+        --deploy-mode cluster \
+        --conf spark.yarn.dist.files="layout.conf" \
+        --conf "spark.driver.extraJavaOptions=${EDJO}" \
+        ${MAIN_JAR} \
+        debug layout.conf |& tee -a layout.log
+else
+    echo Deploying in client mode!
+
+    echo spark-submit \
+        --class ${MAIN_CLASS} \
+        --num-executors ${EXECUTORS} \
+        --executor-cores 4 \
+        --executor-memory 10g \
+        --master yarn \
+        --deploy-mode client \
+        ${MAIN_JAR} \
+        debug layout.conf >> layout.log
+
+
+    spark-submit \
+        --class ${MAIN_CLASS} \
+        --num-executors ${EXECUTORS} \
+        --executor-cores 4 \
+        --executor-memory 10g \
+        --master yarn \
+        --deploy-mode client \
+        ${MAIN_JAR} \
+        debug layout.conf |& tee -a layout.log
+fi
 
 # Note: Took out -spark yarn-client.  Should be irrelevant, but noted just in case I'm wrong.
 

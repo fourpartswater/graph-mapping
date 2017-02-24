@@ -19,7 +19,7 @@ function parseArguments {
 	LEVEL_METHOD=hard
 
 	while [ "$1" != "" ]; do
-		case $1 in 
+		case $1 in
 			-d | --dataset )
 				shift
 				DATASET=$1
@@ -34,7 +34,7 @@ function parseArguments {
 				;;
 			-l | --levels )
 				shift
- 				case $1 in 
+ 				case $1 in
 					h | hard )
 						LEVEL_METHOD=hard
 						;;
@@ -67,6 +67,9 @@ function parseArguments {
 				;;
 			-debug )
 				export DEBUG=true
+				;;
+			-cluster )
+				export CLUSTER=true
 				;;
 		esac
 		shift
