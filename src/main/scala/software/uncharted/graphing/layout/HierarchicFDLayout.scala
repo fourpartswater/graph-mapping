@@ -208,12 +208,14 @@ class HierarchicFDLayout extends Serializable {
 	                            parentRadii: RDD[Option[Double]],
 	                            totalLayoutLength: Double,
 	                            bMaxHierarchyLevel: Boolean): Seq[(String, AnyVal)] = {
+    // A lot of the stats are used to experiment with different approaches to obtaining the mapping
+    // from cluster levels to tile levels. The median calculator was causing stackoverflow exceptions on some datasets.
     val undefinedRadii = radii.filter(_.isEmpty).count()
     val goodRadii = radii.filter(_.isDefined).map(_.get)
     val radiusTotals = goodRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
 		val maxRadius = goodRadii.reduce(_ max _)
     val meanRadius = radiusTotals._2 / radiusTotals._3
-    val medianRadius = MedianCalculator.median(goodRadii, 5)
+    //val medianRadius = MedianCalculator.median(goodRadii, 5)
     val stddevRadius = radiusTotals._1 /  radiusTotals._3 - meanRadius * meanRadius
 		val minRadius = goodRadii.reduce(_ min _)
 
@@ -222,7 +224,7 @@ class HierarchicFDLayout extends Serializable {
     val parentRadiusTotals = goodParentRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
 		val maxParentRadius = goodParentRadii.reduce(_ max _)
     val meanParentRadius = parentRadiusTotals._2 / parentRadiusTotals._3
-    val medianParentRadius = MedianCalculator.median(goodParentRadii, 5)
+    //val medianParentRadius = MedianCalculator.median(goodParentRadii, 5)
     val stddevParentRadius = parentRadiusTotals._1 / parentRadiusTotals._3 - meanParentRadius * meanParentRadius
 		val minParentRadius = goodParentRadii.reduce(_ min _)
 
@@ -253,14 +255,16 @@ class HierarchicFDLayout extends Serializable {
       } else {
         // use max parent radius to give a min recommended zoom level for this hierarchy
         // (ideally want parent radius to correspond to approx 1 tile length)
-        Math.round(Math.log(totalLayoutLength / radius) * 1.4427).toInt // 1.4427 = 1/log(2), so equation = log2(layoutlength/radius)
+        math.round(math.log(totalLayoutLength / radius) * 1.4427).toInt // 1.4427 = 1/log(2), so equation = log2(layoutlength/radius)
       }
+
+      minRecommendedZoomLevel
     }
 
     collection.IndexedSeq
     Seq(
       ("hierarchical level", level),
-      ("old min recommended zoom level", getOldZoomLevel(maxParentRadius)),
+      ("min recommended zoom level", getOldZoomLevel(maxParentRadius)),
       ("nodes", numNodes),
       ("edges", numEdges),
       ("min radius", minRadius),
@@ -271,8 +275,8 @@ class HierarchicFDLayout extends Serializable {
       ("zoom level by mean radius (16)", getZoomLevel(meanRadius, 16)),
       ("zoom level by mean radius (64)", getZoomLevel(meanRadius, 64)),
       ("zoom level by mean radius (256)", getZoomLevel(meanRadius, 256)),
-      ("median radius", medianRadius),
-      ("zoom level by median radius", getZoomLevel(medianRadius, 10)),
+      //("median radius", medianRadius),
+      //("zoom level by median radius", getZoomLevel(medianRadius, 10)),
       ("max radius", maxRadius),
       ("zoom level by max radius", getZoomLevel(maxRadius, 10)),
       ("std dev radius", stddevRadius),
@@ -280,8 +284,8 @@ class HierarchicFDLayout extends Serializable {
       ("zoom level by min parent radius", getZoomLevel(minParentRadius, 1)),
       ("mean parent radius", meanParentRadius),
       ("zoom level by mean parent radius", getZoomLevel(meanParentRadius, 1)),
-      ("median parent radius", medianParentRadius),
-      ("zoom level by median parent radius", getZoomLevel(medianParentRadius, 10)),
+      //("median parent radius", medianParentRadius),
+      //("zoom level by median parent radius", getZoomLevel(medianParentRadius, 10)),
       ("max parent radius", maxParentRadius),
       ("zoom level by max parent radius", getZoomLevel(maxParentRadius, 1)),
       ("std dev parent radius", stddevParentRadius)
