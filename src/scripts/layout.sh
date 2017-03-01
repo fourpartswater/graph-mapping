@@ -53,7 +53,7 @@ echo Starting at `date`
 MAX_LEVEL=`ls -d level_* | awk -F'_' '{print $2}' | sort -nr | head -n1`
 MAX_SIZE=`du -s -BM level_0 | awk -F M '{print $1}'`
 # one part per 16M data
-PARTS=$(expr ${MAX_SIZE} / 8)
+PARTS=$(( 1 > ${MAX_SIZE} / 8 ? 1 : ${MAX_SIZE} / 8 ))
 EXECUTORS=$(expr $(expr ${PARTS} + 7) / 8)
 
 echo MAX_LEVEL: ${MAX_LEVEL}
