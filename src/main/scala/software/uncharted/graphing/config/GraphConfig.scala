@@ -18,9 +18,9 @@ import java.io.File
 import software.uncharted.xdata.ops.salt.ArcTypes
 
 import scala.collection.JavaConverters._
-import com.typesafe.config.{ConfigFactory, ConfigException, Config}
-import grizzled.slf4j.{Logger, Logging}
+import com.typesafe.config.{ConfigFactory, Config}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.xdata.sparkpipe.config.ConfigParser
 
 import scala.util.Try
 
@@ -28,7 +28,7 @@ import scala.util.Try
 /**
   * Parse graph information from a configuration object
   */
-object GraphConfig extends Logging {
+object GraphConfig extends ConfigParser {
   val graphKey = "graph"
   val analyticKey = "analytics"
   val levelsKey = "levels"
@@ -39,8 +39,8 @@ object GraphConfig extends Logging {
   val minLengthKey = "min"
   val maxLengthKey = "max"
 
-  def apply(config: Config): Option[GraphConfig] = {
-    try {
+  def parse(config: Config): Try[GraphConfig] = {
+    Try {
       val graphConfig = config.getConfig(graphKey)
       val analytics = graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
         CustomGraphAnalytic(analyticName, "")
@@ -65,40 +65,8 @@ object GraphConfig extends Logging {
       val minSegLength = if (formatConfig.hasPath(minLengthKey)) Some(formatConfig.getInt(minLengthKey)) else None
       val maxSegLength = if (formatConfig.hasPath(maxLengthKey)) Some(formatConfig.getInt(maxLengthKey)) else None
 
-      Some(GraphConfig(analytics, levels, edgeType, formatType, minSegLength, maxSegLength))
-    } catch {
-      case e: ConfigException =>
-        error(s"Failure parsing arguments from [$graphKey]", e)
-        None
+      GraphConfig(analytics, levels, edgeType, formatType, minSegLength, maxSegLength)
     }
-  }
-
-  /**
-    * Get the full configuration object associated with graph tiling jobs
-    *
-    * @param arguments The command-line arguments with which the graph tiling job was run.  Config files specified
-    *                  earlier take precedence over config files specified later.
-    * @return A full configuration, with default fallbacks and environmental overrides
-    */
-  def getFullConfiguration(arguments: Array[String], logger: Logger): Config = {
-    // Read in and merge command-line specified configuration files
-    val specifiedConfigs = arguments.map{arg =>
-      val file = new File(arg)
-      if (file.exists()) {
-        Try(ConfigFactory.parseReader(scala.io.Source.fromFile(file).bufferedReader()).resolve()).toOption
-      } else {
-        None
-      }
-    }.filter(_.isDefined).map(_.get)
-
-    // Get the environment-based config
-    val environmentConfig = ConfigFactory.load()
-
-    // Get our fallback config file
-    val defaultConfig = ConfigFactory.parseReader(scala.io.Source.fromURL(getClass.getResource("/graph-defaults.conf")).bufferedReader()).resolve()
-
-    // Merge these together
-    (specifiedConfigs :+ defaultConfig).fold(environmentConfig)((base, fallback) => base.withFallback(fallback))
   }
 }
 

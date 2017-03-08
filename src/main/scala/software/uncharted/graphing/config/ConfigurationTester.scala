@@ -18,11 +18,11 @@ import grizzled.slf4j.Logging
   * A simple runnable class that takes command line parameters, reads the configuration generated from them, and
   * prints it out for debug purposes.
   */
-object ConfigurationTester extends Logging {
-  def main(args: Array[String]): Unit = {
+//object ConfigurationTester extends Logging {
+ // def main(args: Array[String]): Unit = {
     // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
+ //   val config = GraphConfig.getFullConfiguration(args, this.logger)
 
-    println(config.root().render())
-  }
-}
+    //println(config.root().render())
+  //}
+//}

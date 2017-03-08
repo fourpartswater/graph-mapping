@@ -14,9 +14,7 @@ package software.uncharted.graphing.salt
 
 
 import com.typesafe.config.Config
-import grizzled.slf4j.Logging
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{SparkSession}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
@@ -29,6 +27,8 @@ import software.uncharted.xdata.sparkpipe.config.TilingConfig
 import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
+import scala.util.{Failure, Success}
+
 
 /**
   * A job to produce a set of tiles showing the edges in a hierarchically clustered graph.
@@ -39,9 +39,15 @@ import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
   */
 object EdgeTilingPipeline extends AbstractJob {
   def execute (session: SparkSession, config: Config): Unit = {
-	val tilingConfig = parseTilingParameters(config)
+	  val tilingConfig = parseTilingParameters(config)
     val outputConfig = parseOutputOperation(config)
-    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
+
+    val graphConfig = GraphConfig.parse(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read graph configuration", f)
+        sys.exit(-1)
+    }
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
@@ -86,7 +92,6 @@ object EdgeTilingPipeline extends AbstractJob {
       .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
       .to(countRDDRowsOp("Edge data: "))
-//      .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), Some(getSchema)))
       .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
       .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
