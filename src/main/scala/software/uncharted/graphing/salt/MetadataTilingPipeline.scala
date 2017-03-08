@@ -14,8 +14,6 @@ package software.uncharted.graphing.salt
 
 
 import com.typesafe.config.Config
-import grizzled.slf4j.Logging
-import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
@@ -26,39 +24,27 @@ import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
 import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.sparkpipe.config.{TilingConfig}
+import software.uncharted.xdata.sparkpipe.jobs.{AbstractJob, JobUtil}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 
 
-object MetadataTilingPipeline extends Logging {
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sparkSession = SparkConfig(config)
-    try {
-      execute(sparkSession, config)
-    } finally {
-      sparkSession.sparkContext.stop()
-    }
-  }
+object MetadataTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
     val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
-    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
+
+    val graphConfig = GraphConfig.parse(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read graph configuration", f)
+        sys.exit(-1)
+    }
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
