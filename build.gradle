@@ -20,7 +20,7 @@ buildscript {
   dependencies {
     classpath "com.github.maiflai:gradle-scalatest:0.10"
     classpath 'org.scoverage:gradle-scoverage:1.0.9'
-    classpath "org.github.ngbinh.scalastyle:gradle-scalastyle-plugin_2.10:0.8.2"
+    classpath "org.github.ngbinh.scalastyle:gradle-scalastyle-plugin_2.11:0.9.0"
   }
 }
 
@@ -163,7 +163,7 @@ dependencies {
   // dependencies that can be taken from a maven repo or local projects
   optionalProjectDependency "software.uncharted.salt:salt-core:4.0.3"
   optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-core:0.9.8"
-  optionalProjectDependency "software.uncharted.xdata:xdata-pipeline-ops:0.1-SNAPSHOT"
+  optionalProjectDependency "software.uncharted.xdata:xdata-pipeline-ops:0.1.0"
 
   // Compile config - needed at build and runtime
   compile "org.apache.commons:commons-csv:1.1"
