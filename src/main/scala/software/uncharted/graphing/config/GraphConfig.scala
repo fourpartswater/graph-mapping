@@ -42,9 +42,9 @@ object GraphConfig extends ConfigParser {
   def parse(config: Config): Try[GraphConfig] = {
     Try {
       val graphConfig = config.getConfig(graphKey)
-      val analytics = graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
+      val analytics = if (graphConfig.hasPath(analyticKey)) graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
         CustomGraphAnalytic(analyticName, "")
-      }
+      } else Seq()
       val levels = graphConfig.getIntList(levelsKey).asScala.map(_.intValue())
       val edgeConfig = graphConfig.getConfig(edgeKey)
       val edgeType = if (edgeConfig.hasPath(edgeTypeKey)) {
