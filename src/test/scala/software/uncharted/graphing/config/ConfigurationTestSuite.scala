@@ -17,6 +17,8 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
 import software.uncharted.xdata.ops.salt.ArcTypes
 
+import scala.util.{Failure, Success}
+
 
 class ConfigurationTestSuite extends FunSuite {
   private def withKeys(overrides: Map[String, String])(test: => Unit) = {
@@ -44,7 +46,11 @@ class ConfigurationTestSuite extends FunSuite {
     val envConfig = ConfigFactory.load()
     val defaultConfig = ConfigFactory.parseReader(scala.io.Source.fromURL(getClass.getResource("/graph-defaults.conf")).bufferedReader()).resolve()
     val config = envConfig.withFallback(defaultConfig)
-    GraphConfig(config).get
+    GraphConfig.parse(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        throw new Exception("Error parsing graph config.")
+    }
   }
 
   test("Test minimal override") {

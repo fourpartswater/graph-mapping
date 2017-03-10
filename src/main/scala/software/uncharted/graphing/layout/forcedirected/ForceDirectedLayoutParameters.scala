@@ -15,7 +15,7 @@ package software.uncharted.graphing.layout.forcedirected
 import com.typesafe.config.Config
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
 
-import scala.util.{Try, Random}
+import scala.util.{Try}
 
 
 

@@ -13,12 +13,10 @@
 package software.uncharted.graphing.config
 
 
-import java.io.File
-
 import software.uncharted.xdata.ops.salt.ArcTypes
 
 import scala.collection.JavaConverters._
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.{Config}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
 

@@ -13,14 +13,28 @@
 
 package software.uncharted.graphing.export
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{SparkConf}
+import org.apache.spark.sql.SparkSession
 import software.uncharted.graphing.utilities.ArgumentParser
+import com.typesafe.config.{Config, ConfigFactory}
+import scala.collection.JavaConverters._ // scalastyle:ignore
+
+import scala.util.{Failure, Success}
 
 object ESIngestExport {
+  private def applySparkConfigEntries (config: Config)(conf: SparkConf): SparkConf = {
+    config.getConfig("spark")
+      .entrySet()
+      .asScala
+      .foreach(e => conf.set(s"spark.${e.getKey}", e.getValue.unwrapped().toString))
+
+    conf
+  }
+
   def main(args: Array[String]) {
     val argParser = new ArgumentParser(args)
-
-    val sc = new SparkContext(new SparkConf().setAppName("Layout Data Extraction"))
+    val environmentalConfig = ConfigFactory.load()
+    val session = SparkSession.builder.config(applySparkConfigEntries(environmentalConfig)(new SparkConf().setAppName("Graph Data Extraction"))).getOrCreate()
 
     val sourceLayoutDir = argParser.getStringOption("sourceLayout", "The source directory where to find graph layout data", None).get
     val outputDir = argParser.getStringOption("output", "The output location where to save data", None).get
@@ -31,7 +45,7 @@ object ESIngestExport {
 
     val exporter = new Exporter()
 
-    exporter.exportData(sc,
+    exporter.exportData(session,
       sourceLayoutDir,
       outputDir,
       dataDelimiter,
