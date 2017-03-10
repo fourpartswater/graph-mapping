@@ -14,7 +14,6 @@ package software.uncharted.graphing.salt
 
 
 import com.typesafe.config.Config
-import org.apache.spark.sql.{SparkSession}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
