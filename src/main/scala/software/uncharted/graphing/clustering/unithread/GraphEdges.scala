@@ -61,7 +61,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
-  def renumber (weighted: Boolean): GraphEdges = {
+  def renumber (): GraphEdges = {
     val linked = new Array[Boolean](links.length)
     val renum = new Array[Int](links.length)
     for (i <- links.indices) {

@@ -182,7 +182,7 @@ object Convert {
     }
 
     if (do_renumber)
-      g = g.renumber(outfile_weight.isDefined)
+      g = g.renumber()
 
     val edgeStream = new DataOutputStream(new FileOutputStream(outfile.get))
     val weightStream = outfile_weight.map(filename => new DataOutputStream(new FileOutputStream(filename)))
