@@ -19,8 +19,6 @@ import software.uncharted.graphing.utilities.ArgumentParser
 import com.typesafe.config.{Config, ConfigFactory}
 import scala.collection.JavaConverters._ // scalastyle:ignore
 
-import scala.util.{Failure, Success}
-
 object ESIngestExport {
   private def applySparkConfigEntries (config: Config)(conf: SparkConf): SparkConf = {
     config.getConfig("spark")
