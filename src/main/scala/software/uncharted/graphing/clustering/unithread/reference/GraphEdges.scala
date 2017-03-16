@@ -47,9 +47,11 @@ class GraphEdges (links: Array[Buffer[(Int, Float)]]) {
     }
 
     for (i <- 0 until links.size) {
-      linked(i) = true
-      for (j <- 0 until links(i).size) {
-        linked(links(i)(j)._1) = true
+      if (!links(i).isEmpty) {
+        linked(i) = true
+        for (j <- 0 until links(i).size) {
+          linked(links(i)(j)._1) = true
+        }
       }
     }
 

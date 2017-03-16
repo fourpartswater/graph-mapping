@@ -83,14 +83,19 @@ class ConvertTestSuite extends FunSuite {
 
   test("Test renumbering of edge files (no weights)") {
     val rawData =
-      """edge primary 10 1
-        |edge secondary 10 2
-        |edge primary 12 3
-        |edge secondary 12 4
-        |edge primary 23 3
-        |edge secondary 23 4""".stripMargin
+      """edge primary 1 5
+        |edge secondary 1 12
+        |edge primary 5 12
+        |edge secondary 5 23
+        |edge primary 12 12
+        |edge secondary 12 23""".stripMargin
     val reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
     val edges = GraphEdges(reader, Some("edge"), "[ \t]+", 2, 3, None)
-    edges.renumber()
+    val newEdges = edges.renumber()
+    assert(newEdges.links.length === 4)
+    assert(newEdges.links(0).length === 2)
+    assert(newEdges.links(0)(0)._1 === 1)
+    assert(newEdges.links(2).length === 4)
+    assert(newEdges.links(2)(0)._1 === 0)
   }
 }
