@@ -61,6 +61,10 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
+  /**
+    * Renumber ids to be sequential and start from 0.
+    * @return New graph with sequential ids starting from 0.
+    */
   def renumber (): GraphEdges = {
     val linked = new Array[Boolean](links.length)
     val renum = new Array[Int](links.length)
@@ -70,9 +74,11 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
 
     for (i <- links.indices) {
-      linked(i) = true
-      for (j <- links(i).indices) {
-        linked(links(i)(j)._1) = true
+      if (!links(i).isEmpty) {
+        linked(i) = true
+        for (j <- links(i).indices) {
+          linked(links(i)(j)._1) = true
+        }
       }
     }
 

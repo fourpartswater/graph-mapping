@@ -99,6 +99,12 @@ class Community (val g: Graph,
   var comm_nodes: Seq[Seq[Int]] = null
 
 
+  /**
+    * Remove a node from a community.
+    * @param node Node to remove from the community.
+    * @param comm Community from which the node is removed.
+    * @param dnodecomm Node community weight.
+    */
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
     tot(comm) -= g.weighted_degree(node)
     in(comm) -= (2 * dnodecomm + g.nb_selfloops(node))
@@ -106,6 +112,12 @@ class Community (val g: Graph,
     n2c(node) = -1
   }
 
+  /**
+    * Insert a node in a community.
+    * @param node The node being added.
+    * @param comm The community to which the node is being added.
+    * @param dnodecomm Node community weight.
+    */
   def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
     tot(comm) += g.weighted_degree(node)
     in(comm) += (2 * dnodecomm + g.nb_selfloops(node))
@@ -113,7 +125,14 @@ class Community (val g: Graph,
     n2c(node) = comm
   }
 
-  def modularity_gain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
+  /**
+    * Calculate the modularity gain from a change in communities.
+    * @param comm Community on which to calculate the modularity gain.
+    * @param dnodecomm Node community weight.
+    * @param w_degree Weighted degree.
+    * @return The modularity gain.
+    */
+  def modularity_gain(comm: Int, dnodecomm: Double, w_degree: Double): Double = {
     val totc = tot(comm)
     val degc = w_degree
     val m2 = g.total_weight
@@ -122,6 +141,10 @@ class Community (val g: Graph,
     dnc - totc * degc / m2
   }
 
+  /**
+    * Calculate the modularity of the current set of communities.
+    * @return The calculated modularity.
+    */
   def modularity: Double = {
     var q = 0.0
     val m2 = g.total_weight
@@ -136,6 +159,10 @@ class Community (val g: Graph,
     q
   }
 
+  /**
+    * Join the node to neighbouring communities if allowed.
+    * @param node Node being processed.
+    */
   def neigh_comm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
@@ -178,6 +205,11 @@ class Community (val g: Graph,
     }
   }
 
+  /**
+    * Perform the clustering for one level. Clustering keeps going until the changes in modularity fall below the threshold.
+    * @param randomize Randomize the order of processing (defaults to true).
+    * @return True if some changes were made to the communities.
+    */
   def one_level (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
@@ -225,7 +257,7 @@ class Community (val g: Graph,
         var best_nblinks = 0.0
         var best_increase = 0.0
         for (i <- 0 until neigh_last) {
-          val increase = modularity_gain(node, neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
+          val increase = modularity_gain(neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
           if (increase > best_increase) {
             best_comm = neigh_pos(i)
             best_nblinks = neigh_weight(neigh_pos(i))
@@ -301,6 +333,10 @@ class Community (val g: Graph,
     (renumber, last)
   }
 
+  /**
+    * Initialize a community with data read from a partition file.
+    * @param filename Partition file to be read.
+    */
   def init_partition (filename: String): Unit = {
     val finput = new BufferedReader(new InputStreamReader(new FileInputStream(filename)))
 
@@ -335,6 +371,12 @@ class Community (val g: Graph,
     finput.close()
   }
 
+  /**
+    * Output the clustered graph content.
+    * @param level Level being output, only used in stats output.
+    * @param out Output stream for graph content.
+    * @param stats Output stream for stats content.
+    */
   def display_partition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
     val (renumber, last) = getRenumbering
 
@@ -432,6 +474,10 @@ class Community (val g: Graph,
     }
   }
 
+  /**
+    * Create a new graph based on the current communities.
+    * @return The new graph.
+    */
   def partition2graph_binary(): Graph = {
     val (renumber, _) = getRenumbering
 
