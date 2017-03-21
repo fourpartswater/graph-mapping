@@ -14,7 +14,7 @@ package software.uncharted.graphing.salt
 
 
 import com.typesafe.config.Config
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types._ //scalastyle:ignore
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
@@ -36,9 +36,10 @@ import scala.util.{Failure, Success}
   *
   * The output is a tile set, of course.
   */
+//scalastyle:off null underscore.import import.grouping
 object EdgeTilingPipeline extends AbstractJob {
   def execute (session: SparkSession, config: Config): Unit = {
-	  val tilingConfig = parseTilingParameters(config)
+    val tilingConfig = parseTilingParameters(config)
     val outputConfig = parseOutputOperation(config)
 
     val graphConfig = GraphConfig.parse(config) match {
@@ -107,3 +108,4 @@ object EdgeTilingPipeline extends AbstractJob {
     sys.exit(-1)
   }
 }
+//scalastyle:on null underscore.import import.grouping

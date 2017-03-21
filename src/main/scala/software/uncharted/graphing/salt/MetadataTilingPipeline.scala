@@ -32,7 +32,7 @@ import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.{Failure, Success, Try}
 
 
-
+//scalastyle:off null underscore.import import.grouping
 object MetadataTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
@@ -52,6 +52,7 @@ object MetadataTilingPipeline extends AbstractJob {
     }
   }
 
+  //scalastyle:off method.length
   def tileHierarchyLevel(sparkSession: SparkSession,
                          hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
@@ -93,9 +94,6 @@ object MetadataTilingPipeline extends AbstractJob {
       .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
-
-    //      .to(countRDDRowsOp("Graph nodes: "))
-
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
     val edgeData = rawData
@@ -131,6 +129,7 @@ object MetadataTilingPipeline extends AbstractJob {
       .to(outputOperation)
       .run()
   }
+  //scalastyle:on method.length
 
   def parseNodes(hierarchyLevel: Int, analytics: Seq[CustomGraphAnalytic[_]])(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
     def getDefaultAnalyticValue[T](analytic: CustomGraphAnalytic[T]): String =
@@ -183,11 +182,9 @@ object MetadataTilingPipeline extends AbstractJob {
     val dstXExtractor = new DoubleExtractor(rawData, "dstX", None)
     val dstYExtractor = new DoubleExtractor(rawData, "dstY", None)
     val weightExtractor =
-      if (weighted) Some(new LongExtractor(rawData, "weight", None))
-      else None
+      if (weighted) Some(new LongExtractor(rawData, "weight", None)) else None
     val externalExtractor =
-      if (specifiesExternal) Some(new IntExtractor(rawData, "isInterCommunity", None))
-      else None
+      if (specifiesExternal) Some(new IntExtractor(rawData, "isInterCommunity", None)) else None
 
     rawData.rdd.flatMap { row =>
       Try {
@@ -200,8 +197,9 @@ object MetadataTilingPipeline extends AbstractJob {
         val weight = weightExtractor.map(_.getValue(row)).getOrElse(1L)
         val external = externalExtractor.map(_.getValue(row)).getOrElse(1) == 1
 
-        if (-1 == srcId || -1 == dstId || srcId == dstId)
+        if (-1 == srcId || -1 == dstId || srcId == dstId) {
           throw new Exception("Irrelevant edge")
+        }
 
         Iterator(
           (srcId, (new GraphEdge(dstId, (dstX, dstY), weight), external)),
@@ -293,3 +291,4 @@ class StringExtractor(data: DataFrame, columnName: String, defaultValue: Option[
   extends ValueExtractor[String](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): String = row.getString(index)
 }
+//scalastyle:on null underscore.import import.grouping

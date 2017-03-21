@@ -14,7 +14,7 @@ package software.uncharted.graphing.utilities
 
 
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 
 import scala.reflect.ClassTag
 

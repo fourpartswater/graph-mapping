@@ -32,28 +32,28 @@ class ArgumentParser(args: Array[String]) {
     args.sliding(2).filter(p => p(0) == "-" + key).map(_ (1)).toSeq
   }
 
-  def getString(key: String, description: String, defaultValue: String) =
+  def getString(key: String, description: String, defaultValue: String): String =
     getStringOption(key, description, Some(defaultValue)).get
 
-  def getDoubleOption(key: String, description: String, defaultValue: Option[Double]) =
+  def getDoubleOption(key: String, description: String, defaultValue: Option[Double]): Option[Double] =
     getStringOption(key, description, defaultValue.map(_.toString)).map(_.toDouble)
 
-  def getDouble(key: String, description: String, defaultValue: Double) =
+  def getDouble(key: String, description: String, defaultValue: Double): Double =
     getDoubleOption(key, description, Some(defaultValue)).get
 
-  def getIntOption(key: String, description: String, defaultValue: Option[Int]) =
+  def getIntOption(key: String, description: String, defaultValue: Option[Int]): Option[Int] =
     getStringOption(key, description, defaultValue.map(_.toString)).map(_.toInt)
 
-  def getInt(key: String, description: String, defaultValue: Int) =
+  def getInt(key: String, description: String, defaultValue: Int): Int =
     getIntOption(key, description, Some(defaultValue)).get
 
   def getIntSeq(key: String, description: String, defaultValue: Option[Seq[Int]]): Seq[Int] =
     getStringOption(key, description, defaultValue.map(_.mkString(","))).get.split(",").map(_.toInt).toSeq
 
-  def getBooleanOption(key: String, description: String, defaultValue: Option[Boolean]) =
+  def getBooleanOption(key: String, description: String, defaultValue: Option[Boolean]): Option[Boolean] =
     getStringOption(key, description, defaultValue.map(_.toString)).map(_.toBoolean)
 
-  def getBoolean(key: String, description: String, defaultValue: Boolean) =
+  def getBoolean(key: String, description: String, defaultValue: Boolean): Boolean =
     getBooleanOption(key, description, Some(defaultValue)).get
 
   def usage: Unit = {
