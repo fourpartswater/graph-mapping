@@ -32,7 +32,11 @@ import scala.reflect.ClassTag
 import scala.io.Source
 
 
-
+/**
+  * Graph represented by collection of edges. An edge is a (Destination Id, Weight, Analytic Value) tuple
+  * and the source of the edge is the index of the array.
+  * @param links Edges of the graph.
+  */
 class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[(String, Seq[String])]] = None
 
