@@ -24,169 +24,107 @@ package software.uncharted.graphing.clustering.unithread
 
 import java.io._
 
+import com.typesafe.config.{ConfigFactory, Config}
+import grizzled.slf4j.Logging
+
+import scala.io.Source
+import scala.util.{Failure, Success}
+
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader}
 
 
 
-object Convert {
-  var infile_edge: Option[String] = None
-  var edge_filter: Option[String] = None
-  var edge_separator = "[ \t]+"
-  var edge_source_column = 0
-  var edge_destination_column = 1
-  var edge_weight_column: Option[Int] = None
-  var edge_analytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
+object Convert extends Logging {
 
-  var infile_node: Option[String] = None
-  var node_filter: Option[String] = None
-  var node_separator = "[ \t]+"
-  var node_id_column = 0
-  var node_metadata_column = 1
-  var node_analytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
+  def readConfigArguments (configFile: Option[String]): Config = {
+    val environmentalConfig = ConfigFactory.load()
+    var configActive = environmentalConfig
 
-  var outfile: Option[String] = None
-  var outfile_weight: Option[String] = None
-  var outfile_metadata: Option[String] = None
-  var do_renumber = false
+    if (configFile.isDefined) {
+      val filename = configFile.get
+      val cfgFile = new File(filename)
+      if (!cfgFile.exists()) {
+        logger.warn(s"Config file $filename doesn't exist")
+      } else if (!cfgFile.isFile) {
+        logger.warn(s"Config file $filename is a directory, not a file")
+      } else if (!cfgFile.canRead) {
+        logger.warn(s"Can't read config file $filename")
+      } else {
+        // scalastyle:off regex
+        println(s"Reading config file $cfgFile")
+        // scalastyle:on regex
+        configActive = environmentalConfig.withFallback(ConfigFactory.parseReader(Source.fromFile(cfgFile).bufferedReader()))
+      }
+    }
 
-  def usage(prog_name: String, more: String): Unit = {
-    println(more)
-    println("usage: " + prog_name + " -i input_file -o outfile [-r] [-w outfile_weight]")
-    println
-    println("read the graph and convert it to binary format.")
-    println("Edge input parameters:")
-    println("-ie filename\tinput edge file name")
-    println("-fe string\tfilter lines in the edge file to ones that contain the specified string.")
-    println("-ce string\tseparator character in edge file (defaults to \"[ \t]+\")")
-    println("-ae customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the edge data.  Multiple instances allowed, and performed in order.")
-    println("-s column\tsource node id column")
-    println("-d column\tdestination node id column")
-    println("-w column\tweight column")
-    println("Node input parameters (optional, only use is for metadata)")
-    println("-in filename\tinput node file name")
-    println("-fn string\tfilter lines in the node file for those that contain the specified string.")
-    println("-cn string\tseparator string in node file (defaults to \"[ \t]+\")")
-    println("-an customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
-    println("-n column\tnode id column")
-    println("-m column\tmeta-data column")
-    println("-r\tnodes are renumbered from 0 to nb_nodes-1 (the order is kept).")
-    println("-oe filename\tThe file name to which to write the output edge file")
-    println("-ow filename\tread the graph as a weighted one and writes the weights in a separate file.")
-    println("-om filename\tThe file name to which to write the output metadata file")
-    println("-h\tshow this usage message.")
-
-    System.exit(0)
+    configActive.resolve()
   }
 
-  def parse_args(args: Array[String]): Unit = {
-    var i = 0
-    while (i < args.length) {
-      if (args(i).startsWith("-")) {
-        args(i).substring(1).toLowerCase match {
-          // Edge parameters
-          case "ie" =>
-            i = i + 1
-            infile_edge = Some(args(i))
+  def parseArguments(config: Config, argParser: ArgumentParser): Config = {
+    val loader = new ConfigLoader(config)
+    loader.putValue(argParser.getStringOption("ie", "Edge input file", None), ConvertConfigParser.EDGE_INPUT)
+    loader.putValue(argParser.getStringOption("fe", "Edge filter", None), ConvertConfigParser.EDGE_FILTER)
+    loader.putValue(argParser.getStringOption("ce", "Edge separator", None), ConvertConfigParser.EDGE_SEPARATOR)
+    loader.putValue(argParser.getStringOption("ae", "Edge analytics", None), ConvertConfigParser.EDGE_ANALYTIC)
+    loader.putIntValue(argParser.getIntOption("s", "Edge source column", None), ConvertConfigParser.SRC_NODE_COLUMN)
+    loader.putIntValue(argParser.getIntOption("d", "Edge destination column", None), ConvertConfigParser.DST_NODE_COLUMN)
+    loader.putIntValue(argParser.getIntOption("w", "Edge weight column", None), ConvertConfigParser.WEIGHT_COLUMN)
+    loader.putValue(argParser.getStringOption("in", "Node input file", None), ConvertConfigParser.NODE_INPUT)
+    loader.putValue(argParser.getStringOption("fn", "Node filter", None), ConvertConfigParser.NODE_FILTER)
+    loader.putValue(argParser.getStringOption("cn", "Node separator", None), ConvertConfigParser.NODE_SEPARATOR)
+    loader.putValue(argParser.getStringOption("an", "Node analytics", None), ConvertConfigParser.NODE_ANALYTIC)
+    loader.putValue(argParser.getStringOption("anc", "Node analytics parameter", None), ConvertConfigParser.NODE_ANALYTIC)
+    loader.putIntValue(argParser.getIntOption("n", "Node id column", None), ConvertConfigParser.NODE_COLUMN)
+    loader.putIntValue(argParser.getIntOption("m", "Node metadata column", None), ConvertConfigParser.META_COLUMN)
+    loader.putValue(argParser.getStringOption("oe", "Edge output file", None), ConvertConfigParser.EDGE_OUTPUT)
+    loader.putValue(argParser.getStringOption("ow", "Weight output file", None), ConvertConfigParser.WEIGHT_OUTPUT)
+    loader.putValue(argParser.getStringOption("om", "Metadata output file", None), ConvertConfigParser.META_OUTPUT)
+    loader.putBooleanValue(argParser.getBooleanOption("r", "Renumber nodes to be zero based", None), ConvertConfigParser.RENUMBER)
 
-          case "fe" =>
-            i = i + 1
-            edge_filter = Some(args(i))
-
-          case "ce" =>
-            i = i + 1
-            edge_separator = args(i)
-
-          case "ae" =>
-            i = i + 1
-            edge_analytics += CustomGraphAnalytic(args(i), "")
-
-          case "s" =>
-            i = i + 1
-            edge_source_column = args(i).toInt
-
-          case "d" =>
-            i = i + 1
-            edge_destination_column = args(i).toInt
-
-          case "w" =>
-            i = i + 1
-            edge_weight_column = Some(args(i).toInt)
-
-
-          // Node parameters
-          case "in" =>
-            i = i + 1
-            infile_node = Some(args(i))
-
-          case "fn" =>
-            i = i + 1
-            node_filter = Some(args(i))
-
-          case "cn" =>
-            i = i + 1
-            node_separator = args(i)
-
-          case "an" =>
-            i = i + 1
-            node_analytics += CustomGraphAnalytic(args(i), "")
-
-          case "anc" =>
-            i = i + 1
-            val analytic = args(i)
-            i = i + 1
-            node_analytics += CustomGraphAnalytic(analytic, args(i))
-
-          case "n" =>
-            i = i + 1
-            node_id_column = args(i).toInt
-
-          case "m" =>
-            i = i + 1
-            node_metadata_column = args(i).toInt
-
-
-
-          // Output parameters
-          case "oe" =>
-            i = i + 1
-            outfile = Some(args(i))
-
-          case "ow" =>
-            i = i + 1
-            outfile_weight = Some(args(i))
-
-          case "om" =>
-            i = i + 1
-            outfile_metadata = Some(args(i))
-
-          case "r" => do_renumber = true
-          case _ => usage("convert", "Unknown option: " + args(i))
-        }
-      }
-      i = i + 1
-    }
+    loader.config
   }
 
   def main(args: Array[String]): Unit = {
-    parse_args(args)
-//    val edgeReader = new BufferedReader(new InputStreamReader(new FileInputStream(infile_edge.get)))
-//    var g = GraphEdges(edgeReader, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column)
-//    edgeReader.close()
-    var g = GraphEdges(infile_edge.get, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column, edge_analytics)
+    val argParser = new ArgumentParser(args)
 
-    infile_node.foreach { nodeFile =>
+    // Parse config files first.
+    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
+    val config = readConfigArguments(configFile)
+
+    // Apply the rest of the arguments to the config.
+    val configComplete = parseArguments(config, argParser)
+    val convertConfig = ConvertConfigParser.parse(configComplete) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Failed to load convert configuration properly.")
+        sys.exit(-1)
+    }
+
+    // Use the config to pass all the necessary parameters.
+    var g = GraphEdges(convertConfig.edgeInputFilename,
+      convertConfig.edgeLineFilter,
+      convertConfig.edgeSeparator,
+      convertConfig.srcNodeColumn,
+      convertConfig.dstNodeColumn,
+      convertConfig.weightColumn,
+      convertConfig.edgeAnalytics)
+
+
+    convertConfig.nodeInputFilename.foreach { nodeFile =>
       val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))
-      g.readMetadata(nodeReader, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
+      g.readMetadata(nodeReader, convertConfig.nodeLineFilter, convertConfig.nodeSeparator, convertConfig.nodeColumn,
+        convertConfig.metaColumn, convertConfig.nodeAnalytics)
       nodeReader.close()
     }
 
-    if (do_renumber)
+    if (convertConfig.renumber)
       g = g.renumber()
 
-    val edgeStream = new DataOutputStream(new FileOutputStream(outfile.get))
-    val weightStream = outfile_weight.map(filename => new DataOutputStream(new FileOutputStream(filename)))
-    val metadataStream = outfile_metadata.map(filename => new DataOutputStream(new FileOutputStream(filename)))
+    val edgeStream = new DataOutputStream(new FileOutputStream(convertConfig.edgeOutputFilename))
+    val weightStream = convertConfig.weightOutputFilename.map(filename => new DataOutputStream(new FileOutputStream(filename)))
+    val metadataStream = convertConfig.metaOutputFilename.map(filename => new DataOutputStream(new FileOutputStream(filename)))
     g.display_binary(edgeStream, weightStream, metadataStream)
     edgeStream.flush(); edgeStream.close()
     weightStream.foreach{s => s.flush(); s.close()}

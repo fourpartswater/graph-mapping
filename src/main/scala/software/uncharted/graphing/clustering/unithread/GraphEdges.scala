@@ -31,10 +31,23 @@ import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.reflect.ClassTag
 
 
-
+/**
+  * Graph represented by collection of edges. An edge is a (Destination Id, Weight, Analytic Value) tuple
+  * and the source of the edge is the index of the array.
+  * @param links Edges of the graph.
+  */
 class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[(String, Seq[String])]] = None
 
+  /**
+    * Read the metadata from source.
+    * @param metadataInput Reader for the metadata.
+    * @param md_filter Value compared to the start of the line to filter metadata.
+    * @param separator Separator of the fields.
+    * @param id_column 0 based index of the id column.
+    * @param md_column 0 based index of the metadata column.
+    * @param analytics Analytics to apply to the metadata.
+    */
   def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
                     id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     metaData = Some(new Array[(String, Seq[String])](links.length))
