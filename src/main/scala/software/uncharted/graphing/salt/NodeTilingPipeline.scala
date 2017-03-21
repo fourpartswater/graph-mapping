@@ -15,7 +15,7 @@ package software.uncharted.graphing.salt
 
 import com.typesafe.config.Config
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types._ //scalastyle:ignore
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
@@ -27,7 +27,7 @@ import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.util.{Failure, Success}
 
-
+//scalastyle:off null underscore.import import.grouping
 object NodeTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
@@ -50,7 +50,8 @@ object NodeTilingPipeline extends AbstractJob {
 
   def getSchema(analytics: Seq[CustomGraphAnalytic[_]]): StructType = {
     // This schema must match that written by HierarchicalFDLayout.saveLayoutResult (the resultNodes variable)
-    // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
+    // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t"
+    // + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
     StructType(
       Seq(
         StructField("fieldType", StringType),
@@ -105,3 +106,4 @@ object NodeTilingPipeline extends AbstractJob {
     sys.exit(-1)
   }
 }
+//scalastyle:on null underscore.import import.grouping
