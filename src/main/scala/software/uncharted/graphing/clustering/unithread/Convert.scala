@@ -22,7 +22,7 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io._
+import java.io._ //scalastyle:ignore
 
 import com.typesafe.config.{ConfigFactory, Config}
 
@@ -114,13 +114,14 @@ object Convert {
       g.readMetadata(nodeFile, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
     }
 
-    if (convertConfig.renumber)
+    if (convertConfig.renumber) {
       g = g.renumber()
+    }
 
     val edgeStream = new DataOutputStream(new FileOutputStream(convertConfig.edgeOutputFilename))
     val weightStream = convertConfig.weightOutputFilename.map(filename => new DataOutputStream(new FileOutputStream(filename)))
     val metadataStream = convertConfig.metaOutputFilename.map(filename => new DataOutputStream(new FileOutputStream(filename)))
-    g.display_binary(edgeStream, weightStream, metadataStream)
+    g.displayBinary(edgeStream, weightStream, metadataStream)
     edgeStream.flush(); edgeStream.close()
     weightStream.foreach{s => s.flush(); s.close()}
     metadataStream.foreach{s => s.flush(); s.close()}

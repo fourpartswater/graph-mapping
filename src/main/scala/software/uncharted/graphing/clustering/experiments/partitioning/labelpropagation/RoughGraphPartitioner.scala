@@ -16,7 +16,7 @@ package software.uncharted.graphing.clustering.experiments.partitioning.labelpro
 
 import scala.collection.mutable.{Map => MutableMap}
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 
@@ -69,14 +69,15 @@ object RoughGraphPartitioner {
       if (totalUsedDegree < requiredTotalDegree) {
         totalUsedDegree = totalUsedDegree + degree * count
         neededNodes = neededNodes + count
-        if (totalUsedDegree >= requiredTotalDegree)
+        if (totalUsedDegree >= requiredTotalDegree) {
           minNeededDegree = degree
+        }
       }
     }
 
-    println("Pulling "+neededNodes+" of "+nodeCount+" nodes")
-    println("  Total degree used: "+totalUsedDegree+" of "+totalDegree)
-    println("  Minimum needed degree: "+minNeededDegree)
+    println("Pulling " + neededNodes + " of " + nodeCount + " nodes")
+    println("  Total degree used: " + totalUsedDegree+" of " + totalDegree)
+    println("  Minimum needed degree: " + minNeededDegree)
     val keyVertices = vertices.filter(_._2._2 >= minNeededDegree).map{case (id, (data, degree)) => (id, degree)}.collect()
 
     vertices.unpersist(false)
@@ -96,7 +97,7 @@ object RoughGraphPartitioner {
         partition = partition + 1
       }
     }
-    println("Total partitions: "+partition)
+    println("Total partitions: " + partition)
 
     (partitionIndicators.toMap, partitionSizes.toMap)
   }
@@ -183,8 +184,11 @@ object RoughGraphPartitioner {
     val partitionEdgeStats = graph.triplets.map { triplet =>
       val srcPartition = triplet.srcAttr._2
       val dstPartition = triplet.dstAttr._2
-      if (srcPartition == dstPartition) MutableMap(srcPartition -> (2, 0))
-      else MutableMap(srcPartition -> (0, 1), dstPartition -> (0, 1))
+      if (srcPartition == dstPartition) {
+        MutableMap(srcPartition -> (2, 0))
+      } else {
+        MutableMap(srcPartition -> (0, 1), dstPartition -> (0, 1))
+      }
     }.reduce { (a, b) =>
       b.foreach { case (k, bv) =>
         val (bint, bext) = bv
@@ -204,8 +208,8 @@ object RoughGraphPartitioner {
       totExt = totExt + external
       n = n + 1
     }
-    println("Averages: Internal: "+(totInt.toDouble / n)+", External: "+(totExt.toDouble / n))
-    println("Totals: Internal: "+totInt+", External: "+totExt+", overall: "+(totInt + totExt))
+    println("Averages: Internal: " + (totInt.toDouble / n) + ", External: " + (totExt.toDouble / n))
+    println("Totals: Internal: " + totInt + ", External: " + totExt + ", overall: " + (totInt + totExt))
 
     partitionEdgeStats.map(_._1).reduce(_ max _)
   }

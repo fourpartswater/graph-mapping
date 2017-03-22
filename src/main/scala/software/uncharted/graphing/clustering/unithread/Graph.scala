@@ -100,7 +100,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   // A place to cache node weights, so it doesn't have to be calculated multiple times.
   private val weights = new Array[Option[Double]](nb_nodes)
   val total_weight =
-    (for (i <- 0 until nb_nodes) yield weighted_degree(i)).fold(0.0)(_ + _)
+    (for (i <- 0 until nb_nodes) yield weightedDegree(i)).fold(0.0)(_ + _)
 
 
   def id (node: Int): Long = nodeInfos(node).id
@@ -113,7 +113,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * @param node The node.
     * @return The number of neighbors for the node.
     */
-  def nb_neighbors (node: Int): Int =
+  def nbNeighbors (node: Int): Int =
     if (0 == node) {
       degrees(0)
     } else {
@@ -133,7 +133,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * @param node The node.
     * @return The sum of weights of all self loops on the node.
     */
-  def nb_selfloops (node: Int): Double =
+  def nbSelfloops (node: Int): Double =
     neighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
 
   /**
@@ -141,12 +141,12 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * @param node The node.
     * @return The weighted degree of the node.
     */
-  def weighted_degree (node: Int): Double = {
+  def weightedDegree (node: Int): Double = {
     // Only calculated the degree of a node once
     if (null == weights(node) || weights(node).isEmpty) {
       weights(node) = Some(weightsOpt.map(weights =>
         neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
-      ).getOrElse(nb_neighbors(node))
+      ).getOrElse(nbNeighbors(node))
       )
     }
     weights(node).get
@@ -156,9 +156,9 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * Output the graph's nodes.
     * @param out Output stream to output to.
     */
-  def display_nodes (out: PrintStream): Unit = {
+  def displayNodes (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
-      out.println("node\t"+id(node)+"\t"+internalSize(node)+"\t"+weighted_degree(node)+"\t"+metaData(node))
+      out.println("node\t" + id(node) + "\t" + internalSize(node) + "\t" + weightedDegree(node) + "\t" + metaData(node))
     }
   }
 
@@ -166,10 +166,10 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * Output the graph's links.
     * @param out Output stream to output to.
     */
-  def display_links (out: PrintStream): Unit = {
+  def displayLinks (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
       neighbors(node).foreach { case (dst, weight) =>
-        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round)
+        out.println("edge\t" + id(node) + "\t" + id(dst) + "\t" + weight.round)
       }
     }
   }
@@ -265,8 +265,7 @@ object Graph {
       val node = minNode + i
       val relevantEdges = edges.filter(edge => node == edge._1 || node == edge._2)
       val directedEdges = relevantEdges.map{edge =>
-        if (node == edge._1) (edge._2 - minNode).toInt
-        else (edge._1 - minNode).toInt
+        if (node == edge._1) (edge._2 - minNode).toInt else (edge._1 - minNode).toInt
       }
       directedEdges.foreach { destination =>
         links(linkNum) = destination

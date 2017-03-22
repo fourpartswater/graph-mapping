@@ -19,10 +19,10 @@ import software.uncharted.graphing.clustering.experiments.partitioning.labelprop
 import scala.collection.mutable.{Buffer, Map => MutableMap, Set => MutableSet}
 
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import org.apache.spark.rdd.RDD
 
-import software.uncharted.spark.ExtendedRDDOpertations._
+import software.uncharted.spark.ExtendedRDDOpertations._ //scalastyle:ignore
 import software.uncharted.graphing.clustering.unithread.reference.{Graph => BGLLGraph}
 
 
@@ -96,8 +96,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 
   def weightedSelfLoopDegree (node: Int): Double =
     internalNeighbors(node).foldLeft(0.0) { case (sum, addend) =>
-      if (node == addend._1) sum + addend._2.toDouble
-      else sum
+      if (node == addend._1) sum + addend._2.toDouble else sum
     }
 
 

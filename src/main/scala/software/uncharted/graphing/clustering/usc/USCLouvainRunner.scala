@@ -185,7 +185,7 @@ object USCLouvainRunner {
       logStat("internal links 1", g1.numInternalLinks.toString)
       logStat("external links 1", g1.numExternalLinks.toString)
       logStat("modularity 1", c1.modularity.toString)
-      c1.one_level(randomize)
+      c1.oneLevel(randomize)
       val result = c1.getReducedSubgraphWithVertexMap(getVertexMap = true)
       c1.clusteringStatistics.foreach(cs =>
         stats.add(cs.addLevelAndPartition(1, partition))
@@ -223,7 +223,7 @@ object USCLouvainRunner {
 
       do {
         logStat("consolidation", "start", level)
-        improvement = c.one_level()
+        improvement = c.oneLevel()
         new_modularity = c.modularity
         level = level + 1
         logStat("consolidation", "clustered", level)
