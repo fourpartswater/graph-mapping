@@ -20,7 +20,7 @@ package software.uncharted.graphing.layout
   *  Adapted from the 'FFDLayouter' code in ApertureJS
   *
   */
-class QuadTree(box: (Double, Double, Double, Double)) {	// bounding box of entire quadtree (x,y of lower left corner, width, height)
+class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entire quadtree (x,y of lower left corner, width, height)
 
   private val _root: QuadNode = new QuadNode(box)
 
@@ -28,7 +28,7 @@ class QuadTree(box: (Double, Double, Double, Double)) {	// bounding box of entir
     _root
   }
 
-  def insert(x: Double, y: Double, id: Long, size: Double) = {
+  def insert(x: Double, y: Double, id: Long, size: Double): Unit = {
     insertIntoQuadNode(_root, new QuadNodeData(x, y, id, size))
   }
 
@@ -41,7 +41,7 @@ class QuadTree(box: (Double, Double, Double, Double)) {	// bounding box of entir
     qn.incrementChildren()
 
     // case 1: leaf node, no data
-    // 	 just add the values and get out
+    //   just add the values and get out
     if (qn.getNumChildren == 1) {
       qn.setData(data)
       qn.setCenterOfMass((data.getX, data.getY))
@@ -55,7 +55,7 @@ class QuadTree(box: (Double, Double, Double, Double)) {	// bounding box of entir
       val x1 = qn.getData.getX
       val y1 = qn.getData.getY
       if ((x1 == data.getX) && (y1 == data.getY)) {
-        qn.setNumChildren(1)	// force two nodes at same location to be considered as one node
+        qn.setNumChildren(1) // force two nodes at same location to be considered as one node
         return
       }
     }
@@ -72,12 +72,12 @@ class QuadTree(box: (Double, Double, Double, Double)) {	// bounding box of entir
     // case 3: current leaf needs to become internal, and four new child quad nodes need to be created
     if (qn.getData != null) {
       val rect = qn.getBounds
-      val halfwidth = rect._3/2
-      val halfheight = rect._4/2
-      qn.setNW( new QuadNode(rect._1, rect._2+halfheight, halfwidth, halfheight))
-      qn.setNE( new QuadNode(rect._1+halfwidth, rect._2+halfheight, halfwidth, halfheight))
+      val halfwidth = rect._3 / 2
+      val halfheight = rect._4 / 2
+      qn.setNW( new QuadNode(rect._1, rect._2 + halfheight, halfwidth, halfheight))
+      qn.setNE( new QuadNode(rect._1 + halfwidth, rect._2 + halfheight, halfwidth, halfheight))
       qn.setSW( new QuadNode(rect._1, rect._2, halfwidth, halfheight))
-      qn.setSE( new QuadNode(rect._1+halfwidth, rect._2, halfwidth, halfheight))
+      qn.setSE( new QuadNode(rect._1 + halfwidth, rect._2, halfwidth, halfheight))
       val oldNodeData = qn.getData
       qn.setData(null)
       insertIntoContainingChildQuandrant(qn, oldNodeData)

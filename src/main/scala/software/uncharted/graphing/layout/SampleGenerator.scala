@@ -23,6 +23,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Make a sample dataset for tiling that is easy to debug
   */
+//scalastyle:off multiple.string.literals cyclomatic.complexity
 object SampleGenerator {
   def writeNode(out: Writer, node: Node): Unit = {
     out.write(node.toString + "\n")
@@ -184,6 +185,7 @@ object SampleGenerator {
     levels zip edges
   }
 
+  //scalastyle:off method.length
   def createNodeOctetsAndEdgesForLevel (level: Int, maxLevel: Int, upperLevel: Seq[Node]): (Seq[Node], Seq[Edge]) = {
     val isMaxLevel = (level == maxLevel)
 
@@ -194,15 +196,15 @@ object SampleGenerator {
     val (nodes, internalEdges) = upperLevel.map { p /* parent */ =>
       val offset = 256.0 /  (1 to level).map(n => 4.0).reduce(_ * _)
 
-      val node0 = Node(p.id,      p.x,          p.y,          offset/2, Some(p), 1L, 0, p.metaData+":0")
-      val node1 = Node(getNextId, p.x - offset, p.y + offset, offset/2, Some(p), 1L, 0, p.metaData+":1")
-      val node2 = Node(getNextId, p.x         , p.y + offset, offset/2, Some(p), 1L, 0, p.metaData+":2")
-      val node3 = Node(getNextId, p.x + offset, p.y + offset, offset/2, Some(p), 1L, 0, p.metaData+":3")
-      val node4 = Node(getNextId, p.x + offset, p.y         , offset/2, Some(p), 1L, 0, p.metaData+":4")
-      val node5 = Node(getNextId, p.x + offset, p.y - offset, offset/2, Some(p), 1L, 0, p.metaData+":5")
-      val node6 = Node(getNextId, p.x         , p.y - offset, offset/2, Some(p), 1L, 0, p.metaData+":6")
-      val node7 = Node(getNextId, p.x - offset, p.y - offset, offset/2, Some(p), 1L, 0, p.metaData+":7")
-      val node8 = Node(getNextId, p.x - offset, p.y         , offset/2, Some(p), 1L, 0, p.metaData+":8")
+      val node0 = Node(p.id,      p.x,          p.y,          offset / 2, Some(p), 1L, 0, p.metaData + ":0")
+      val node1 = Node(getNextId, p.x - offset, p.y + offset, offset / 2, Some(p), 1L, 0, p.metaData + ":1")
+      val node2 = Node(getNextId, p.x         , p.y + offset, offset / 2, Some(p), 1L, 0, p.metaData + ":2")
+      val node3 = Node(getNextId, p.x + offset, p.y + offset, offset / 2, Some(p), 1L, 0, p.metaData + ":3")
+      val node4 = Node(getNextId, p.x + offset, p.y         , offset / 2, Some(p), 1L, 0, p.metaData + ":4")
+      val node5 = Node(getNextId, p.x + offset, p.y - offset, offset / 2, Some(p), 1L, 0, p.metaData + ":5")
+      val node6 = Node(getNextId, p.x         , p.y - offset, offset / 2, Some(p), 1L, 0, p.metaData + ":6")
+      val node7 = Node(getNextId, p.x - offset, p.y - offset, offset / 2, Some(p), 1L, 0, p.metaData + ":7")
+      val node8 = Node(getNextId, p.x - offset, p.y         , offset / 2, Some(p), 1L, 0, p.metaData + ":8")
 
       p.setChildren(node1, node2, node3, node4, node5, node6, node7, node8)
       val nodes = Seq(node0, node1, node2, node3, node4, node5, node6, node7, node8)
@@ -243,6 +245,7 @@ object SampleGenerator {
 
     (nodes, (internalEdges ++ externalEdges))
   }
+  //scalastyle:on method.length
 
   object Node {
     def apply (id: Long, x: Double, y: Double, radius: Double, parent: Option[Node], numInternalNodes: Long, degree: Int, metaData: String): Node = {
@@ -302,3 +305,4 @@ object SampleGenerator {
     override def toString: String = "edge\t" + src.id + "\t" + src.x + "\t" + src.y + "\t" + dst.id + "\t" + dst.x + "\t" + dst.y + "\t" + weight + "\t" + interCommunityEdge
   }
 }
+//scalastyle:on multiple.string.literals cyclomatic.complexity

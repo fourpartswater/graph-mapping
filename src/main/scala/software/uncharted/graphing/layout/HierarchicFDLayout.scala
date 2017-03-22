@@ -15,11 +15,11 @@ package software.uncharted.graphing.layout
 
 
 import scala.util.Try
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters._ //scalastyle:ignore
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayout}
 
 
@@ -117,25 +117,25 @@ class HierarchicFDLayout extends Serializable {
     }
   }
 
-	def determineLayout(sc: SparkContext,
+  def determineLayout(sc: SparkContext,
                       layoutConfig: HierarchicalLayoutConfig,
-                      layoutParameters: ForceDirectedLayoutParameters) = {
-		//TODO -- this class assumes edge weights are Longs.  If this becomes an issue for some datasets, then change expected edge weights to Doubles?
-		if (layoutConfig.maxHierarchyLevel < 0) throw new IllegalArgumentException("maxLevel parameter must be >= 0")
-		if (layoutParameters.nodeAreaFactor < 0.1 || layoutParameters.nodeAreaFactor > 0.9) {
+                      layoutParameters: ForceDirectedLayoutParameters): Unit = {
+    //TODO -- this class assumes edge weights are Longs.  If this becomes an issue for some datasets, then change expected edge weights to Doubles?
+    if (layoutConfig.maxHierarchyLevel < 0) throw new IllegalArgumentException("maxLevel parameter must be >= 0")
+    if (layoutParameters.nodeAreaFactor < 0.1 || layoutParameters.nodeAreaFactor > 0.9) {
       throw new IllegalArgumentException("nodeAreaFactor parameter must be between 0.1 and 0.9")
     }
 
     val forceDirectedLayouter = new ForceDirectedLayout(layoutParameters)
 
-		val levelStats = new Array[Seq[(String, AnyVal)]](layoutConfig.maxHierarchyLevel+1)	// (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
+    val levelStats = new Array[Seq[(String, AnyVal)]](layoutConfig.maxHierarchyLevel + 1) // (numNodes, numEdges, minR, maxR, minParentR, maxParentR, min Recommended Zoom Level)
 
-		// init results for 'parent group' rectangle with group ID -1 (because top hierarchical communities don't
+    // init results for 'parent group' rectangle with group ID -1 (because top hierarchical communities don't
     // have valid parents).  Rectangle format is left coord, bottom coord, width, height
-		var lastLevelLayoutOpt: Option[RDD[(Long, Circle)]] = None
+    var lastLevelLayoutOpt: Option[RDD[(Long, Circle)]] = None
 
     for (level <- layoutConfig.maxHierarchyLevel to 0 by -1) {
-			println(s"\n\n\nStarting Force Directed Layout for hierarchy level $level\n\n\n")
+      println(s"\n\n\nStarting Force Directed Layout for hierarchy level $level\n\n\n")
       // For each hierarchical level > 0, get community ID's, community degree (num outgoing edges),
       // and num internal nodes, and the parent community ID.
       // Group by parent community, and do Group-in-Box layout once for each parent community.
@@ -152,37 +152,37 @@ class HierarchicFDLayout extends Serializable {
       }
 
       println(s"\n\nDoing actual layout for hierarchy level $level\n\n")
-			// perform force-directed layout algorithm on all nodes and edges in a given parent community
-			// note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
-			val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
+      // perform force-directed layout algorithm on all nodes and edges in a given parent community
+      // note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
+      val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
         forceDirectedLayouter.run(p.nodes, p.edges, p.parentId, p.bounds).map { node =>
           (node.id, node.inParent(p.bounds))
         }
-			}.cache
+      }.cache
 
-			val graphForThisLevel = Graph(nodeDataAll, graph.edges)	// create a graph of the layout results for this level
+      val graphForThisLevel = Graph(nodeDataAll, graph.edges) // create a graph of the layout results for this level
 
       val numRaw = nodeDataAll.count
       val numNodes = graphForThisLevel.vertices.count
       val numEdges = graphForThisLevel.edges.count
       println(s"Layout done on level $level with $numRaw raw data rows, $numNodes nodes, and $numEdges edges.  Calculating layout stats")
-			levelStats(level) = calcLayoutStats(level,
-                                          graphForThisLevel.vertices.count,	// calc some overall stats about layout for this level
-			                                    graphForThisLevel.edges.count,
+      levelStats(level) = calcLayoutStats(level,
+                                          graphForThisLevel.vertices.count, // calc some overall stats about layout for this level
+                                          graphForThisLevel.edges.count,
                                           graphForThisLevel.vertices.map(n => Try(n._2.geometry.radius).toOption), // Get community radii
                                           graphForThisLevel.vertices.map(n => Try(n._2.parentGeometry.get.radius).toOption), // Get parent radii
-			                                    layoutConfig.layoutSize,
-			                                    level == layoutConfig.maxHierarchyLevel)
+                                          layoutConfig.layoutSize,
+                                          level == layoutConfig.maxHierarchyLevel)
       println(s"Layout stats for level $level:")
-      levelStats(level).foreach(stat => println("\t"+stat._1+": "+stat._2))
+      levelStats(level).foreach(stat => println("\t" + stat._1 + ": " + stat._2))
 
-			// save layout results for this hierarchical level
+      // save layout results for this hierarchical level
       println(s"Saving layout for hierarchy level $level")
-			saveLayoutResults(graphForThisLevel, layoutConfig.output, level, level == layoutConfig.maxHierarchyLevel)
-      println("Layout done.  Scale factors used: "+scaleFactors.value.asScala.mkString("[", ", ", "]")+"\n\n\n")
+      saveLayoutResults(graphForThisLevel, layoutConfig.output, level, level == layoutConfig.maxHierarchyLevel)
+      println("Layout done.  Scale factors used: " + scaleFactors.value.asScala.mkString("[", ", ", "]") + "\n\n\n")
 
-			if (level > 0) {
-				val levelLayout = nodeDataAll.map { data =>
+      if (level > 0) {
+        val levelLayout = nodeDataAll.map { data =>
           // Just store the geometry of each parent
           (data._1, data._2.geometry)
         }.cache
@@ -193,45 +193,46 @@ class HierarchicFDLayout extends Serializable {
 
         lastLevelLayoutOpt.foreach(_.unpersist(false))
         lastLevelLayoutOpt = Some(levelLayout)
-			}
-			nodeDataAll.unpersist(blocking=false)
-			edges.unpersist(blocking=false)
-		}
+      }
+      nodeDataAll.unpersist(blocking=false)
+      edges.unpersist(blocking=false)
+    }
 
-		saveLayoutStats(sc, levelStats, layoutConfig.output)	// save layout stats for all hierarchical levels
-	}
+    saveLayoutStats(sc, levelStats, layoutConfig.output)  // save layout stats for all hierarchical levels
+  }
 
-	private def calcLayoutStats(level: Int,
+  private def calcLayoutStats(level: Int,
                               numNodes: Long,
-	                            numEdges: Long,
-	                            radii: RDD[Option[Double]],
-	                            parentRadii: RDD[Option[Double]],
-	                            totalLayoutLength: Double,
-	                            bMaxHierarchyLevel: Boolean): Seq[(String, AnyVal)] = {
+                              numEdges: Long,
+                              radii: RDD[Option[Double]],
+                              parentRadii: RDD[Option[Double]],
+                              totalLayoutLength: Double,
+                              bMaxHierarchyLevel: Boolean): Seq[(String, AnyVal)] = {
     // A lot of the stats are used to experiment with different approaches to obtaining the mapping
     // from cluster levels to tile levels. The median calculator was causing stackoverflow exceptions on some datasets.
     val undefinedRadii = radii.filter(_.isEmpty).count()
     val goodRadii = radii.filter(_.isDefined).map(_.get)
     val radiusTotals = goodRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
-		val maxRadius = goodRadii.reduce(_ max _)
+    val maxRadius = goodRadii.reduce(_ max _)
     val meanRadius = radiusTotals._2 / radiusTotals._3
     //val medianRadius = MedianCalculator.median(goodRadii, 5)
     val stddevRadius = radiusTotals._1 /  radiusTotals._3 - meanRadius * meanRadius
-		val minRadius = goodRadii.reduce(_ min _)
+    val minRadius = goodRadii.reduce(_ min _)
 
     val undefinedParentRadii = parentRadii.filter(_.isEmpty).count()
     val goodParentRadii = parentRadii.filter(_.isDefined).map(_.get)
     val parentRadiusTotals = goodParentRadii.map(r => (r*r, r, 1)).reduce((a, b) => (a._1 + b._1, a._2 + b._2, a._3 + b._3))
-		val maxParentRadius = goodParentRadii.reduce(_ max _)
+    val maxParentRadius = goodParentRadii.reduce(_ max _)
     val meanParentRadius = parentRadiusTotals._2 / parentRadiusTotals._3
     //val medianParentRadius = MedianCalculator.median(goodParentRadii, 5)
     val stddevParentRadius = parentRadiusTotals._1 / parentRadiusTotals._3 - meanParentRadius * meanParentRadius
-		val minParentRadius = goodParentRadii.reduce(_ min _)
+    val minParentRadius = goodParentRadii.reduce(_ min _)
 
     // Calculate the ideal zoom level at which a given number of items of the specified radius fit on each tile
     def getZoomLevel (radius: Double, numberPerTile: Double) = {
-      if (bMaxHierarchyLevel) 0
-      else {
+      if (bMaxHierarchyLevel) {
+        0
+      } else {
         // let
         //   T = totalLayoutLength
         //   L = level
@@ -290,14 +291,14 @@ class HierarchicFDLayout extends Serializable {
       ("zoom level by max parent radius", getZoomLevel(maxParentRadius, 1)),
       ("std dev parent radius", stddevParentRadius)
     )
-	}
+  }
 
-	private def saveLayoutResults(graphWithCoords: Graph[forcedirected.LayoutNode, Long],
-	                              outputDir: String,
-	                              level: Int, bIsMaxLevel: Boolean) =	{
+  private def saveLayoutResults(graphWithCoords: Graph[forcedirected.LayoutNode, Long],
+                                outputDir: String,
+                                level: Int, bIsMaxLevel: Boolean) = {
 
-		// re-format results into tab-delimited strings for saving to text file
-		val resultsNodes = graphWithCoords.vertices.flatMap{vertex =>
+    // re-format results into tab-delimited strings for saving to text file
+    val resultsNodes = graphWithCoords.vertices.flatMap{vertex =>
       Try{
         val (id, node) = vertex
 
@@ -309,7 +310,7 @@ class HierarchicFDLayout extends Serializable {
       }.toOption
     }
 
-		val resultsEdges = graphWithCoords.triplets.flatMap { et =>
+    val resultsEdges = graphWithCoords.triplets.flatMap { et =>
       Try {
         val srcID = et.srcId
         val dstID = et.dstId
@@ -326,27 +327,27 @@ class HierarchicFDLayout extends Serializable {
       }.toOption
     }.filter(line => line != null)
 
-		val resultsAll = resultsNodes.union(resultsEdges)	// put both node and edge results into one RDD
+    val resultsAll = resultsNodes.union(resultsEdges) // put both node and edge results into one RDD
 
-		resultsAll.saveAsTextFile(outputDir+"/level_"+level)	// save results to outputDir + "level_#"
-	}
+    resultsAll.saveAsTextFile(outputDir + "/level_" + level)  // save results to outputDir + "level_#"
+  }
 
 
-	private def saveLayoutStats(sc: SparkContext, stats: Array[Seq[(String, AnyVal)]], outputDir: String) = {
+  private def saveLayoutStats(sc: SparkContext, stats: Array[Seq[(String, AnyVal)]], outputDir: String) = {
 
-		// re-format results into strings for saving to text file
-		var level = stats.length - 1
-		val statsStrings = new Array[(String)](stats.length)
-		while (level >= 0) {
+    // re-format results into strings for saving to text file
+    var level = stats.length - 1
+    val statsStrings = new Array[(String)](stats.length)
+    while (level >= 0) {
       val levelStats = stats(level)
 
-			statsStrings(level) = levelStats.map(a => a._1+": "+a._2).mkString(", ")
+      statsStrings(level) = levelStats.map(a => a._1 + ": " + a._2).mkString(", ")
 
-			level -= 1
-		}
+      level -= 1
+    }
 
-		sc.parallelize(statsStrings, 1).saveAsTextFile(outputDir+"/stats")
-	}
+    sc.parallelize(statsStrings, 1).saveAsTextFile(outputDir + "/stats")
+  }
 }
 
 //case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
