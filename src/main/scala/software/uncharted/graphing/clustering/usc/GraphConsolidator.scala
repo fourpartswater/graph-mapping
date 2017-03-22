@@ -66,12 +66,12 @@ object GraphConsolidator {
                 consolidatedRemoteNodeLinks(newNodeIndex) = consolidatedRemoteNodeLinks.get(newNodeIndex).getOrElse(0.0f) + weight
               }
               case None => {
-                println("\nCouldn't translate "+origNodeId+", which has changed to "+newNodeId+": Not found in renumbering map")
+                println("\nCouldn't translate " + origNodeId + ", which has changed to " + newNodeId + ": Not found in renumbering map")
               }
             }
           }
           case None => {
-            println("\nCouldn't find "+origNodeId+" in link mapping")
+            println("\nCouldn't find " + origNodeId + " in link mapping")
           }
         }
       }

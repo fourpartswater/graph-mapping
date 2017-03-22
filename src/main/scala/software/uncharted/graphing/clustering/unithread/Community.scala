@@ -91,8 +91,8 @@ class Community (val g: Graph,
     n2c(i) = i
     community_size(i) = 1
   }
-  val tot = n2c.map(n => g.weighted_degree(n))
-  val in = n2c.map(n => g.nb_selfloops(n))
+  val tot = n2c.map(n => g.weightedDegree(n))
+  val in = n2c.map(n => g.nbSelfloops(n))
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
@@ -106,8 +106,8 @@ class Community (val g: Graph,
     * @param dnodecomm Node community weight.
     */
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
-    tot(comm) -= g.weighted_degree(node)
-    in(comm) -= (2 * dnodecomm + g.nb_selfloops(node))
+    tot(comm) -= g.weightedDegree(node)
+    in(comm) -= (2 * dnodecomm + g.nbSelfloops(node))
     community_size(comm) -= 1
     n2c(node) = -1
   }
@@ -119,8 +119,8 @@ class Community (val g: Graph,
     * @param dnodecomm Node community weight.
     */
   def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
-    tot(comm) += g.weighted_degree(node)
-    in(comm) += (2 * dnodecomm + g.nb_selfloops(node))
+    tot(comm) += g.weightedDegree(node)
+    in(comm) += (2 * dnodecomm + g.nbSelfloops(node))
     community_size(comm) += 1
     n2c(node) = comm
   }
@@ -132,7 +132,7 @@ class Community (val g: Graph,
     * @param w_degree Weighted degree.
     * @return The modularity gain.
     */
-  def modularity_gain(comm: Int, dnodecomm: Double, w_degree: Double): Double = {
+  def modularityGain(comm: Int, dnodecomm: Double, w_degree: Double): Double = {
     val totc = tot(comm)
     val degc = w_degree
     val m2 = g.total_weight
@@ -163,11 +163,11 @@ class Community (val g: Graph,
     * Join the node to neighbouring communities if allowed.
     * @param node Node being processed.
     */
-  def neigh_comm(node: Int): Unit = {
+  def neighComm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
     }
-    val degree = g.nb_neighbors(node)
+    val degree = g.nbNeighbors(node)
     neigh_pos(0) = n2c(node)
     neigh_weight(neigh_pos(0)) = 0
     neigh_last = 1
@@ -175,7 +175,7 @@ class Community (val g: Graph,
     val allowed: Int => Boolean = algorithmMod match {
       case nd: NodeDegreeAlgorithm =>
         // Only allow joining with this neighbor if its degree is less than our limit.
-        nn => g.nb_neighbors(nn) < nd.degreeLimit
+        nn => g.nbNeighbors(nn) < nd.degreeLimit
       case cs: CommunitySizeAlgorithm =>
         // Only allow joining with this neighbor if its internal size is less than our limit
         nn => {
@@ -210,7 +210,7 @@ class Community (val g: Graph,
     * @param randomize Randomize the order of processing (defaults to true).
     * @return True if some changes were made to the communities.
     */
-  def one_level (randomize: Boolean = true): Boolean = {
+  def oneLevel (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -241,13 +241,13 @@ class Community (val g: Graph,
 
       // for each node: remove the node from its community and insert it in the best community
       for (node_tmp <- 0 until size) {
-        if (0 == (node_tmp % 100000)) println(node_tmp+" ...")
+        if (0 == (node_tmp % 100000)) println(node_tmp + " ...")
         val node = random_order(node_tmp)
         val node_comm = n2c(node)
-        val w_degree = g.weighted_degree(node)
+        val w_degree = g.weightedDegree(node)
 
         // computation of all neighboring communities of current node
-        neigh_comm(node)
+        neighComm(node)
         // remove node from its current community
         remove(node, node_comm, neigh_weight(node_comm))
 
@@ -257,7 +257,7 @@ class Community (val g: Graph,
         var best_nblinks = 0.0
         var best_increase = 0.0
         for (i <- 0 until neigh_last) {
-          val increase = modularity_gain(neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
+          val increase = modularityGain(neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
           if (increase > best_increase) {
             best_comm = neigh_pos(i)
             best_nblinks = neigh_weight(neigh_pos(i))
@@ -268,8 +268,9 @@ class Community (val g: Graph,
         // insert node in the nearest community
         insert(node, best_comm, best_nblinks)
 
-        if (best_comm != node_comm)
+        if (best_comm != node_comm) {
           nb_moves += 1
+        }
       }
 
       var total_tot = 0.0
@@ -280,8 +281,9 @@ class Community (val g: Graph,
       }
 
       new_mod = modularity
-      if (nb_moves > 0)
+      if (nb_moves > 0) {
         improvement = true
+      }
 
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
@@ -291,7 +293,7 @@ class Community (val g: Graph,
     var comm_nodes_tmp = MutableBuffer[MutableBuffer[Int]]()
     for (node <- 0 until size) {
       val n = renumber(n2c(node))
-      while (comm_nodes_tmp.size < n+1) comm_nodes_tmp += MutableBuffer[Int]()
+      while (comm_nodes_tmp.size < n + 1) comm_nodes_tmp += MutableBuffer[Int]()
       comm_nodes_tmp(n) += node
     }
     comm_nodes = comm_nodes_tmp
@@ -301,7 +303,7 @@ class Community (val g: Graph,
 
       //Get the community representative node. Every node in the community has the same one.
       //Select the node with the highest degree as representative of the community.
-      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
+      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weightedDegree(node), node)).reduce{(a, b) =>
         if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
       }
 
@@ -337,17 +339,17 @@ class Community (val g: Graph,
     * Initialize a community with data read from a partition file.
     * @param filename Partition file to be read.
     */
-  def init_partition (filename: String): Unit = {
+  def initPartition (filename: String): Unit = {
     val finput = new BufferedReader(new InputStreamReader(new FileInputStream(filename)))
 
     var line = finput.readLine()
     while (null != line) {
-      val fields = line.split("[ \t]+")
+      val fields = line.split("[ \t] + ")
       val node = fields(0).toInt
       val comm = fields(1).toInt
 
       val old_comm = n2c(node)
-      neigh_comm(node)
+      neighComm(node)
       remove(node, old_comm, neigh_weight(old_comm))
 
       var i = 0
@@ -363,8 +365,9 @@ class Community (val g: Graph,
         }
       }
 
-      if (!done)
+      if (!done) {
         insert(node, comm, 0)
+      }
 
       line = finput.readLine()
     }
@@ -377,7 +380,7 @@ class Community (val g: Graph,
     * @param out Output stream for graph content.
     * @param stats Output stream for stats content.
     */
-  def display_partition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
+  def displayPartition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
     val (renumber, last) = getRenumbering
 
     // write nodes to output file
@@ -392,16 +395,15 @@ class Community (val g: Graph,
       val id = g.id(i)
       val newCommunityId = g.nodeInfo(i).communityNode.id
       val size = g.internalSize(i)
-      val weight = g.weighted_degree(i).round.toInt
+      val weight = g.weightedDegree(i).round.toInt
       val metadata = g.metaData(i)
       val analyticData = g.nodeInfo(i).finishedAnalyticValues
       val analytics =
-        if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
-        else ""
-      out.println("node\t"+id+"\t"+newCommunityId+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
+        if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "") else ""
+      out.println("node\t" + id + "\t" + newCommunityId + "\t" + size + "\t" + weight + "\t" + metadata + analytics)
     }
     // write links to output file
-    g.display_links(out)
+    g.displayLinks(out)
 
     // write stats to stats file
     stats.foreach{statsStream =>
@@ -440,7 +442,7 @@ class Community (val g: Graph,
           bigL0 += 1
           bigL1 += d
           bigL2 += d*d
-	      }
+        }
       }
       val meanAll = allL1 / allL0
       val stdDevAll = allL2 / allL0 - meanAll * meanAll
@@ -449,10 +451,10 @@ class Community (val g: Graph,
       val stdDevBig = bigL2 / bigL0 - meanBig * meanBig
 
       statsStream.println()
-      statsStream.println("Level "+level+" stats:")
-      statsStream.println("\tTotal nodes: "+nodes)
-      statsStream.println("\tMinimum(community size): "+minCS)
-      statsStream.println("\tMaximum(community size): "+maxCS)
+      statsStream.println("Level " + level + " stats:")
+      statsStream.println("\tTotal nodes: " + nodes)
+      statsStream.println("\tMinimum(community size): " + minCS)
+      statsStream.println("\tMaximum(community size): " + maxCS)
       statsStream.println("\tAll communities:")
       statsStream.println("\t\tN: " + allL0)
       statsStream.println("\t\tSum(community size): " + allL1)
@@ -460,17 +462,17 @@ class Community (val g: Graph,
       statsStream.println("\t\tMean(community size): " + meanAll)
       statsStream.println("\t\tSigma(community size): " + stdDevAll)
       statsStream.println("\tCommunities larger than 1 node:")
-      statsStream.println("\t\tN: "+bigL0)
+      statsStream.println("\t\tN: " + bigL0)
       statsStream.println("\t\tSum(community size): " + bigL1)
       statsStream.println("\t\tSum(community size ^ 2): " + bigL2)
       statsStream.println("\t\tMean(community size): " + meanBig)
-      statsStream.println("\t\tsigma(communities size): "+stdDevBig)
+      statsStream.println("\t\tsigma(communities size): " + stdDevBig)
       statsStream.println()
       statsStream.println()
       statsStream.println()
-      statsStream.println("Ideal calculations (N="+N+", C="+C+", L="+L+")")
-      statsStream.println("Unweighted diff from ideal: "+diffFromIdeal)
-      statsStream.println("Weighted diff from ideal: "+(diffFromIdeal * math.pow(C/N, level/L)))
+      statsStream.println("Ideal calculations (N=" + N + ", C=" + C + ", L=" + L + ")")
+      statsStream.println("Unweighted diff from ideal: " + diffFromIdeal)
+      statsStream.println("Weighted diff from ideal: " + (diffFromIdeal * math.pow(C / N, level / L)))
     }
   }
 
@@ -478,7 +480,7 @@ class Community (val g: Graph,
     * Create a new graph based on the current communities.
     * @return The new graph.
     */
-  def partition2graph_binary(): Graph = {
+  def partition2graphBinary(): Graph = {
     val (renumber, _) = getRenumbering
 
     // Compute weighted graph
@@ -495,7 +497,7 @@ class Community (val g: Graph,
       val comm_size = comm_nodes(comm).size
       for (node <- 0 until comm_size) {
         val neighbors = g.neighbors(comm_nodes(comm)(node))
-        val deg = g.nb_neighbors(comm_nodes(comm)(node))
+        val deg = g.nbNeighbors(comm_nodes(comm)(node))
         for (i <- 0 until deg) {
           val (neigh, neigh_weight) = neighbors.next
           val neigh_comm = renumber(n2c(neigh))
@@ -532,7 +534,7 @@ object Community {
   var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
-  def usage (prog_name: String, more: String) = {
+  def usage (prog_name: String, more: String): Unit = {
     println(more)
     println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q epsilon] [-l display_level] [-v] [-h]")
     println
@@ -553,7 +555,7 @@ object Community {
     System.exit(0)
   }
 
-  def parse_args (args: Array[String]) = {
+  def parseArgs (args: Array[String]): Unit = {
     if (args.length < 1) usage("community", "Bad arguments number")
 
     val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_]]()
@@ -613,7 +615,7 @@ object Community {
             i = i + 1
             algorithm = new CommunitySizeAlgorithm(args(i).toInt)
 
-          case _ => usage("community", "Unknown option: "+args(i))
+          case _ => usage("community", "Unknown option: " + args(i))
         }
       } else if (filename.isDefined) {
         usage("community", "More than one filename")
@@ -626,16 +628,18 @@ object Community {
     analytics = tempAnalytics.toArray
   }
 
-  def display_time (msg: String): Unit =
-    Console.err.println(msg+": "+new Date(System.currentTimeMillis()))
+  def displayTime (msg: String): Unit =
+    Console.err.println(msg + ": " + new Date(System.currentTimeMillis()))
 
   def main (args: Array[String]): Unit = {
-    parse_args(args)
+    parseArgs(args)
 
     def algorithmByLevel (level: Int) = {
       algorithm match {
         case und: UnlinkedNodeDegreeAlgorithm =>
-          if ((level + 1) > und.degreeLimits.length) new BaselineAlgorithm
+          if ((level + 1) > und.degreeLimits.length) {
+            new BaselineAlgorithm
+          }
           else {
             val maxDegree = und.degreeLimits.take(level + 1).product
             new NodeDegreeAlgorithm(maxDegree)
@@ -647,7 +651,7 @@ object Community {
     }
 
     val time_begin = System.currentTimeMillis()
-    if (verbose) display_time("Begin")
+    if (verbose) displayTime("Begin")
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
     SimpleProfiling.register("init.community")
@@ -655,7 +659,7 @@ object Community {
     SimpleProfiling.finish("init.community")
 
     SimpleProfiling.register("init.partition")
-    filename_part.foreach(part => c.init_partition(part))
+    filename_part.foreach(part => c.initPartition(part))
     SimpleProfiling.finish("init.partition")
 
     var g: Graph = null
@@ -668,13 +672,13 @@ object Community {
     do {
       SimpleProfiling.register("iterative")
       if (verbose) {
-        Console.err.println("level "+level+":")
-        display_time("  start computation")
-        Console.err.println("  network size: "+c.g.nb_nodes+" nodes, "+c.g.nb_links+" links, "+c.g.total_weight+" weight.")
+        Console.err.println("level " + level + ":")
+        displayTime("  start computation")
+        Console.err.println("  network size: " + c.g.nb_nodes + " nodes, " + c.g.nb_links + " links, " + c.g.total_weight + " weight.")
       }
 
       SimpleProfiling.register("iterative.one_level")
-      improvement = c.one_level(randomize)
+      improvement = c.oneLevel(randomize)
       SimpleProfiling.finish("iterative.one_level")
       SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
@@ -682,8 +686,8 @@ object Community {
 
       level = level + 1
       if (level == display_level && null != g) {
-        g.display_nodes(Console.out)
-        g.display_links(Console.out)
+        g.displayNodes(Console.out)
+        g.displayLinks(Console.out)
       }
 
       SimpleProfiling.register("iterative.write")
@@ -692,7 +696,7 @@ object Community {
         levelDir.mkdir()
         val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
         val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
-        c.display_partition(level, out, Some(stats))
+        c.displayPartition(level, out, Some(stats))
         out.flush()
         out.close()
         stats.flush()
@@ -701,7 +705,7 @@ object Community {
       SimpleProfiling.finish("iterative.write")
 
       SimpleProfiling.register("iterative.convert")
-      g = c.partition2graph_binary()
+      g = c.partition2graphBinary()
       SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
@@ -709,25 +713,27 @@ object Community {
       c = new Community(g, -1, precision, levelAlgorithm)
       SimpleProfiling.finish("iterative.communitize")
 
-      if (verbose)
-        Console.err.println("  modularity increased from " + mod + " to "+new_mod)
+      if (verbose) {
+        Console.err.println("  modularity increased from " + mod + " to " + new_mod)
+      }
 
       mod = new_mod
-      if (verbose)
-        display_time("  end computation")
+      if (verbose) {
+        displayTime("  end computation")
+      }
 
       // do at least one more computation if partition is provided
       filename_part.foreach(part => if (1 == level) improvement = true)
       println
-      println("After level "+level+": ")
+      println("After level " + level + ": ")
       SimpleProfiling.report(System.out)
       SimpleProfiling.finish("iterative")
     } while (improvement)
     val time_end = System.currentTimeMillis()
     if (verbose) {
-      display_time("End")
+      displayTime("End")
       Console.err.println("Total duration: %.3f sec.".format((time_end-time_begin)/1000.0))
     }
-    Console.err.println("Final modularity: "+mod)
+    Console.err.println("Final modularity: " + mod)
   }
 }

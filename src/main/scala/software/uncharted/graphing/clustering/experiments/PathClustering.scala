@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.experiments
 
 
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import software.uncharted.graphing.utilities.VertexCalculation
 
 import scala.collection.mutable.{Map => MutableMap}

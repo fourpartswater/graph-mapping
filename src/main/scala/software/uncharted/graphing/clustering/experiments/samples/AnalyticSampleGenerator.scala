@@ -238,10 +238,10 @@ object Entry {
     while (i < entryString.length) {
       entryString.charAt(i) match {
         case 'n' | 'r' =>
-          tokens += ((variableType, entryString.substring(i, i+1), i))
+          tokens += ((variableType, entryString.substring(i, i + 1), i))
           i += 1
         case '+' | '-' | '*' | '/' | '^' =>
-          tokens += ((operatorType, entryString.substring(i, i+1), i))
+          tokens += ((operatorType, entryString.substring(i, i + 1), i))
           i += 1
         case '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' =>
           val (number, place) = getNumber(entryString, i).get
@@ -260,13 +260,17 @@ object Entry {
       if (index < entry.length) {
         val value = entry.charAt(index)
         start <= value && value <= end
-      } else false
+      } else {
+        false
+      }
     }
     def inSet (index: Int, possibilities: Char*): Boolean = {
       if (index < entry.length) {
         val value = entry.charAt(index)
         possibilities.map(_ == value).reduce(_ || _)
-      } else false
+      } else {
+        false
+      }
     }
 
     val start = place

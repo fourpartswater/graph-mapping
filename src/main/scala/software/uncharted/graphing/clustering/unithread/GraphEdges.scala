@@ -22,7 +22,7 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io._
+import java.io._ //scalastyle:ignore
 import java.util.Date
 
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
@@ -62,8 +62,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
             if (fields.size <= md_column) println("Too short")
             val md = fields(md_column)
             val analyticValues = analyticColumns.map { c =>
-              if (fields.size <= c) ""
-              else fields(c).trim
+              if (fields.size <= c) "" else fields(c).trim
             }
             data(nodeId) = (md, analyticValues)
           }
@@ -120,8 +119,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     metaData.foreach{md =>
       val newMetaData = new Array[(String, Seq[String])](nb)
       for (i <- links.indices)
-        if (linked(i))
-          newMetaData(renum(i)) = md(i)
+        if (linked(i)) newMetaData(renum(i)) = md(i)
       newGE.metaData = Some(newMetaData)
     }
     newGE
@@ -138,7 +136,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
-  def display_binary (edgeStream: DataOutputStream,
+  def displayBinary (edgeStream: DataOutputStream,
                       weightStream: Option[DataOutputStream],
                       metadataStream: Option[DataOutputStream]): Unit = {
     // output number of nodes
@@ -211,15 +209,16 @@ object GraphEdges {
 
       line = countReader.readLine()
       n += 1
-      if (0 == (n % 100000))
-        println("Counted " + n + " ("+new Date()+")")
+      if (0 == (n % 100000)) {
+        println("Counted " + n + " (" + new Date() + ")")
+      }
     }
     countReader.close()
-    println("Reading graph with "+(maxNode+1)+" nodes")
+    println("Reading graph with " + (maxNode + 1) + " nodes")
 
     // Now actually read the graph
     val graphReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
-    val result = apply(graphReader, edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
+    val result = apply(graphReader, edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode + 1))
     graphReader.close()
     result
   }
@@ -245,14 +244,16 @@ object GraphEdges {
         val analyticValues = analyticColumns.map(c => fields(c))
 
         edges(source).append((destination, weight.getOrElse(1.0f), analyticValues))
-        if (source != destination)
+        if (source != destination) {
           edges(destination).append((source, weight.getOrElse(1.0f), analyticValues))
+        }
       }
 
       line = edge_input.readLine()
       n += 1
-      if (0 == (n % 100000))
-        println("Read " + n + " ("+new Date()+")")
+      if (0 == (n % 100000)) {
+        println("Read " + n + " (" + new Date() + ")")
+      }
     }
     new GraphEdges(edges.data)
   }
@@ -266,7 +267,7 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
   }
   private def growTo (newSize: Int): Unit = {
     if (data.length < newSize) {
-      println("Growing from "+data.length+" to "+newSize)
+      println("Growing from " + data.length + " to " + newSize)
       val newData = new Array[T](newSize)
       for (i <- data.indices) newData(i) = data(i)
       for (i <- data.length until newSize) newData(i) = initialize()
@@ -275,10 +276,10 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
     }
   }
   def apply (n: Int): T = {
-    growTo(n+1)
+    growTo(n + 1)
     data(n)
   }
-  def update (n: Int, value: T) = {
+  def update (n: Int, value: T): Unit = {
     data(n) = value
   }
 }

@@ -26,7 +26,8 @@ import software.uncharted.graphing.clustering.ClusteringStatistics
 
 /**
  * A class to run Louvain clustering on a sub-graph
- * @param sg The graph to cluster
+  *
+  * @param sg The graph to cluster
  * @param numPasses number of pass for one level computation if -1, compute as many pass as needed to increas
  *                  modularity
  * @param minModularity a new pass is computed if the last one has generated an increase greater than min_modularity
@@ -55,7 +56,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     n2c(node) = comm
   }
 
-  def modularity_gain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
+  def modularityGain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
     val totc = tot(comm)
     val degc = w_degree
     val m2 = sg.totalInternalWeight
@@ -77,7 +78,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     q
   }
 
-  def neigh_comm(node: Int): Unit = {
+  def neighComm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
     }
@@ -100,7 +101,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     }
   }
 
-  def one_level (randomize: Boolean = true): Boolean = {
+  def oneLevel (randomize: Boolean = true): Boolean = {
     val startTime = System.currentTimeMillis()
     val startModularity = modularity
     val startNodes = sg.numNodes
@@ -141,7 +142,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
         val w_degree = sg.weightedInternalDegree(node)
 
         // computation of all neighboring communities of current node
-        neigh_comm(node)
+        neighComm(node)
         // remove node from its current community
         remove(node, node_comm, neigh_weight(node_comm))
 
@@ -151,7 +152,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
         var best_nblinks = 0.0
         var best_increase = 0.0
         for (i <- 0 until neigh_last) {
-          val increase = modularity_gain(node, neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
+          val increase = modularityGain(node, neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
           if (increase > best_increase) {
             best_comm = neigh_pos(i)
             best_nblinks = neigh_weight(neigh_pos(i))
@@ -162,8 +163,9 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
         // insert node in the nearest community
         insert(node, best_comm, best_nblinks)
 
-        if (best_comm != node_comm)
+        if (best_comm != node_comm) {
           nb_moves += 1
+        }
       }
 
       var total_tot = 0.0
@@ -174,8 +176,9 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
       }
 
       new_mod = modularity
-      if (nb_moves > 0)
-        improvement = true;
+      if (nb_moves > 0) {
+        improvement = true
+      }
 
       iterations = iterations + 1
     } while (nb_moves > 0 && new_mod - cur_mod > minModularity)
@@ -213,7 +216,8 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
 
   /**
    * Get the reduced subgraph according to the current state of clustering
-   * @param mergeNodeData A function to merge the data from the nodes in the original graph from which our clustering
+    *
+    * @param mergeNodeData A function to merge the data from the nodes in the original graph from which our clustering
    *                      is derived. The default implementation is simply to take the data from the node with the
    *                      highest original degree.
    * @return
