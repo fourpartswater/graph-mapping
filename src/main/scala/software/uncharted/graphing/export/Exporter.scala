@@ -17,10 +17,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 
 class Exporter {
-  private var sc:SparkContext = null
-
-  def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int) = {
-    this.sc = session.sparkContext
+  def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int): Unit = {
+    val sc = session.sparkContext
 
     var allNodes: RDD[ClusteredNode] = sc.emptyRDD[ClusteredNode]
     var allEdges: RDD[ClusteredEdge] = sc.emptyRDD[ClusteredEdge]

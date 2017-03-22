@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -262,3 +263,4 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
 case class NodeInfo (var community: Int,
                      var internalWeight: Double,
                      var totalWeight: Double)
+//scalastyle:on

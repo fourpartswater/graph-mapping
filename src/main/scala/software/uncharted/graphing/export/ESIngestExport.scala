@@ -50,7 +50,7 @@ object ESIngestExport {
       maxHierarchyLevel)
 
     val fileEndTime = System.currentTimeMillis()
-    println("Finished extracting data for downstream ingestion in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")
+    println("Finished extracting data for downstream ingestion in " + ((fileEndTime - fileStartTime) / 60000.0) + " minutes")
 
     println("Data extracted and available at " + outputDir)
   }

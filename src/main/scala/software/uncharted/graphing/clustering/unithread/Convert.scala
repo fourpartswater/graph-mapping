@@ -109,7 +109,7 @@ object Convert {
       convertConfig.dstNodeColumn,
       convertConfig.weightColumn,
       convertConfig.edgeAnalytics)
-    
+
     infile_node.foreach { nodeFile =>
       g.readMetadata(nodeFile, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
     }

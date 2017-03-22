@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
  * This code is copied and translated from https://sites.google.com/site/findcommunities
  *
@@ -454,3 +455,4 @@ object Community {
     Console.err.println("Final modularity: "+mod)
   }
 }
+//scalastyle:on
