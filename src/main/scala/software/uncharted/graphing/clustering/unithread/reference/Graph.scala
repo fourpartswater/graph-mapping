@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
  * This code is copied and translated from https://sites.google.com/site/findcommunities
  *
@@ -178,3 +179,4 @@ object Graph {
     new Graph(degrees, links, weights)
   }
 }
+//scalastyle:on

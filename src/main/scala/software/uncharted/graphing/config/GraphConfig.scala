@@ -15,7 +15,7 @@ package software.uncharted.graphing.config
 
 import software.uncharted.xdata.ops.salt.ArcTypes
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters._ //scalastyle:ignore
 import com.typesafe.config.{Config}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
@@ -40,9 +40,14 @@ object GraphConfig extends ConfigParser {
   def parse(config: Config): Try[GraphConfig] = {
     Try {
       val graphConfig = config.getConfig(graphKey)
-      val analytics = if (graphConfig.hasPath(analyticKey)) graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
-        CustomGraphAnalytic(analyticName, "")
-      } else Seq()
+      val analytics = if (graphConfig.hasPath(analyticKey)) {
+        graphConfig.getStringList(analyticKey).asScala.map { analyticName =>
+          CustomGraphAnalytic(analyticName, "")
+        }
+      } else {
+        Seq()
+      }
+
       val levels = graphConfig.getIntList(levelsKey).asScala.map(_.intValue())
       val edgeConfig = graphConfig.getConfig(edgeKey)
       val edgeType = if (edgeConfig.hasPath(edgeTypeKey)) {
@@ -51,7 +56,10 @@ object GraphConfig extends ConfigParser {
           case "intra" => Some(0)
           case et => throw new IllegalArgumentException("Illegal edge type " + et)
         }
-      } else None
+      } else {
+        None
+      }
+
       val formatConfig = edgeConfig.getConfig(formatKey)
       val formatType = formatConfig.getString(formatTypeKey).toLowerCase.trim match {
         case "leaderline" => ArcTypes.LeaderLine

@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -32,3 +33,4 @@ class Vector[T: ClassTag] (defaultValue: T, initialCapacity: Int = 0) {
 
   def toArray = buffer.toArray
 }
+//scalastyle:on

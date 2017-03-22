@@ -21,7 +21,7 @@ object ArcToPoints {
   /**
     * Find the solution to x = value % modulus that is closest to base
     */
-  def toClosestModulus (base: Double, value:Double, modulus: Double) = {
+  def toClosestModulus (base: Double, value:Double, modulus: Double): Double = {
     val diff = value - base
     val moduli = (diff / modulus).round
     value - moduli * modulus
@@ -30,14 +30,14 @@ object ArcToPoints {
   /**
     * Find the point on a circle at the given angle
     */
-  def getCirclePoint (center: (Double, Double), radius: Double, angle: Double) = {
+  def getCirclePoint (center: (Double, Double), radius: Double, angle: Double): (Int, Int) = {
     ((center._1 + radius * math.cos(angle)).round.toInt, (center._2 + radius * math.sin(angle)).round.toInt)
   }
 
   /**
     * Find the angle of a a given point on a circle
     */
-  def getCircleAngle (center: (Double, Double), circumfrencialPoint: (Int, Int)) =
+  def getCircleAngle (center: (Double, Double), circumfrencialPoint: (Int, Int)): Double =
     math.atan2(circumfrencialPoint._2 - center._2, circumfrencialPoint._1 - center._1)
 
   /**
@@ -131,7 +131,8 @@ object ArcToPoints {
     *           axis, and they continue counter-clockwise)</li>
     *           </ol>
     */
-  def getArcCharacteristics (start: (Int, Int), end: (Int, Int), arcLength: Double, clockwise: Boolean) = {
+  def getArcCharacteristics (start: (Int, Int), end: (Int, Int), arcLength: Double, clockwise: Boolean):
+  ((Double, Double), Double, Double, Double, Seq[(Int, Boolean, Boolean)])= {
     val center = getArcCenter(start, end, arcLength, clockwise)
 
     (
@@ -212,11 +213,9 @@ object ArcToPoints {
     val octants: Seq[(Int, Boolean, Boolean)] = {
       val rawOctants: Seq[Int] =
         if (clockwise) {
-          if (endOctant < startOctant) endOctant to startOctant
-          else endOctant to startOctant + 8
+          if (endOctant < startOctant) endOctant to startOctant else endOctant to startOctant + 8
         } else {
-          if (startOctant < endOctant) startOctant to endOctant
-          else startOctant to endOctant + 8
+          if (startOctant < endOctant) startOctant to endOctant else startOctant to endOctant + 8
         }
 
       rawOctants.map(_ % 8).map(octant => (octant, octant == startOctant, octant == endOctant))

@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated from https://sites.google.com/site/findcommunities
   *
@@ -168,3 +169,4 @@ object GraphEdges {
     new GraphEdges(links)
   }
 }
+//scalastyle:on

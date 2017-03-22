@@ -17,17 +17,15 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 
 class Exporter {
-  private var sc:SparkContext = null
-
-  def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int) = {
-    this.sc = session.sparkContext
+  def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int): Unit = {
+    val sc = session.sparkContext
 
     var allNodes: RDD[ClusteredNode] = sc.emptyRDD[ClusteredNode]
     var communityRDD: RDD[(String, String)] = sc.emptyRDD[(String, String)]
     //Work from top to bottom to generate the data extract.
     for(level <- maxLevel to 0 by -1) {
       //Get the data for the level.
-      val levelData = extractLevel(sourceLayoutDir, dataDelimiter, level)
+      val levelData = extractLevel(sc, sourceLayoutDir, dataDelimiter, level)
 
       //Join it to the previous level's community subset.
       val levelDataCommunity = levelData.map(node => (node.parentId, node))
@@ -63,7 +61,7 @@ class Exporter {
     allNodes.saveAsTextFile(outputDir)
   }
 
-  private def extractLevel(sourceLayoutDir:String, delimiter:String, level:Int): RDD[ClusteredNode] = {
+  private def extractLevel(sc: SparkContext, sourceLayoutDir:String, delimiter:String, level:Int): RDD[ClusteredNode] = {
 
     val layoutData = sc.textFile(sourceLayoutDir + "/level_" + level)
 
@@ -90,6 +88,6 @@ class Exporter {
         "",
         node.drop(12))) //Treat all other columns as metadata/
 
-    return combinedData
+    combinedData
   }
 }

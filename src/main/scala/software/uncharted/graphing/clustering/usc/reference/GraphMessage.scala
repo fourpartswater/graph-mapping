@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -27,3 +28,4 @@ class GraphMessage (val partition: Int,
       graph.remoteLinks
     )
 }
+//scalastyle:on

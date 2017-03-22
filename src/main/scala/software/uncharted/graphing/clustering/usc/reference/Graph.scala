@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -98,3 +99,4 @@ class Graph (val degrees: Seq[Int], val links: Seq[(Int, Float)], val remoteLink
 }
 
 class AsymetryException (node1: Int, node2: Int, weight1: Float, weight2: Float) extends Exception
+//scalastyle:on

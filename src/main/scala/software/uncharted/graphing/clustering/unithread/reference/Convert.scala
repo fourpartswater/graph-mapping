@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated from https://sites.google.com/site/findcommunities
   *
@@ -67,3 +68,4 @@ object Convert {
     g.display_binary(outfile.get, outfile_w, weighted)
   }
 }
+//scalastyle:on

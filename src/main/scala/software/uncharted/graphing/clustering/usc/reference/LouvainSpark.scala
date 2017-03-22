@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -374,3 +375,4 @@ class SourcePartitioner (boundaries: Broadcast[Map[Int, (Long, Long)]]) extends 
     }.head._1
   }
 }
+//scalastyle:on

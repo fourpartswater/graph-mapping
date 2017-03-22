@@ -1,3 +1,4 @@
+//scalastyle:off
 /**
   * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
   *
@@ -9,3 +10,4 @@
 package software.uncharted.graphing.clustering.usc.reference
 
 case class RemoteMap (var source: Int, var sink: Int, var sinkPart: Int)
+//scalastyle:on
