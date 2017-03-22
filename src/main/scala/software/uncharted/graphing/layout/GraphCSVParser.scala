@@ -15,7 +15,7 @@ package software.uncharted.graphing.layout
 
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 
 
 /**
@@ -86,7 +86,7 @@ class GraphCSVParser {
                     degreeX: Int=4,
                     bKeepExtraAttributes: Boolean=true): RDD[GraphNode] = {
 
-    val nAttrX = Math.max(Math.max(Math.max(nodeIDindex, parentIDindex), internalNodesX), degreeX)+1
+    val nAttrX = Math.max(Math.max(Math.max(nodeIDindex, parentIDindex), internalNodesX), degreeX) + 1
 
     rawData.flatMap(row =>
       {

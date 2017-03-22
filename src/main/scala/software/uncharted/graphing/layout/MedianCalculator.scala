@@ -45,7 +45,9 @@ object MedianCalculator {
 
     // Combine our partition medians, and see which is closest to the real median
     val potentialMids: Set[(Double, LongAccumulator, LongAccumulator)] =
-      partitionMids.flatMap((a: Array[Double]) => a).toSet.map((m: Double) => (m, sc.longAccumulator("potentialMidsAccumulatorLess"),sc.longAccumulator("potentialMidsAccumulatorMore")))
+      partitionMids.flatMap((a: Array[Double]) => a)
+        .toSet
+        .map((m: Double) => (m, sc.longAccumulator("potentialMidsAccumulatorLess"),sc.longAccumulator("potentialMidsAccumulatorMore")))
 
 
     dataset.foreach{n =>
@@ -59,10 +61,15 @@ object MedianCalculator {
       (m, (less.value - more.value).abs)
     }.sortBy(_._2)
 
-    if (0 == sortedMids.length) 0.0
-    else if (1 == sortedMids.length) sortedMids(0)._1
-    else if (sortedMids(0)._2 == sortedMids(1)._2) (sortedMids(0)._1 + sortedMids(1)._1)/2.0
-    else sortedMids(0)._1
+    if (0 == sortedMids.length) {
+      0.0
+    } else if (1 == sortedMids.length) {
+      sortedMids(0)._1
+    }  else if (sortedMids(0)._2 == sortedMids(1)._2) {
+      (sortedMids(0)._1 + sortedMids(1)._1)/2.0
+    } else {
+      sortedMids(0)._1
+    }
   }
 }
 private[layout] trait TreeNode {
@@ -77,14 +84,15 @@ private[layout] case class LeafNode (value: Double) extends TreeNode {
   def leftBound: Double = value
   def rightBound: Double = value
   def add (newValue: Double): TreeNode = {
-    if (newValue < value)
+    if (newValue < value) {
       new BranchNode(new LeafNode(newValue), this)
-    else
+    }
+    else {
       new BranchNode(this, new LeafNode(newValue))
+    }
   }
   def nth (n: Int): Double = {
-    if (0 == n) value
-    else throw new IndexOutOfBoundsException("Non-zero index to leaf node");
+    if (0 == n) value else throw new IndexOutOfBoundsException("Non-zero index to leaf node");
   }
 }
 private[layout] class BranchNode (var left: TreeNode, var right: TreeNode) extends TreeNode {
@@ -105,7 +113,6 @@ private[layout] class BranchNode (var left: TreeNode, var right: TreeNode) exten
     this
   }
   def nth (n: Int): Double = {
-    if (n < left.size) left.nth(n)
-    else right.nth(n-left.size)
+    if (n < left.size) left.nth(n) else right.nth(n-left.size)
   }
 }

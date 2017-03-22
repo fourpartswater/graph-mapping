@@ -15,7 +15,7 @@ package software.uncharted.graphing.layout.forcedirected
 
 import scala.collection.mutable
 import scala.util.{Random, Try}
-import software.uncharted.graphing.layout._
+import software.uncharted.graphing.layout._ //scalastyle:ignore
 
 
 /**
