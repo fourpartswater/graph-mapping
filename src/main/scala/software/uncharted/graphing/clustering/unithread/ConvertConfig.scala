@@ -49,7 +49,7 @@ object ConvertConfigParser extends ConfigParser {
   val DST_NODE_COLUMN = "edge.destination-column"
   val WEIGHT_COLUMN = "edge.weight-column"
   val NODE_INPUT = "node.input"
-  val WEIGHT_OUTPUT = "weight.output"
+  val WEIGHT_OUTPUT = "node.weight-output"
   val NODE_FILTER = "node.filter"
   val NODE_SEPARATOR = "node.separator"
   val NODE_ANALYTIC = "node.analytic"
@@ -63,14 +63,19 @@ object ConvertConfigParser extends ConfigParser {
       val section = config.getConfig(SECTION_KEY)
 
       // Parse objects needed for configuration.
+      // Analytics should probably be setup to have a subsection and should be iterated over.
       var edgeAnalytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
-      section.getString(EDGE_ANALYTIC).split(",").foreach(ea => edgeAnalytics += CustomGraphAnalytic(ea, ""))
+      if (section.hasPath(EDGE_ANALYTIC)) {
+        section.getString(EDGE_ANALYTIC).split(",").foreach(ea => edgeAnalytics += CustomGraphAnalytic(ea, ""))
+      }
 
       var nodeAnalytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
-      section.getString(NODE_ANALYTIC).split(",").foreach(na => {
-        val naSplit = na.split(":")
-        nodeAnalytics += CustomGraphAnalytic(naSplit(0), if (naSplit.length > 1) naSplit(1) else "")
-      })
+      if (section.hasPath(NODE_ANALYTIC)) {
+        section.getString(NODE_ANALYTIC).split(",").foreach(na => {
+          val naSplit = na.split(":")
+          nodeAnalytics += CustomGraphAnalytic(naSplit(0), if (naSplit.length > 1) naSplit(1) else "")
+        })
+      }
 
       ConvertConfig(
         section.getString(EDGE_INPUT),
@@ -87,7 +92,7 @@ object ConvertConfigParser extends ConfigParser {
         nodeAnalytics,
         section.getInt(NODE_COLUMN),
         section.getInt(META_COLUMN),
-        section.getBoolean(RENUMBER),
+        getBoolean(section, RENUMBER, false),
         getStringOption(section, WEIGHT_OUTPUT),
         getStringOption(section, META_OUTPUT)
       )

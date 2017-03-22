@@ -18,15 +18,15 @@ import scala.util.Random
   * An affine 2-dimensional vector
   */
 case class V2 (x: Double, y: Double) {
-  def + (that: V2): V2 = V2(this.x + that.x, this.y + that.y)
-  def - (that: V2): V2 = V2(this.x - that.x, this.y - that.y)
-  def * (that: Double): V2 = V2(this.x * that, this.y * that)
-  def / (that: Double): V2 = V2(this.x / that, this.y / that)
+  def + (that: V2): V2 = V2(this.x + that.x, this.y + that.y) //scalastyle:ignore
+  def - (that: V2): V2 = V2(this.x - that.x, this.y - that.y) //scalastyle:ignore
+  def * (that: Double): V2 = V2(this.x * that, this.y * that) //scalastyle:ignore
+  def / (that: Double): V2 = V2(this.x / that, this.y / that) //scalastyle:ignore
   def min (that: V2): V2 = V2(this.x min that.x, this.y min that.y)
   def max (that: V2): V2 = V2(this.x max that.x, this.y max that.y)
   def dot (that: V2): Double = this.x * that.x + this.y * that.y
-  def lengthSquared = this dot this
-  def length = math.sqrt(lengthSquared)
+  def lengthSquared: Double = this dot this
+  def length: Double = math.sqrt(lengthSquared)
 }
 object V2 {
   def apply (tuple: (Double, Double)): V2 = V2(tuple._1, tuple._2)
