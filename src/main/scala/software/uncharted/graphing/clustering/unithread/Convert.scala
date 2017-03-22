@@ -25,7 +25,6 @@ package software.uncharted.graphing.clustering.unithread
 import java.io._
 
 import com.typesafe.config.{ConfigFactory, Config}
-import grizzled.slf4j.Logging
 
 import scala.io.Source
 import scala.util.{Failure, Success}
@@ -36,7 +35,7 @@ import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader}
 
 
 
-object Convert extends Logging {
+object Convert {
 
   def readConfigArguments (configFile: Option[String]): Config = {
     val environmentalConfig = ConfigFactory.load()
@@ -46,11 +45,11 @@ object Convert extends Logging {
       val filename = configFile.get
       val cfgFile = new File(filename)
       if (!cfgFile.exists()) {
-        logger.warn(s"Config file $filename doesn't exist")
+        println(s"Config file $filename doesn't exist")
       } else if (!cfgFile.isFile) {
-        logger.warn(s"Config file $filename is a directory, not a file")
+        println(s"Config file $filename is a directory, not a file")
       } else if (!cfgFile.canRead) {
-        logger.warn(s"Can't read config file $filename")
+        println(s"Can't read config file $filename")
       } else {
         // scalastyle:off regex
         println(s"Reading config file $cfgFile")
@@ -64,24 +63,24 @@ object Convert extends Logging {
 
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
-    loader.putValue(argParser.getStringOption("ie", "Edge input file", None), ConvertConfigParser.EDGE_INPUT)
-    loader.putValue(argParser.getStringOption("fe", "Edge filter", None), ConvertConfigParser.EDGE_FILTER)
-    loader.putValue(argParser.getStringOption("ce", "Edge separator", None), ConvertConfigParser.EDGE_SEPARATOR)
-    loader.putValue(argParser.getStringOption("ae", "Edge analytics", None), ConvertConfigParser.EDGE_ANALYTIC)
-    loader.putIntValue(argParser.getIntOption("s", "Edge source column", None), ConvertConfigParser.SRC_NODE_COLUMN)
-    loader.putIntValue(argParser.getIntOption("d", "Edge destination column", None), ConvertConfigParser.DST_NODE_COLUMN)
-    loader.putIntValue(argParser.getIntOption("w", "Edge weight column", None), ConvertConfigParser.WEIGHT_COLUMN)
-    loader.putValue(argParser.getStringOption("in", "Node input file", None), ConvertConfigParser.NODE_INPUT)
-    loader.putValue(argParser.getStringOption("fn", "Node filter", None), ConvertConfigParser.NODE_FILTER)
-    loader.putValue(argParser.getStringOption("cn", "Node separator", None), ConvertConfigParser.NODE_SEPARATOR)
-    loader.putValue(argParser.getStringOption("an", "Node analytics", None), ConvertConfigParser.NODE_ANALYTIC)
-    loader.putValue(argParser.getStringOption("anc", "Node analytics parameter", None), ConvertConfigParser.NODE_ANALYTIC)
-    loader.putIntValue(argParser.getIntOption("n", "Node id column", None), ConvertConfigParser.NODE_COLUMN)
-    loader.putIntValue(argParser.getIntOption("m", "Node metadata column", None), ConvertConfigParser.META_COLUMN)
-    loader.putValue(argParser.getStringOption("oe", "Edge output file", None), ConvertConfigParser.EDGE_OUTPUT)
-    loader.putValue(argParser.getStringOption("ow", "Weight output file", None), ConvertConfigParser.WEIGHT_OUTPUT)
-    loader.putValue(argParser.getStringOption("om", "Metadata output file", None), ConvertConfigParser.META_OUTPUT)
-    loader.putBooleanValue(argParser.getBooleanOption("r", "Renumber nodes to be zero based", None), ConvertConfigParser.RENUMBER)
+    loader.putValue(argParser.getStringOption("ie", "Edge input file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_INPUT}")
+    loader.putValue(argParser.getStringOption("fe", "Edge filter", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_FILTER}")
+    loader.putValue(argParser.getStringOption("ce", "Edge separator", Some("[ \t]+")), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_SEPARATOR}")
+    loader.putValue(argParser.getStringOption("ae", "Edge analytics", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_ANALYTIC}")
+    loader.putIntValue(argParser.getIntOption("s", "Edge source column", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.SRC_NODE_COLUMN}")
+    loader.putIntValue(argParser.getIntOption("d", "Edge destination column", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.DST_NODE_COLUMN}")
+    loader.putIntValue(argParser.getIntOption("w", "Edge weight column", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.WEIGHT_COLUMN}")
+    loader.putValue(argParser.getStringOption("in", "Node input file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_INPUT}")
+    loader.putValue(argParser.getStringOption("fn", "Node filter", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_FILTER}")
+    loader.putValue(argParser.getStringOption("cn", "Node separator", Some("[ \t]+")), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_SEPARATOR}")
+    loader.putValue(argParser.getStringOption("an", "Node analytics", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_ANALYTIC}")
+    loader.putValue(argParser.getStringOption("anc", "Node analytics parameter", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_ANALYTIC}")
+    loader.putIntValue(argParser.getIntOption("n", "Node id column", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.NODE_COLUMN}")
+    loader.putIntValue(argParser.getIntOption("m", "Node metadata column", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.META_COLUMN}")
+    loader.putValue(argParser.getStringOption("oe", "Edge output file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_OUTPUT}")
+    loader.putValue(argParser.getStringOption("ow", "Weight output file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.WEIGHT_OUTPUT}")
+    loader.putValue(argParser.getStringOption("om", "Metadata output file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.META_OUTPUT}")
+    loader.putBooleanValue(argParser.getBooleanOption("r", "Renumber nodes to be zero based", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.RENUMBER}")
 
     loader.config
   }
@@ -98,7 +97,7 @@ object Convert extends Logging {
     val convertConfig = ConvertConfigParser.parse(configComplete) match {
       case Success(s) => s
       case Failure(f) =>
-        error("Failed to load convert configuration properly.")
+        println(s"Failed to load convert configuration properly. ${f}")
         sys.exit(-1)
     }
 

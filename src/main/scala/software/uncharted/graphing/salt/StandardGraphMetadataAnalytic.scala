@@ -63,7 +63,7 @@ class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, Gra
 
 
 object GraphRecord {
-  val MAX_COMMUNITIES = 25
+  var maxCommunities = 25
 
   private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
@@ -119,7 +119,7 @@ object GraphRecord {
       var nB = 0
 
       val result = MutableBuffer[GraphCommunity]()
-      while (n < MAX_COMMUNITIES && (nA < lenA || nB < lenB)) {
+      while (n < maxCommunities && (nA < lenA || nB < lenB)) {
         val useA =
           if (nA == lenA) { false }
           else if (nB == lenB) { true }
@@ -142,14 +142,14 @@ object GraphRecord {
     val insertionIndex = getCommunityInsertionPoint(communities, newCommunity)
 
     if (-1 == insertionIndex) {
-      if (MAX_COMMUNITIES == communities.length) { communities }
+      if (maxCommunities == communities.length) { communities }
       else { communities :+ newCommunity }
     } else {
       val result = MutableBuffer[GraphCommunity]()
       for (i <- 0 until insertionIndex)
         result += communities(i)
       result += newCommunity
-      for (i <- insertionIndex until ((MAX_COMMUNITIES - 1) min communities.length))
+      for (i <- insertionIndex until ((maxCommunities - 1) min communities.length))
         result += communities(i)
 
       result
@@ -164,7 +164,7 @@ object GraphRecord {
     // Insert it there
     if (-1 == insertionIndex) {
       // Add to end, if there is room
-      if (communities.length < MAX_COMMUNITIES) {
+      if (communities.length < maxCommunities) {
         communities += newCommunity
       }
     } else {
@@ -172,7 +172,7 @@ object GraphRecord {
     }
 
     // Make sure we're not too big
-    shrinkBuffer(communities, MAX_COMMUNITIES)
+    shrinkBuffer(communities, maxCommunities)
 
     // And return our list
     communities

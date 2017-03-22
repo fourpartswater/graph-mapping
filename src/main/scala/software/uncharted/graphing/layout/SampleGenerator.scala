@@ -14,7 +14,7 @@ package software.uncharted.graphing.layout
 
 
 
-import java.io._
+import java.io._ //scalastyle:ignore
 
 import scala.util.{Failure, Success, Try}
 
@@ -245,7 +245,7 @@ object SampleGenerator {
   }
 
   object Node {
-    def apply (id: Long, x: Double, y: Double, radius: Double, parent: Option[Node], numInternalNodes: Long, degree: Int, metaData: String) = {
+    def apply (id: Long, x: Double, y: Double, radius: Double, parent: Option[Node], numInternalNodes: Long, degree: Int, metaData: String): Node = {
       new Node(id, (x max 0.0) min 255.99999, (y max 0.0) min 255.99999, radius, parent, numInternalNodes, degree, metaData)
     }
   }
@@ -274,7 +274,7 @@ object SampleGenerator {
       parent.map(_.addInternalNode(n))
     }
 
-    override def toString =
+    override def toString: String =
       if (parent.isEmpty) {
         "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
       } else {
@@ -299,6 +299,6 @@ object SampleGenerator {
     dst.addDegree(1)
 
     val interCommunityEdge =if ((src.parent != dst.parent) || maxLevel) 1 else 0
-    override def toString = "edge\t" + src.id + "\t" + src.x + "\t" + src.y + "\t" + dst.id + "\t" + dst.x + "\t" + dst.y + "\t" + weight + "\t" + interCommunityEdge
+    override def toString: String = "edge\t" + src.id + "\t" + src.x + "\t" + src.y + "\t" + dst.id + "\t" + dst.x + "\t" + dst.y + "\t" + weight + "\t" + interCommunityEdge
   }
 }
