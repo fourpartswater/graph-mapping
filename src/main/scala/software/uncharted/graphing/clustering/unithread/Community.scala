@@ -1,12 +1,4 @@
 /**
- * This code is copied and translated from https://sites.google.com/site/findcommunities, then modified futher to
- * support analytics and metadata.
- *
- * This means most of it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
- * we can't distribute it without permission - though as a translation, with some optimization for readability in
- * scala, it may be a gray area.
- *
- * TThe rest is:
  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
  *
  * Property of Uncharted(tm), formerly Oculus Info Inc.
@@ -30,6 +22,11 @@ import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
 import scala.util.Random
 
+
+/**
+  * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
+  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
+  */
 
 /**
   * Trait to specify what modification to apply to the baseline algorithm, along with the parameters needed

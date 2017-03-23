@@ -76,7 +76,7 @@ object RoughGraphPartitioner {
     }
 
     println("Pulling " + neededNodes + " of " + nodeCount + " nodes")
-    println("  Total degree used: " + totalUsedDegree+" of " + totalDegree)
+    println("  Total degree used: " + totalUsedDegree + " of " + totalDegree)
     println("  Minimum needed degree: " + minNeededDegree)
     val keyVertices = vertices.filter(_._2._2 >= minNeededDegree).map{case (id, (data, degree)) => (id, degree)}.collect()
 

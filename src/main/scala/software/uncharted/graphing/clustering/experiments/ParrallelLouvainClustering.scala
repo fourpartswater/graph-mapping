@@ -23,6 +23,4 @@ package software.uncharted.graphing.clustering.experiments
  * Another parallel community detection algorithm (SCD - Scalable Community Detection):
  *  https://www.dama.upc.edu/publications/fp546prat.pdf
  */
-class ParrallelLouvainClustering {
-
-}
+class ParrallelLouvainClustering

@@ -21,7 +21,7 @@ import software.uncharted.salt.core.analytic.Aggregator
 
 /**
   * Takes a simple Aggregator[T] and wraps its input as strings, and its output as json
-  */class WrappingTileAggregator [-I, N, O] (base: Aggregator[I, N, O],
+  */class WrappingTileAggregator[-I, N, O] (base: Aggregator[I, N, O],
                                          inputConversion: String => I,
                                          outputConversion: O => Map[JString, Any]) extends Aggregator[String, N, Map[JString, Any]] {
 
