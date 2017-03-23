@@ -24,17 +24,17 @@ class ClusteredEdge (val srcId: String,
                      val level: Int) extends Serializable {
 
   override def toString() : String = {
-    val srcIdLevel = levelId(srcId, level-1)
-    val dstIdLevel = levelId(dstId, level-1)
-    return "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" + attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
+    val srcIdLevel = levelId(srcId, level - 1)
+    val dstIdLevel = levelId(dstId, level - 1)
+    "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" + attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
   }
 
   private def levelId(id : String, level : Int) : String = {
     // Edges are for level - 1.
-    return if(level >= 0) id + "_c_" + level else id
+    if(level >= 0) id + "_c_" + level else id
   }
 
   private def edgeId(srcId : String, dstId : String) : String = {
-    return srcId + "|" + dstId
+    srcId + "|" + dstId
   }
 }

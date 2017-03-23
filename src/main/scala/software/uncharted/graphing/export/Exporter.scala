@@ -110,6 +110,6 @@ class Exporter {
     val combinedNode = nodeSplit.map(line => nodeBuilder(line))
     val combinedEdge = edgeSplit.map(line => edgeBuilder(line))
 
-    return (combinedNode, combinedEdge)
+    (combinedNode, combinedEdge)
   }
 }
