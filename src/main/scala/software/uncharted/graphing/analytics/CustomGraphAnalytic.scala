@@ -62,7 +62,7 @@ trait CustomGraphAnalytic[T] extends Serializable {
   /**
     * Get the name, but altered so it can be used as the name of a column in a SQL table
     */
-  def getColumnName = name.replace(' ', '_')
+  def getColumnName: String = name.replace(' ', '_')
 
   /** The input column for the raw cluster aggregator */
   val column: Int
@@ -99,8 +99,9 @@ object CustomGraphAnalytic {
     */
   def apply (className: String, configName: String): CustomGraphAnalytic[_] = {
     val rawClass = this.getClass.getClassLoader.loadClass(className)
-    if (!classOf[CustomGraphAnalytic[_]].isAssignableFrom(rawClass))
+    if (!classOf[CustomGraphAnalytic[_]].isAssignableFrom(rawClass)) {
       throw new IllegalArgumentException(s"$className is not a CustomGraphAnalytic")
+    }
     val analyticClass = rawClass.asInstanceOf[Class[CustomGraphAnalytic[_]]]
     var instance = analyticClass.getConstructor().newInstance()
 

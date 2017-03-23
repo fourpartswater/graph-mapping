@@ -25,7 +25,7 @@ case class ClusteringStatistics (level: Int,
                                  endNodes: Int,
                                  endLinks: Long,
                                  timeToCluster: Long) {
-  def addLevelAndPartition (newLevel: Int, newPartition: Int) =
+  def addLevelAndPartition (newLevel: Int, newPartition: Int): ClusteringStatistics =
     ClusteringStatistics(
       newLevel, newPartition, iterations,
       startModularity, startNodes, startLinks,

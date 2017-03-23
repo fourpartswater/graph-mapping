@@ -54,7 +54,7 @@ object GraphConfig extends ConfigParser {
         edgeConfig.getString(edgeTypeKey).toLowerCase.trim match {
           case "inter" => Some(1)
           case "intra" => Some(0)
-          case et => throw new IllegalArgumentException("Illegal edge type " + et)
+          case et: Any => throw new IllegalArgumentException("Illegal edge type " + et)
         }
       } else {
         None
@@ -66,7 +66,7 @@ object GraphConfig extends ConfigParser {
         case "line" => ArcTypes.FullLine
         case "leaderarc" => ArcTypes.LeaderArc
         case "arc" => ArcTypes.FullArc
-        case lt => throw new IllegalArgumentException("Illegal line type " + lt)
+        case lt: Any => throw new IllegalArgumentException("Illegal line type " + lt)
       }
       val minSegLength = if (formatConfig.hasPath(minLengthKey)) Some(formatConfig.getInt(minLengthKey)) else None
       val maxSegLength = if (formatConfig.hasPath(maxLengthKey)) Some(formatConfig.getInt(maxLengthKey)) else None
