@@ -49,7 +49,7 @@ class Exporter {
           node.numInternalNodes,
           node.degree,
           node.level,
-          levelPath.getOrElse(node.levelId(node.parentId, node.level)),  //Top level does not have a path defined, so it is initialized here.
+          levelPath.getOrElse(ClusteredObject.levelId(node.parentId, node.level)),  //Top level does not have a path defined, so it is initialized here.
           node.metaData)
       })
 
@@ -111,5 +111,11 @@ class Exporter {
     val combinedEdge = edgeSplit.map(line => edgeBuilder(line))
 
     (combinedNode, combinedEdge)
+  }
+}
+
+object ClusteredObject {
+  private[export] def levelId (id: String, level: Int): String = {
+    if(level >= 0) id + "_c_" + level else id
   }
 }
