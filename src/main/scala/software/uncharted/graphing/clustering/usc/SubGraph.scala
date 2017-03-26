@@ -150,7 +150,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 }
 
 
-
+//scalastyle:off method.length
 object SubGraph {
   def partitionGraphToSubgraphs[VD, ED] (graph: Graph[VD, ED],
                                          getEdgeWeight: ED => Float,
@@ -289,6 +289,7 @@ object SubGraph {
     }
   }
 }
+//scalastyle:on method.length
 
 class SourcePartitioner (boundaries: Broadcast[Map[Int, (Long, Long)]]) extends PartitionStrategy {
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {

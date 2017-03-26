@@ -23,22 +23,22 @@ object MedianCalculator {
     val sc = dataset.context
     val partitionMids: Array[Array[Double]] = dataset.mapPartitions { i =>
       // Find the median n numbers in this partition
-      var root: TreeNode = null
+      var root: Option[TreeNode] = None
 
       i.foreach(value =>
-        if (null == root) {
-          root = new LeafNode(value)
+        if (None == root) {
+          root = Some(new LeafNode(value))
         } else {
-          root = root.add(value)
+          root = Some(root.get.add(value))
         }
       )
 
-      if (null == root) {
+      if (None == root) {
         List().iterator
       } else {
-        val mid = root.size/2
+        val mid = root.get.size/2
         val rr = r min mid
-        val mids: Array[Double] = (for (i <- -rr to rr) yield root.nth(mid + i)).toArray
+        val mids: Array[Double] = (for (i <- -rr to rr) yield root.get.nth(mid + i)).toArray
         List(mids).iterator
       }
     }.collect()
@@ -49,7 +49,6 @@ object MedianCalculator {
         .toSet
         .map((m: Double) => (m, sc.longAccumulator("potentialMidsAccumulatorLess"),sc.longAccumulator("potentialMidsAccumulatorMore")))
 
-
     dataset.foreach{n =>
       potentialMids.foreach{case (m, less, more) =>
         if (n < m) less.add(1)
@@ -57,16 +56,14 @@ object MedianCalculator {
       }
     }
 
-    val sortedMids = potentialMids.toList.map{case (m, less, more) =>
-      (m, (less.value - more.value).abs)
-    }.sortBy(_._2)
+    val sortedMids = potentialMids.toList.map{case (m, less, more) => (m, (less.value - more.value).abs)}.sortBy(_._2)
 
     if (0 == sortedMids.length) {
       0.0
     } else if (1 == sortedMids.length) {
       sortedMids(0)._1
-    }  else if (sortedMids(0)._2 == sortedMids(1)._2) {
-      (sortedMids(0)._1 + sortedMids(1)._1)/2.0
+    } else if (sortedMids(0)._2 == sortedMids(1)._2) {
+      (sortedMids(0)._1 + sortedMids(1)._1) / 2.0
     } else {
       sortedMids(0)._1
     }

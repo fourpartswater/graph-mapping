@@ -292,6 +292,10 @@ object SampleGenerator {
 
         case _ => false
       }
+
+    override def hashCode(): Int = {
+      this.id.hashCode()
+    }
   }
 
   case class Edge(src: Node,

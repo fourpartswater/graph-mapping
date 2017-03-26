@@ -33,7 +33,7 @@ import scala.util.Try
 /**
  * A class to run my version of the USC Louvain Clustering algorithm on a spark graph
  */
-//scalastyle:off multiple.string.literals cyclomatic.complexity
+//scalastyle:off multiple.string.literals cyclomatic.complexity method.length
 object USCLouvainRunner {
   def usage(): Unit = {
     println("Usage: LouvainSpark <node file> <node prefix> <edge file> <edge prefix> <partitions>")
@@ -251,4 +251,4 @@ object USCLouvainRunner {
     graph
   }
 }
-//scalastyle:on  multiple.string.literals cyclomatic.complexity
+//scalastyle:on  multiple.string.literals cyclomatic.complexity method.length

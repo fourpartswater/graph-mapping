@@ -215,7 +215,7 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
       pauseControl.release()
     }
   })
-  var speed = 600
+  var speed = 600 //scalastyle:ignore
   var timer: Option[Timer] = None
   val speedField = new JTextField(s"$speed")
   private val MILLI_PER_MINUTE = 60000

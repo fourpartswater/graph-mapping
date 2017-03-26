@@ -123,16 +123,12 @@ class LouvainClustering4 {
 
   private def getNewCommunityForVertices[VD] (graph: Graph[(VD, DegreesAndWeights), Double], m2: Double): VertexRDD[VertexId] = {
 //    val vertices: RDD[(VertexId, VertexId, Double)] = graph.triplets.filter(triplet =>
-    val a = graph.triplets.filter(triplet =>
-      triplet.srcId != triplet.dstId
-    )
+    val a = graph.triplets.filter(triplet => triplet.srcId != triplet.dstId )
     val b = a.flatMap { triplet =>
       Seq(((triplet.srcId, triplet.srcAttr, triplet.dstId), (triplet.attr, 1L)),
           ((triplet.dstId, triplet.dstAttr, triplet.srcId), (triplet.attr, 1L)))
     }
-    val c = b.reduceByKey { (a, b) =>
-      (a._1 + b._1, a._2 + b._2)
-    }
+    val c = b.reduceByKey { (a, b) => (a._1 + b._1, a._2 + b._2) }
     val d = c.flatMap { case ((srcId, srcV, destC), (k_i_in, k_c_i)) =>
         val sigma_in = srcV._2.wIn
         val sigma_tot = srcV._2.wTot
@@ -141,12 +137,8 @@ class LouvainClustering4 {
         val dQ = k_i_in - sigma_tot * k_i / m2
         if (dQ > 0.0) Some(((srcId, srcV), (destC, dQ, k_i_in, k_c_i))) else None
     }
-    val e = d.reduceByKey { (a, b) =>
-      if (a._2 > b._2) a else b
-    }
-    val f = e.map { case ((srcId, srcV), (destC, dQ, totalLinkWeight, totalLinks)) =>
-        (srcId, destC, dQ)
-    }
+    val e = d.reduceByKey { (a, b) => if (a._2 > b._2) a else b }
+    val f = e.map { case ((srcId, srcV), (destC, dQ, totalLinkWeight, totalLinks)) => (srcId, destC, dQ) }
 
     val ic = graph.triplets.collect.map(_.toString).sorted
     val ac = a.collect.map(_.toString).sorted
@@ -177,8 +169,10 @@ class LouvainClustering4 {
 }
 
 case class DegreesAndWeights (dIn: Int, dTot: Int, wIn: Double, wTot: Double) {
+  //scalastyle:off method.name
   def + (that: DegreesAndWeights): DegreesAndWeights =
     DegreesAndWeights(this.dIn + that.dIn, this.dTot + that.dTot, this.wIn + that.wIn, this.wTot + that.wTot)
+  //scalastyle:on method.name
 }
 object DegreesAndWeights {
   final val default = DegreesAndWeights(0, 0, 0.0, 0.0)

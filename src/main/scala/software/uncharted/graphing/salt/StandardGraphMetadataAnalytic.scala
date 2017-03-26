@@ -63,7 +63,7 @@ class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, Gra
 
 
 object GraphRecord {
-  var maxCommunities = 25
+  var maxCommunities = 25 //scalastyle:ignore
 
   private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
@@ -200,7 +200,7 @@ case class GraphRecord (communities: Option[Seq[GraphCommunity]], numCommunities
 object GraphCommunity {
   import GraphRecord._
 
-  var maxStats = 32
+  var maxStats = 32 //scalastyle:ignore
   var maxEdges = 10
 
   def addEdgeInPlace(accumulatedEdges: MutableBuffer[GraphEdge], newEdge: GraphEdge): Unit = {

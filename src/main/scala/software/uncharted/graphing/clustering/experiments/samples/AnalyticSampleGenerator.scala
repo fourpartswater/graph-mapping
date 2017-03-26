@@ -27,6 +27,7 @@ import scala.util.Random
   * Generate a set of raw sample graph data with analytic information
   */
 object AnalyticSampleGenerator {
+  //scalastyle:off method.length
   def main (args: Array[String]): Unit = {
     val argParser = new ArgumentParser(args)
 
@@ -110,8 +111,9 @@ object AnalyticSampleGenerator {
 
     outFile.flush()
     outFile.close()
-    println("Wrote " + nodes.length + " nodes and " + edges.length + " edges")
+    println("Wrote " + nodes.length + " nodes and " + edges.length + " edges") //scalastyle:ignore
   }
+  //scalastyle:on method.length
 }
 
 

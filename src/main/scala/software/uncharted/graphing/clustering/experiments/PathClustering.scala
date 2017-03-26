@@ -61,8 +61,7 @@ object ConnectivityChooser extends VertexCalculation[MutableMap[VertexId, Int]] 
 
       topSize.flatMap { n: Int =>
         val topCandidates = src.filter(_._2 >= n * n).map(_._1).toSet
-        if (topCandidates.contains(dst)) Some((n, topCandidates))
-        else None
+        if (topCandidates.contains(dst)) Some((n, topCandidates)) else None
       }
     }
 
