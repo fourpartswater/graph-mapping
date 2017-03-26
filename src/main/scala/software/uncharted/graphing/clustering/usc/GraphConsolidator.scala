@@ -19,7 +19,7 @@ import scala.collection.mutable.{Map => MutableMap}
 import org.apache.spark.graphx.VertexId
 
 
-
+//scalastyle:off cyclomatic.complexity method.length
 /**
  * A class to take the results of clustering on several subgraphs and consolidate them
  * Created by nkronenfeld on 12/7/2015.
@@ -97,3 +97,4 @@ object GraphConsolidator {
     new SubGraph(nodes, links, remoteLinks)
   }
 }
+//scalastyle:on cyclomatic.complexity method.length

@@ -22,7 +22,7 @@ import scala.collection.Map
 import com.typesafe.config.Config
 
 
-
+//scalastyle:off number.of.types multiple.string.literals
 class AggregatorBasedAnalytic[T] (base: Aggregator[Double, T, Double], c: Int, aggName: String) extends CustomGraphAnalytic[T] {
   override val name: String = s"$aggName column $c"
   override val column: Int = c
@@ -165,3 +165,5 @@ class CategoryAnalytic7 extends CategoryAnalytic(7)
 class CategoryAnalytic8 extends CategoryAnalytic(8)
 class CategoryAnalytic9 extends CategoryAnalytic(9)
 class CategoryAnalytic10 extends CategoryAnalytic(10)
+
+//scalastyle:on number.of.types multiple.string.literals

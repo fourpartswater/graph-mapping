@@ -57,6 +57,7 @@ class BucketAnalytic (c: Int, bins: Array[Bucket]) extends CustomGraphAnalytic[A
       (output: Array[Int]) => output.mkString(",")
     )
 
+  //scalastyle:off method.length
   /**
     * Initialize a new instance of the aggregator using configuration parameters.
     * @param configs Configuration to use for initialization
@@ -135,6 +136,7 @@ class BucketAnalytic (c: Int, bins: Array[Bucket]) extends CustomGraphAnalytic[A
       case _ => this
     }
   }
+  //scalastyle:on method.length
 }
 
 class BucketAggregator (bins: Array[Bucket]) extends Aggregator[Double, Array[Int], Array[Int]] {

@@ -28,6 +28,8 @@ import scala.util.Random
   * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
   */
 
+//scalastyle:off file.size.limit method.length cyclomatic.complexity
+
 /**
   * Trait to specify what modification to apply to the baseline algorithm, along with the parameters needed
   * to modify it as specified
@@ -93,7 +95,7 @@ class Community (val g: Graph,
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
-  var comm_nodes: Seq[Seq[Int]] = null
+  var comm_nodes: Seq[Seq[Int]] = Seq()
 
 
   /**
@@ -306,7 +308,7 @@ class Community (val g: Graph,
 
       //Update all nodes in the community to store the new community id.
       for (node <- comm_nodes(comm)){
-        g.nodeInfo(node).communityNode = commNodeInfo
+        g.nodeInfo(node).communityNode = Some(commNodeInfo)
       }
     }
 
@@ -340,7 +342,7 @@ class Community (val g: Graph,
     val finput = new BufferedReader(new InputStreamReader(new FileInputStream(filename)))
 
     var line = finput.readLine()
-    while (null != line) {
+    while (null != line) { //scalastyle:ignore
       val fields = line.split("[ \t] + ")
       val node = fields(0).toInt
       val comm = fields(1).toInt
@@ -390,7 +392,7 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      val newCommunityId = g.nodeInfo(i).communityNode.id
+      val newCommunityId = g.nodeInfo(i).communityNode.get.id
       val size = g.internalSize(i)
       val weight = g.weightedDegree(i).round.toInt
       val metadata = g.metaData(i)
@@ -508,7 +510,7 @@ class Community (val g: Graph,
       }
 
       //Every node in the community has a reference to the same head community node.
-      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode
+      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode.get
     }
 
     new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))
@@ -659,7 +661,7 @@ object Community {
     filename_part.foreach(part => c.initPartition(part))
     SimpleProfiling.finish("init.partition")
 
-    var g: Graph = null
+    var g: Option[Graph] = None
     var improvement: Boolean = true
     SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
@@ -682,9 +684,9 @@ object Community {
       SimpleProfiling.finish("iterative.modularity")
 
       level = level + 1
-      if (level == display_level && null != g) {
-        g.displayNodes(Console.out)
-        g.displayLinks(Console.out)
+      if (level == display_level) {
+        g.foreach(gr => gr.displayNodes(Console.out))
+        g.foreach(gr => gr.displayLinks(Console.out))
       }
 
       SimpleProfiling.register("iterative.write")
@@ -702,12 +704,12 @@ object Community {
       SimpleProfiling.finish("iterative.write")
 
       SimpleProfiling.register("iterative.convert")
-      g = c.partition2graphBinary()
+      g = Some(c.partition2graphBinary())
       SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
       SimpleProfiling.register("iterative.communitize")
-      c = new Community(g, -1, precision, levelAlgorithm)
+      c = new Community(g.get, -1, precision, levelAlgorithm)
       SimpleProfiling.finish("iterative.communitize")
 
       if (verbose) {
@@ -734,3 +736,4 @@ object Community {
     Console.err.println("Final modularity: " + mod)
   }
 }
+//scalastyle:on file.size.limit method.length cyclomatic.complexity

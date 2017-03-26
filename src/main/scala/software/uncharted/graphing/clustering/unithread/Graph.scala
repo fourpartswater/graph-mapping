@@ -1,12 +1,4 @@
 /**
-  * This code is copied and translated from https://sites.google.com/site/findcommunities, then modified futher to
-  * support analytics and metadata.
-  *
-  * This means most of it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
-  * we can't distribute it without permission - though as a translation, with some optimization for readability in
-  * scala, it may be a gray area.
-  *
-  * TThe rest is:
   * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
@@ -29,6 +21,10 @@ import org.apache.spark.graphx.{Edge, Graph => SparkGraph, VertexId}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.analytic.Aggregator
 
+/**
+  * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
+  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
+  */
 
 /**
   * Wrapper around a node (community) in the graph.
@@ -40,7 +36,7 @@ import software.uncharted.salt.core.analytic.Aggregator
   */
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
                      analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
-  var communityNode: NodeInfo = null
+  var communityNode: Option[NodeInfo] = None
 
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
     analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
@@ -62,6 +58,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
     analytic.aggregator.merge(typedLeft, typedRight)
   }
 
+  //scalastyle:off method.name
   /**
     * Combine two nodes together.
     * @param that The other node.
@@ -82,6 +79,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
       analytics
     )
   }
+  //scalastyle:on method.name
 }
 
 /**
@@ -211,6 +209,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   }
 }
 
+//scalastyle:off method.length
 object Graph {
   def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED],
                      getEdgeWeight: Option[ED => Float] = None,
@@ -364,3 +363,4 @@ object Graph {
     new Graph(degrees, links, nodeInfos, weights)
   }
 }
+//scalastyle:on method.length

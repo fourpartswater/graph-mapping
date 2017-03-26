@@ -101,6 +101,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     }
   }
 
+  //scalastyle:off cyclomatic.complexity method.length
   def oneLevel (randomize: Boolean = true): Boolean = {
     val startTime = System.currentTimeMillis()
     val startModularity = modularity
@@ -197,6 +198,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
 
     improvement
   }
+  //scalastyle:on cyclomatic.complexity method.length
 
   private def getRenumbering: (Array[Int], Int) = {
     val renumber = (0 until size).map(n => -1).toArray
@@ -214,6 +216,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
     (renumber, last)
   }
 
+  //scalastyle:off method.length
   /**
    * Get the reduced subgraph according to the current state of clustering
     *
@@ -254,7 +257,7 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
 
       // Add node info from this node into the new community
       val (oldNodeId, nodeData) = sg.nodeData(node)
-      if (null == nodeInfos(newCommunity)) {
+      if (null == nodeInfos(newCommunity)) { //scalastyle:ignore
         highestOriginalDegree(newCommunity) = weight
         nodeInfos(newCommunity) = (oldNodeId, nodeData)
       } else {
@@ -306,4 +309,5 @@ class SubGraphCommunity[VD] (val sg: SubGraph[VD], numPasses: Int, minModularity
 
     (resultGraph, vertexMap)
   }
+  //scalastyle:on method.length
 }

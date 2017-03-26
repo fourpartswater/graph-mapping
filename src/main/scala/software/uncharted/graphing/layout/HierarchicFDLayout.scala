@@ -23,7 +23,7 @@ import org.apache.spark.graphx._ //scalastyle:ignore
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayout}
 
 
-
+//scalastyle:off  multiple.string.literals
 /**
   * Hierarchical algorithm that runs force-Directed layout on each community, starting at the most inclusive level,
   * laying out each community within the area of its parent.
@@ -117,6 +117,7 @@ class HierarchicFDLayout extends Serializable {
     }
   }
 
+  //scalastyle:off method.length
   def determineLayout(sc: SparkContext,
                       layoutConfig: HierarchicalLayoutConfig,
                       layoutParameters: ForceDirectedLayoutParameters): Unit = {
@@ -274,8 +275,8 @@ class HierarchicFDLayout extends Serializable {
       ("zoom level by mean radius (10)", getZoomLevel(meanRadius, 10)),
       ("zoom level by mean radius (4)", getZoomLevel(meanRadius, 4)),
       ("zoom level by mean radius (16)", getZoomLevel(meanRadius, 16)),
-      ("zoom level by mean radius (64)", getZoomLevel(meanRadius, 64)),
-      ("zoom level by mean radius (256)", getZoomLevel(meanRadius, 256)),
+      ("zoom level by mean radius (64)", getZoomLevel(meanRadius, 64)), //scalastyle:ignore
+      ("zoom level by mean radius (256)", getZoomLevel(meanRadius, 256)), //scalastyle:ignore
       //("median radius", medianRadius),
       //("zoom level by median radius", getZoomLevel(medianRadius, 10)),
       ("max radius", maxRadius),
@@ -292,6 +293,7 @@ class HierarchicFDLayout extends Serializable {
       ("std dev parent radius", stddevParentRadius)
     )
   }
+  //scalastyle:on method.length
 
   private def saveLayoutResults(graphWithCoords: Graph[forcedirected.LayoutNode, Long],
                                 outputDir: String,
@@ -351,3 +353,4 @@ class HierarchicFDLayout extends Serializable {
 }
 
 //case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
+//scalastyle:on  multiple.string.literals

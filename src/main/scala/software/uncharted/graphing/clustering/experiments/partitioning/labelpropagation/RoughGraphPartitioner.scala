@@ -44,6 +44,7 @@ object RoughGraphPartitioner {
     vertices.map{case (id, (data, degree)) => (degree, 1)}.reduceByKey(_ + _).collect.sortBy(-_._1)
   }
 
+  //scalastyle:off method.length
   /**
    * Given a graph, find those most connected nodes that can be used as partition indicators
    * @param randomness the expected randomness in the graph. A completely random graph should get a 1.0, a totally
@@ -172,6 +173,7 @@ object RoughGraphPartitioner {
       otherPartition + 1
       )
   }
+  //scalastyle:on method.length
 
   def annotateGraphWithRandomPartition[VD, ED] (graph: Graph[VD, ED], partitions: Int): Graph[(VD, Int), ED] = {
     graph.mapVertices{case (id, data) =>

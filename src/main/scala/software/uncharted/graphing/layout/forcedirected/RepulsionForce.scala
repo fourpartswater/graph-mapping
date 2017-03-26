@@ -98,7 +98,7 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
                                   geometry: Circle,
                                   qn: QuadNode,
                                   terms: ForceDirectedLayoutTerms): V2 = {
-    assert(qn != null)
+    assert(qn != null) //scalastyle:ignore
 
     qn.getNumChildren match {
       case 0 =>

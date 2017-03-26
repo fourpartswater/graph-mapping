@@ -37,6 +37,7 @@ object GraphConfig extends ConfigParser {
   val minLengthKey = "min"
   val maxLengthKey = "max"
 
+  //scalastyle:off cyclomatic.complexity
   def parse(config: Config): Try[GraphConfig] = {
     Try {
       val graphConfig = config.getConfig(graphKey)
@@ -74,6 +75,7 @@ object GraphConfig extends ConfigParser {
       GraphConfig(analytics, levels, edgeType, formatType, minSegLength, maxSegLength)
     }
   }
+  //scalastyle:on cyclomatic.complexity
 }
 
 case class GraphConfig(analytics: Seq[CustomGraphAnalytic[_]],

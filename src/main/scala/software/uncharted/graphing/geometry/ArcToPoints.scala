@@ -14,7 +14,7 @@ package software.uncharted.graphing.geometry
 
 import software.uncharted.xdata.geometry.Line
 
-
+//scalastyle:off cyclomatic.complexity import.grouping
 object ArcToPoints {
   import Line.intPointToDoublePoint
 
@@ -246,3 +246,4 @@ class WhileIterator[T] (more: () => Boolean, fcn: () => T) extends Iterator[T] {
   def hasNext: Boolean = more()
   def next(): T = fcn()
 }
+//scalastyle:on cyclomatic.complexity import.grouping

@@ -236,16 +236,13 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     var overlappingNodes = false
     while (!done) {
       iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
-
       overlappingNodes = false
 
       // node displacements for this iteration
       val displacements = Array.fill(numNodes)(V2.zero)
 
       // Execute forces for this iteration
-      forces.foreach { force =>
-        force.apply(layoutNodes, layoutEdges, displacements, terms)
-      }
+      forces.foreach { force => force.apply(layoutNodes, layoutEdges, displacements, terms) }
 
       // Modify displacements as per current temperature, and store results for this iteration
       val initialTotalEnergy = terms.totalEnergy
@@ -267,7 +264,6 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
 
     scaleNodesToArea(layoutNodes, bounds, terms)
     iterationCallback.foreach(_(layoutNodes, layoutEdges, iterations, terms.temperature))
-
     layoutNodes
   }
 
