@@ -135,64 +135,46 @@ export DATASET
 export MAX_LEVEL
 export PARTS
 
+EXTRA_DRIVER_JAVA_OPTS=""
 if [ "${CLUSTER}" == "true" ]; then
-    echo Deploying in cluster mode!
+    echo Deploying in cluster mode
 
     EDJO=
-    EDJO="${EDJO} -Dlayout.input.location=${BASE_LOCATION}/${DATASET}/clusters"
-    EDJO="${EDJO} -Dlayout.input.parts=${PARTS}"
-    EDJO="${EDJO} -Dlayout.output.location=${BASE_LOCATION}/${DATASET}/layout"
-    EDJO="${EDJO} -Dlayout.output.parts=${PARTS}"
-    EDJO="${EDJO} -Dlayout.max-level=${MAX_LEVEL}"
+    EDJO="${EDJO} -Ds3Output.awsAccessKey=${AWS_ACCESS_KEY}"
+    EDJO="${EDJO} -Ds3Output.awsSecretKey=${AWS_SECRET_KEY}"
+    EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}"
 
-    echo spark-submit \
-        --class ${MAIN_CLASS} \
-        --num-executors ${EXECUTORS} \
-        --executor-cores 4 \
-        --executor-memory 10g \
-        --master yarn \
-        --deploy-mode cluster \
-        --conf spark.yarn.dist.files="layout.conf" \
-        --conf "spark.driver.extraJavaOptions=${EDJO}" \
-        ${MAIN_JAR} \
-        debug layout.conf |& tee -a layout.log
-
-
-    spark-submit \
-        --class ${MAIN_CLASS} \
-        --num-executors ${EXECUTORS} \
-        --executor-cores 4 \
-        --executor-memory 10g \
-        --master yarn \
-        --deploy-mode cluster \
-        --conf spark.yarn.dist.files="layout.conf" \
-        --conf "spark.driver.extraJavaOptions=${EDJO}" \
-        ${MAIN_JAR} \
-        debug layout.conf |& tee -a layout.log
+    DEPLOY_MODE=cluster
+    DISTRIBUTED_FILES="layout.conf"
 else
-    echo Deploying in client mode!
-
-    echo spark-submit \
-        --class ${MAIN_CLASS} \
-        --num-executors ${EXECUTORS} \
-        --executor-cores 4 \
-        --executor-memory 10g \
-        --master yarn \
-        --deploy-mode client \
-        ${MAIN_JAR} \
-        debug layout.conf >> layout.log
-
-
-    spark-submit \
-        --class ${MAIN_CLASS} \
-        --num-executors ${EXECUTORS} \
-        --executor-cores 4 \
-        --executor-memory 10g \
-        --master yarn \
-        --deploy-mode client \
-        ${MAIN_JAR} \
-        debug layout.conf |& tee -a layout.log
+    echo Deploying in client mode
+    DEPLOY_MODE=client
+    DISTRIBUTED_FILES=""
 fi
+
+echo spark-submit \
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
+    --class ${MAIN_CLASS} \
+    --master yarn \
+    --deploy-mode ${DEPLOY_MODE} \
+    --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
+    --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    debug layout.conf >> layout.log
+
+spark-submit \
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
+    --class ${MAIN_CLASS} \
+    --master yarn \
+    --deploy-mode ${DEPLOY_MODE} \
+    --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
+    --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    debug layout.conf >> layout.log
 
 # Note: Took out -spark yarn-client.  Should be irrelevant, but noted just in case I'm wrong.
 

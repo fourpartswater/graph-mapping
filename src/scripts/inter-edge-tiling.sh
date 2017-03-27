@@ -96,13 +96,43 @@ STARTTIME=$(date +%s)
 echo Starting tiling
 
 if [ "${CLUSTER}" == "true" ]; then
-    echo Deploying in cluster mode!
+    echo Deploying in cluster mode
 
     EDJO=
     EDJO="${EDJO} -Ds3Output.awsAccessKey=${AWS_ACCESS_KEY}"
     EDJO="${EDJO} -Ds3Output.awsSecretKey=${AWS_SECRET_KEY}"
+    EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}"
 
-    echo spark-submit \
+    DEPLOY_MODE=cluster
+    DISTRIBUTED_FILES="output.conf,tiling.conf,graph.conf,${CONFIGURATION}"
+else
+    echo Deploying in client mode
+    DEPLOY_MODE=client
+    DISTRIBUTED_FILES=""
+fi
+
+echo Run command: >> inter-edge-tiling.log
+echo spark-submit \
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
+    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
+    --driver-class-path ${EXTRA_JARS} \
+    --jars `echo ${EXTRA_JARS} | tr : ,` \
+    --class ${MAIN_CLASS} \
+    --master yarn \
+    --deploy-mode ${DEPLOY_MODE} \
+    --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
+    --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    output.conf tiling.conf graph.conf \
+    ${CONFIGURATION} \
+    >> inter-edge-tiling.log
+echo >> inter-edge-tiling.log
+echo >> inter-edge-tiling.log
+
+if [ "${DEBUG}" != "true" ]; then
+    spark-submit \
         --num-executors ${EXECUTORS} \
         --executor-memory 10g \
         --executor-cores 4 \
@@ -111,67 +141,13 @@ if [ "${CLUSTER}" == "true" ]; then
         --jars `echo ${EXTRA_JARS} | tr : ,` \
         --class ${MAIN_CLASS} \
         --master yarn \
-        --deploy-mode cluster \
-        --conf spark.yarn.dist.files="output.conf,tiling.conf,graph.conf,${CONFIGURATION}" \
-        --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}" \
-        ${MAIN_JAR} \
-        output.conf tiling.conf graph.conf \
-        ${CONFIGURATION} \
-        >> inter-edge-tiling.log
-    echo >> inter-edge-tiling.log
-    echo >> inter-edge-tiling.log
-
-    if [ "${DEBUG}" != "true" ]; then
-        spark-submit \
-            --num-executors ${EXECUTORS} \
-            --executor-memory 10g \
-            --executor-cores 4 \
-            --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-            --driver-class-path ${EXTRA_JARS} \
-            --jars `echo ${EXTRA_JARS} | tr : ,` \
-            --class ${MAIN_CLASS} \
-            --master yarn \
-            --deploy-mode cluster \
-            --conf spark.yarn.dist.files="output.conf,tiling.conf,graph.conf,${CONFIGURATION}" \
-            --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}" \
-            ${MAIN_JAR} \
-            output.conf tiling.conf graph.conf \
-            ${CONFIGURATION} \
-            |& tee -a inter-edge-tiling.log
-    fi
-else
-    echo Run command: >> inter-edge-tiling.log
-    echo spark-submit \
-        --num-executors ${EXECUTORS} \
-        --executor-memory 10g \
-        --executor-cores 4 \
-        --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-        --driver-class-path ${EXTRA_JARS} \
-        --jars `echo ${EXTRA_JARS} | tr : ,` \
-        --class ${MAIN_CLASS} \
+        --deploy-mode ${DEPLOY_MODE} \
+        --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
         --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
         ${MAIN_JAR} \
         output.conf tiling.conf graph.conf \
         ${CONFIGURATION} \
-        >> inter-edge-tiling.log
-    echo >> inter-edge-tiling.log
-    echo >> inter-edge-tiling.log
-
-    if [ "${DEBUG}" != "true" ]; then
-        spark-submit \
-            --num-executors ${EXECUTORS} \
-            --executor-memory 10g \
-            --executor-cores 4 \
-            --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-            --driver-class-path ${EXTRA_JARS} \
-            --jars `echo ${EXTRA_JARS} | tr : ,` \
-            --class ${MAIN_CLASS} \
-            --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-            ${MAIN_JAR} \
-            output.conf tiling.conf graph.conf \
-            ${CONFIGURATION} \
-            |& tee -a inter-edge-tiling.log
-    fi
+        |& tee -a inter-edge-tiling.log
 fi
 
 
