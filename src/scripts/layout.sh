@@ -139,11 +139,6 @@ EXTRA_DRIVER_JAVA_OPTS=""
 if [ "${CLUSTER}" == "true" ]; then
     echo Deploying in cluster mode
 
-    EDJO=
-    EDJO="${EDJO} -Ds3Output.awsAccessKey=${AWS_ACCESS_KEY}"
-    EDJO="${EDJO} -Ds3Output.awsSecretKey=${AWS_SECRET_KEY}"
-    EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${EDJO}"
-
     DEPLOY_MODE=cluster
     DISTRIBUTED_FILES="layout.conf"
 else
