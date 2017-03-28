@@ -18,11 +18,14 @@ DATASET=
 REMOVE_EXISTING=false
 
 while [ "$1" != "" ]; do
-	case $1 in 
+	case $1 in
 		-d | --dataset )
 			shift
 			DATASET=$1
 			;;
+        -cluster )
+            export CLUSTER=true
+            ;;
 		-r | --refresh )
 			REMOVE_EXISTING=true
 	esac
@@ -132,25 +135,41 @@ export DATASET
 export MAX_LEVEL
 export PARTS
 
+EXTRA_DRIVER_JAVA_OPTS=""
+if [ "${CLUSTER}" == "true" ]; then
+    echo Deploying in cluster mode
+
+    DEPLOY_MODE=cluster
+    DISTRIBUTED_FILES="layout.conf"
+else
+    echo Deploying in client mode
+    DEPLOY_MODE=client
+    DISTRIBUTED_FILES=""
+fi
+
 echo spark-submit \
-	--class ${MAIN_CLASS} \
-	--num-executors ${EXECUTORS} \
-	--executor-cores 4 \
-	--executor-memory 10g \
-	--master yarn \
-	--deploy-mode client \
-	${MAIN_JAR} \
-	debug layout.conf >> layout.log
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
+    --class ${MAIN_CLASS} \
+    --master yarn \
+    --deploy-mode ${DEPLOY_MODE} \
+    --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
+    --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    debug layout.conf >> layout.log
 
 spark-submit \
-	--class ${MAIN_CLASS} \
-	--num-executors ${EXECUTORS} \
-	--executor-cores 4 \
-	--executor-memory 10g \
-	--master yarn \
-	--deploy-mode client \
-	${MAIN_JAR} \
-	debug layout.conf |& tee -a layout.log
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
+    --class ${MAIN_CLASS} \
+    --master yarn \
+    --deploy-mode ${DEPLOY_MODE} \
+    --conf spark.yarn.dist.files="${DISTRIBUTED_FILES}" \
+    --conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    debug layout.conf >> layout.log
 
 # Note: Took out -spark yarn-client.  Should be irrelevant, but noted just in case I'm wrong.
 
