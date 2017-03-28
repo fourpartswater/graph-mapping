@@ -121,6 +121,7 @@ EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-cl
 STARTTIME=$(date +%s)
 echo Starting tiling
 
+echo Run command: >> node-tiling.log
 echo spark-submit \
     --num-executors ${EXECUTORS} \
     --executor-memory 10g \
