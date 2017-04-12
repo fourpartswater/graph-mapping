@@ -15,12 +15,14 @@ package software.uncharted.graphing.clustering.unithread
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 import java.util.Date
 
+import com.typesafe.config.{Config, ConfigFactory}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.utilities.SimpleProfiling
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, SimpleProfiling}
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
-import scala.util.Random
+import scala.io.Source
+import scala.util.{Failure, Random, Success}
 
 
 /**
@@ -519,21 +521,21 @@ class Community (val g: Graph,
 
 
 
-object Community {
+object Community extends ConfigReader {
   var nb_pass = 0
-  var precision = 0.000001
-  var display_level = -2
-  var k1 = 16
-  var filename: Option[String] = None
-  var filename_w: Option[String] = None
-  var filename_m: Option[String] = None
-  var filename_part: Option[String] = None
-  var verbose = false
-  var randomize = true
-  var analytics: Array[CustomGraphAnalytic[_]] = Array()
+  //var precision = 0.000001
+  //var display_level = -2
+  //var k1 = 16
+  //var filename: Option[String] = None
+  //var filename_w: Option[String] = None
+  //var filename_m: Option[String] = None
+  //var filename_part: Option[String] = None
+  //var verbose = false
+  //var randomize = true
+  //var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
-  def usage (prog_name: String, more: String): Unit = {
+  /*def usage (prog_name: String, more: String): Unit = {
     println(more)
     println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q epsilon] [-l display_level] [-v] [-h]")
     println
@@ -552,10 +554,32 @@ object Community {
     println("-nd <base>\tUse the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.")
     println("-cs <size>\tUse the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd")
     System.exit(0)
+  }*/
+
+  def parseArguments(config: Config, argParser: ArgumentParser): Config = {
+    val loader = new ConfigLoader(config)
+    loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
+    loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.WEIGHT_FILENAME}")
+    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", Some("[ \t]+")), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
+    loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.PARTITION_FILENAME}")
+    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than epsilon.", Some(0.000001)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.EPSILON}")
+    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure.", Some(-2)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
+    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
+    loader.putBooleanValue(argParser.getBooleanOption("v", "verbose mode: gives computation time, information about the hierarchy and modularity.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.VERBOSE}")
+    loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
+    loader.putValue(argParser.getStringOption("a", "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", Some("[ \t]+")), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
+    loader.putIntValue(argParser.getIntOption("nd", "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.NODE_DEGREE}")
+    loader.putIntValue(argParser.getIntOption("cs", "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.COMMUNITY_SIZE}")
+
+    loader.config
   }
 
-  def parseArgs (args: Array[String]): Unit = {
-    if (args.length < 1) usage("community", "Bad arguments number")
+  /*def parseArgs (args: Array[String]): Unit = {
+    val argParser = new ArgumentParser(args)
+
+    // Parse config files first.
+    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
+    val config = readConfigArguments(configFile)
 
     val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_]]()
     var i = 0
@@ -625,16 +649,29 @@ object Community {
     }
 
     analytics = tempAnalytics.toArray
-  }
+  }*/
 
   def displayTime (msg: String): Unit =
     Console.err.println(msg + ": " + new Date(System.currentTimeMillis()))
 
   def main (args: Array[String]): Unit = {
-    parseArgs(args)
+    val argParser = new ArgumentParser(args)
+
+    // Parse config files first.
+    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
+    val config = readConfigArguments(configFile)
+
+    // Apply the rest of the arguments to the config.
+    val configComplete = parseArguments(config, argParser)
+    val clusterConfig = CommunityConfigParser.parse(configComplete) match {
+      case Success(s) => s
+      case Failure(f) =>
+        println(s"Failed to load convert configuration properly. ${f}")
+        sys.exit(-1)
+    }
 
     def algorithmByLevel (level: Int) = {
-      algorithm match {
+      clusterConfig.algorithm match {
         case und: UnlinkedNodeDegreeAlgorithm =>
           if ((level + 1) > und.degreeLimits.length) {
             new BaselineAlgorithm
@@ -650,15 +687,16 @@ object Community {
     }
 
     val time_begin = System.currentTimeMillis()
-    if (verbose) displayTime("Begin")
-    val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
+    if (clusterConfig.verbose) displayTime("Begin")
+    val curDir: Option[File] = if (-1 == clusterConfig.levelDisplay) Some(new File(".")) else None
 
     SimpleProfiling.register("init.community")
-    var c = new Community(filename.get, filename_w, filename_m, -1, precision, analytics, algorithmByLevel(0))
+    var c = new Community(clusterConfig.inputFilename, clusterConfig.weightFilename, clusterConfig.metadataFilename,
+      -1, clusterConfig.epsilon, clusterConfig.analytics.toArray, algorithmByLevel(0))
     SimpleProfiling.finish("init.community")
 
     SimpleProfiling.register("init.partition")
-    filename_part.foreach(part => c.initPartition(part))
+    clusterConfig.partitionFilename.foreach(part => c.initPartition(part))
     SimpleProfiling.finish("init.partition")
 
     var g: Option[Graph] = None
@@ -670,21 +708,21 @@ object Community {
 
     do {
       SimpleProfiling.register("iterative")
-      if (verbose) {
+      if (clusterConfig.verbose) {
         Console.err.println("level " + level + ":")
         displayTime("  start computation")
         Console.err.println("  network size: " + c.g.nb_nodes + " nodes, " + c.g.nb_links + " links, " + c.g.total_weight + " weight.")
       }
 
       SimpleProfiling.register("iterative.one_level")
-      improvement = c.oneLevel(randomize)
+      improvement = c.oneLevel(clusterConfig.randomize)
       SimpleProfiling.finish("iterative.one_level")
       SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
       SimpleProfiling.finish("iterative.modularity")
 
       level = level + 1
-      if (level == display_level) {
+      if (level == clusterConfig.levelDisplay) {
         g.foreach(gr => gr.displayNodes(Console.out))
         g.foreach(gr => gr.displayLinks(Console.out))
       }
@@ -709,27 +747,27 @@ object Community {
 
       val levelAlgorithm = algorithmByLevel(level)
       SimpleProfiling.register("iterative.communitize")
-      c = new Community(g.get, -1, precision, levelAlgorithm)
+      c = new Community(g.get, -1, clusterConfig.epsilon, levelAlgorithm)
       SimpleProfiling.finish("iterative.communitize")
 
-      if (verbose) {
+      if (clusterConfig.verbose) {
         Console.err.println("  modularity increased from " + mod + " to " + new_mod)
       }
 
       mod = new_mod
-      if (verbose) {
+      if (clusterConfig.verbose) {
         displayTime("  end computation")
       }
 
       // do at least one more computation if partition is provided
-      filename_part.foreach(part => if (1 == level) improvement = true)
+      clusterConfig.partitionFilename.foreach(part => if (1 == level) improvement = true)
       println
       println("After level " + level + ": ")
       SimpleProfiling.report(System.out)
       SimpleProfiling.finish("iterative")
     } while (improvement)
     val time_end = System.currentTimeMillis()
-    if (verbose) {
+    if (clusterConfig.verbose) {
       displayTime("End")
       Console.err.println("Total duration: %.3f sec.".format((time_end-time_begin)/1000.0))
     }

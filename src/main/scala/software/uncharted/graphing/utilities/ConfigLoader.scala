@@ -31,6 +31,14 @@ class ConfigLoader (var config: Config) {
     config
   }
 
+  def putDoubleValue(value: Option[Double], key: String): Config = {
+    if (value.isDefined) {
+      config = config.withValue(key, ConfigValueFactory.fromAnyRef(value.get))
+    }
+
+    config
+  }
+
   def putBooleanValue(value: Option[Boolean], key: String): Config = {
     if (value.isDefined) {
       config = config.withValue(key, ConfigValueFactory.fromAnyRef(value.get))
