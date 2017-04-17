@@ -17,7 +17,7 @@ import java.util.Date
 
 import com.typesafe.config.{Config, ConfigFactory}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, SimpleProfiling}
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader, SimpleProfiling}
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
@@ -523,133 +523,25 @@ class Community (val g: Graph,
 
 object Community extends ConfigReader {
   var nb_pass = 0
-  //var precision = 0.000001
-  //var display_level = -2
-  //var k1 = 16
-  //var filename: Option[String] = None
-  //var filename_w: Option[String] = None
-  //var filename_m: Option[String] = None
-  //var filename_part: Option[String] = None
-  //var verbose = false
-  //var randomize = true
-  //var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
-
-  /*def usage (prog_name: String, more: String): Unit = {
-    println(more)
-    println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q epsilon] [-l display_level] [-v] [-h]")
-    println
-    println("input_file: file containing the graph to decompose in communities.")
-    println("-w file\tread the graph as a weighted one (weights are set to 1 otherwise).")
-    println("-m file\tread metadata for nodes (set to none otherwise).")
-    println("-p file\tstart the computation with a given partition instead of the trivial partition.")
-    println("\tfile must contain lines \"node community\".")
-    println("-q eps\ta given pass stops when the modularity is increased by less than epsilon.")
-    println("-l k\tdisplays the graph of level k rather than the hierachical structure.")
-    println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
-    println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
-    println("-h\tshow this usage message.")
-    println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
-    println("-a customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
-    println("-nd <base>\tUse the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.")
-    println("-cs <size>\tUse the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd")
-    System.exit(0)
-  }*/
 
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
     loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
     loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.WEIGHT_FILENAME}")
-    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", Some("[ \t]+")), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
+    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
     loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.PARTITION_FILENAME}")
     loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than epsilon.", Some(0.000001)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.EPSILON}")
     loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure.", Some(-2)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
-    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
+    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.K}")
     loader.putBooleanValue(argParser.getBooleanOption("v", "verbose mode: gives computation time, information about the hierarchy and modularity.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.VERBOSE}")
     loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
-    loader.putValue(argParser.getStringOption("a", "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", Some("[ \t]+")), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
+    loader.putValue(argParser.getStringOption("a", "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
     loader.putIntValue(argParser.getIntOption("nd", "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.NODE_DEGREE}")
     loader.putIntValue(argParser.getIntOption("cs", "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.COMMUNITY_SIZE}")
 
     loader.config
   }
-
-  /*def parseArgs (args: Array[String]): Unit = {
-    val argParser = new ArgumentParser(args)
-
-    // Parse config files first.
-    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
-    val config = readConfigArguments(configFile)
-
-    val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_]]()
-    var i = 0
-    while (i < args.length) {
-      if (args(i).startsWith("-")) {
-        args(i).substring(1).toLowerCase match {
-          case "w" =>
-            i = i + 1
-            filename_w = Some(args(i))
-
-          case "m" =>
-            i = i + 1
-            filename_m = Some(args(i))
-
-          case "p" =>
-            i = i + 1
-            filename_part = Some(args(i))
-
-          case "q" =>
-            i = i + 1
-            precision = args(i).toDouble
-
-          case "l" =>
-            i = i + 1
-            display_level = args(i).toInt
-
-          case "k" =>
-            i = i + 1
-            k1 = args(i).toInt
-
-          case "a" =>
-            i = i + 1
-            tempAnalytics += CustomGraphAnalytic(args(i), "")
-
-          case "ac" =>
-            i = i + 1
-            val analytic = args(i)
-            i = i + 1
-            tempAnalytics += CustomGraphAnalytic(analytic, args(i))
-
-          case "v" =>
-            verbose = true
-
-          case "n" => randomize = false
-
-          case "nd" =>
-            i = i + 1
-            val parameters = args(i)
-            if (parameters.contains(",")) {
-              algorithm = new UnlinkedNodeDegreeAlgorithm(parameters.split(",").map(_.toLong): _*)
-            } else {
-              algorithm = new NodeDegreeAlgorithm(args(i).toInt)
-            }
-
-          case "cs" =>
-            i = i + 1
-            algorithm = new CommunitySizeAlgorithm(args(i).toInt)
-
-          case _ => usage("community", "Unknown option: " + args(i))
-        }
-      } else if (filename.isDefined) {
-        usage("community", "More than one filename")
-      } else {
-        filename = Some(args(i))
-      }
-      i = i + 1
-    }
-
-    analytics = tempAnalytics.toArray
-  }*/
 
   def displayTime (msg: String): Unit =
     Console.err.println(msg + ": " + new Date(System.currentTimeMillis()))
@@ -659,14 +551,12 @@ object Community extends ConfigReader {
 
     // Parse config files first.
     val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
-    val config = readConfigArguments(configFile)
-
-    // Apply the rest of the arguments to the config.
-    val configComplete = parseArguments(config, argParser)
+    val configComplete = readConfigArguments(configFile, c => parseArguments(c, argParser))
     val clusterConfig = CommunityConfigParser.parse(configComplete) match {
       case Success(s) => s
       case Failure(f) =>
-        println(s"Failed to load convert configuration properly. ${f}")
+        println(s"Failed to load cluster configuration properly. ${f}")
+        f.printStackTrace()
         sys.exit(-1)
     }
 
