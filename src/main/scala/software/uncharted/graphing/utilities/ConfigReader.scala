@@ -1,4 +1,4 @@
-package software.uncharted.graphing.clustering.unithread
+package software.uncharted.graphing.utilities
 
 import java.io.File
 
@@ -7,9 +7,9 @@ import com.typesafe.config.{Config, ConfigFactory}
 import scala.io.Source
 
 trait ConfigReader {
-  def readConfigArguments (configFile: Option[String]): Config = {
+  def readConfigArguments (configFile: Option[String], cliParser: Config => Config): Config = {
     val environmentalConfig = ConfigFactory.load()
-    var configActive = environmentalConfig
+    var configActive = cliParser(environmentalConfig)
 
     if (configFile.isDefined) {
       val filename = configFile.get
@@ -24,7 +24,7 @@ trait ConfigReader {
         // scalastyle:off regex
         println(s"Reading config file $cfgFile")
         // scalastyle:on regex
-        configActive = environmentalConfig.withFallback(ConfigFactory.parseReader(Source.fromFile(cfgFile).bufferedReader()))
+        configActive = ConfigFactory.parseReader(Source.fromFile(cfgFile).bufferedReader()).withFallback(configActive)
       }
     }
 

@@ -13,13 +13,15 @@
 
 package software.uncharted.graphing.export
 
-import org.apache.spark.{SparkConf}
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import software.uncharted.graphing.utilities.ArgumentParser
-import com.typesafe.config.{Config, ConfigFactory}
-import scala.collection.JavaConverters._ // scalastyle:ignore
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader}
+import com.typesafe.config.Config
 
-object ESIngestExport {
+import scala.collection.JavaConverters._ // scalastyle:ignore
+import scala.util.{Failure, Success}
+
+object ESIngestExport extends ConfigReader {
   private def applySparkConfigEntries (config: Config)(conf: SparkConf): SparkConf = {
     config.getConfig("spark")
       .entrySet()
@@ -29,30 +31,45 @@ object ESIngestExport {
     conf
   }
 
+  def parseArguments(config: Config, argParser: ArgumentParser): Config = {
+    val loader = new ConfigLoader(config)
+    loader.putValue(argParser.getStringOption("sourceLayout", "The source directory containing the graph layout data", None), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.SOURCE}")
+    loader.putValue(argParser.getStringOption("output", "The output location where to save data", None), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.OUTPUT}")
+    loader.putValue(argParser.getStringOption("d", "Delimiter for the source graph data. Default is tab-delimited", Some("\t")), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.DELIMITER}")
+    loader.putIntValue(argParser.getIntOption("maxLevel", "Max cluster hierarchy level when the data was clustered", Some(0)), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.MAX_LEVEL}")
+
+    loader.config
+  }
+
   def main(args: Array[String]) {
     val argParser = new ArgumentParser(args)
-    val environmentalConfig = ConfigFactory.load()
 
-    val session = SparkSession.builder.config(applySparkConfigEntries(environmentalConfig)(new SparkConf().setAppName("Graph Data Extraction"))).getOrCreate()
+    // Parse config files first.
+    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
+    val configComplete = readConfigArguments(configFile, c => parseArguments(c, argParser))
+    val exportConfig = ExportConfigParser.parse(configComplete) match {
+      case Success(s) => s
+      case Failure(f) =>
+        println(s"Failed to load cluster configuration properly. ${f}")
+        f.printStackTrace()
+        sys.exit(-1)
+    }
 
-    val sourceLayoutDir = argParser.getStringOption("sourceLayout", "The source directory where to find graph layout data", None).get
-    val outputDir = argParser.getStringOption("output", "The output location where to save data", None).get
-    val dataDelimiter = argParser.getString("d", "Delimiter for the source graph data. Default is tab-delimited", "\t")
-    val maxHierarchyLevel = argParser.getInt("maxLevel","Max cluster hierarchy level when the data was clustered", 0)
+    val session = SparkSession.builder.config(applySparkConfigEntries(configComplete)(new SparkConf().setAppName("Graph Data Extraction"))).getOrCreate()
 
     val fileStartTime = System.currentTimeMillis()
 
     val exporter = new Exporter()
 
     exporter.exportData(session,
-      sourceLayoutDir,
-      outputDir,
-      dataDelimiter,
-      maxHierarchyLevel)
+      exportConfig.source,
+      exportConfig.output,
+      exportConfig.delimiter,
+      exportConfig.maxLevel)
 
     val fileEndTime = System.currentTimeMillis()
     println("Finished extracting data for ES ingestion in " + ((fileEndTime - fileStartTime) / 60000.0) + " minutes")
 
-    println("Data extracted and available at " + outputDir)
+    println(s"Data extracted and available at ${exportConfig.output}")
   }
 }

@@ -14,16 +14,15 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io._ //scalastyle:ignore
+import java.io._
 
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.io.Source
 import scala.util.{Failure, Success}
-
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader}
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader}
 
 /**
   * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
@@ -61,10 +60,7 @@ object Convert extends ConfigReader {
 
     // Parse config files first.
     val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
-    val config = readConfigArguments(configFile)
-
-    // Apply the rest of the arguments to the config.
-    val configComplete = parseArguments(config, argParser)
+    val configComplete = readConfigArguments(configFile, c => parseArguments(c, argParser))
     val convertConfig = ConvertConfigParser.parse(configComplete) match {
       case Success(s) => s
       case Failure(f) =>
