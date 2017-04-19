@@ -32,6 +32,12 @@ import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, Conf
 //scalastyle:off multiple.string.literals
 object Convert extends ConfigReader {
 
+  /**
+    * Parse CLI parameters into a new configuration.
+    * @param config Base configuration to use.
+    * @param argParser Argument parser to use to parse CLI parameters.
+    * @return The configuration containing the base values & the parsed CLI parameters.
+    */
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
     loader.putValue(argParser.getStringOption("ie", "Edge input file", None), s"${ConvertConfigParser.SECTION_KEY}.${ConvertConfigParser.EDGE_INPUT}")

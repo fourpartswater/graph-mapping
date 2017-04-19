@@ -19,6 +19,20 @@ import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
+/**
+  * Wrapper for all the clustering parameters needed.
+  * @param inputFilename Name of the input file.
+  * @param weightFilename Optional name of the weight file.
+  * @param metadataFilename Optional name of the metadata file.
+  * @param partitionFilename Optional name of the partition file.
+  * @param epsilon A given pass stops when the modularity is increased by less than epsilon.
+  * @param levelDisplay Displays the graph of level k rather than the hierachical structure.
+  * @param k if k=-1 then displays the hierarchical structure rather than the graph at a given level.
+  * @param verbose If true, will output additional information at every step.
+  * @param randomize If true, will randomize processing order.
+  * @param analytics Analytics aggregations to use when clustering nodes.
+  * @param algorithm Algorithm modification to use when clustering.
+  */
 case class CommunityConfig (inputFilename: String,
                        weightFilename: Option[String],
                        metadataFilename: Option[String],
@@ -31,6 +45,9 @@ case class CommunityConfig (inputFilename: String,
                        analytics: Seq[CustomGraphAnalytic[_]],
                        algorithm: AlgorithmModification)
 
+/**
+  * Parser of the community clustering configuration.
+  */
 object CommunityConfigParser extends ConfigParser {
 
   val SECTION_KEY = "community"
@@ -47,6 +64,11 @@ object CommunityConfigParser extends ConfigParser {
   val NODE_DEGREE = "algorithm.node-degree"
   val COMMUNITY_SIZE = "algorithm.community-size"
 
+  /**
+    * Parse the community clustering configuration into the wrapper class.
+    * @param config Configuration values to use when clustering.
+    * @return The parsed configuration.
+    */
   def parse(config: Config): Try[CommunityConfig] = {
     Try {
       val section = config.getConfig(SECTION_KEY)

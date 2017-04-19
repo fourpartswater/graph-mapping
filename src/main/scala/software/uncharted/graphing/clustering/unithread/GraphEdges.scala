@@ -143,6 +143,10 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   }
   //scalastyle:on cyclomatic.complexity
 
+  /**
+    * Output the edge data using space as separator.
+    * @param weighted If true, output will contain the weight.
+    */
   def display (weighted: Boolean): Unit = {
     for (i <- links.indices; j <- links(i).indices) {
       val (dest, weight, analyticValues) = links(i)(j)
@@ -154,6 +158,12 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
+  /**
+    * Output data to streams.
+    * @param edgeStream Edge data stream
+    * @param weightStream Weight data stream
+    * @param metadataStream Metadata stream
+    */
   def displayBinary (edgeStream: DataOutputStream,
                       weightStream: Option[DataOutputStream],
                       metadataStream: Option[DataOutputStream]): Unit = {
@@ -269,6 +279,13 @@ object GraphEdges {
   }
 }
 
+/**
+  * Array that can grow when needed.
+  * @param size Size of the collection
+  * @param initialize Function to initialize an array value
+  * @param ev$1
+  * @tparam T
+  */
 class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
   var data = {
     val initData = new Array[T](size)

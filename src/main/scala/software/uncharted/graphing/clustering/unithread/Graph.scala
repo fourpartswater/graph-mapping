@@ -315,6 +315,14 @@ object Graph {
     result
   }
 
+  /**
+    * Create a graph from source streams.
+    * @param edgeDataStream Edge data source stream.
+    * @param weightDataStreamOpt Weight data source stream.
+    * @param metadataInputStreamOpt Metadata source stream.
+    * @param customAnalytics Analytics to run on the graph nodes.
+    * @return Graph instance of the source streams.
+    */
   def apply (edgeDataStream: DataInputStream,
              weightDataStreamOpt: Option[DataInputStream],
              metadataInputStreamOpt: Option[DataInputStream],

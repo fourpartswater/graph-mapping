@@ -19,6 +19,26 @@ import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
+/**
+  * Wrapper for all the convert parameters needed.
+  * @param edgeInputFilename Filename of the edge data.
+  * @param edgeLineFilter String to use to filter for edge data in the edge input file.
+  * @param edgeSeparator Field separator for the edge data.
+  * @param edgeAnalytics Aggregation analytics to use on edge data.
+  * @param srcNodeColumn 0 based column of the source node.
+  * @param dstNodeColumn 0 based column of the destination node.
+  * @param weightColumn 0 based column of the weight.
+  * @param edgeOutputFilename Filename to use for the edge output.
+  * @param nodeInputFilename Filename of the ndoe data.
+  * @param nodeLineFilter String to use to filter for node data in the node input file.
+  * @param nodeSeparator Field separator for the node data.
+  * @param nodeAnalytics Aggregation analytics to use on node data.
+  * @param nodeColumn 0 based node id column.
+  * @param metaColumn 0 based metadata column.
+  * @param renumber Flag to renumber node ids from 0 to n.
+  * @param weightOutputFilename Output filename of the weight data.
+  * @param metaOutputFilename Output filename of the metadata.
+  */
 case class ConvertConfig(edgeInputFilename: String,
                          edgeLineFilter: Option[String],
                          edgeSeparator: String,
@@ -37,6 +57,9 @@ case class ConvertConfig(edgeInputFilename: String,
                          weightOutputFilename: Option[String],
                          metaOutputFilename: Option[String])
 
+/**
+  * Parser of the convert configuration.
+  */
 object ConvertConfigParser extends ConfigParser {
 
   val SECTION_KEY = "convert"
@@ -58,6 +81,11 @@ object ConvertConfigParser extends ConfigParser {
   val RENUMBER = "renumber"
   val META_OUTPUT = "node.meta-output"
 
+  /**
+    * Parse the convert configuration into the wrapper class.
+    * @param config Configuration values to use when converting.
+    * @return The parsed configuration.
+    */
   def parse(config: Config): Try[ConvertConfig] = {
     Try {
       val section = config.getConfig(SECTION_KEY)

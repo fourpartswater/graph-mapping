@@ -16,11 +16,21 @@ import com.typesafe.config.Config
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import scala.util.Try
 
+/**
+  * Wrapper class for all export parameters needed.
+  * @param source Layout data to use as source for the export
+  * @param output HDFS directory to use for output
+  * @param delimiter Input delimiter
+  * @param maxLevel The maximum level in the layout data
+  */
 case class ExportConfig(source: String,
                          output: String,
                          delimiter: String,
                          maxLevel: Int)
 
+/**
+  * Parser of the export configuration.
+  */
 object ExportConfigParser extends ConfigParser {
 
   val SECTION_KEY = "export"
@@ -29,6 +39,11 @@ object ExportConfigParser extends ConfigParser {
   val DELIMITER = "delimiter"
   val MAX_LEVEL = "max-level"
 
+  /**
+    * Parse the export configuration into the wrapper class.
+    * @param config Configuration values to use when exporting.
+    * @return The parsed configuration.
+    */
   def parse(config: Config): Try[ExportConfig] = {
     Try {
       val section = config.getConfig(SECTION_KEY)

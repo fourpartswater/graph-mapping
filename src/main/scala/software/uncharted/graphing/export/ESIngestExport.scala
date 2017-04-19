@@ -22,6 +22,9 @@ import scala.collection.JavaConverters._ // scalastyle:ignore
 import scala.util.{Failure, Success}
 
 //scalastyle:off multiple.string.literals
+/**
+  * Object to export the layout data for downstream ingestion.
+  */
 object ESIngestExport extends ConfigReader {
   private def applySparkConfigEntries (config: Config)(conf: SparkConf): SparkConf = {
     config.getConfig("spark")
@@ -32,6 +35,12 @@ object ESIngestExport extends ConfigReader {
     conf
   }
 
+  /**
+    * Parse CLI parameters into a new configuration.
+    * @param config Base configuration to use.
+    * @param argParser Argument parser to use to parse CLI parameters.
+    * @return The configuration containing the base values & the parsed CLI parameters.
+    */
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
     loader.putValue(argParser.getStringOption("sourceLayout", "The source directory containing the graph layout data", None),

@@ -520,11 +520,19 @@ class Community (val g: Graph,
 }
 
 
-
+/**
+  * Object to run the community clustering algorithm.
+  */
 object Community extends ConfigReader {
   var nb_pass = 0
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
+  /**
+    * Parse CLI parameters into a new configuration.
+    * @param config Base configuration to use.
+    * @param argParser Argument parser to use to parse CLI parameters.
+    * @return The configuration containing the base values & the parsed CLI parameters.
+    */
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
     loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None),
