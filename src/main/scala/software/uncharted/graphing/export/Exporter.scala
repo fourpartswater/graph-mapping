@@ -16,7 +16,18 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 
+/**
+  * Export data for downstream processing using the layout data as source.
+  */
 class Exporter {
+  /**
+    * Export the layout data for downstream processing.
+    * @param session Spark session to use for data processing
+    * @param sourceLayoutDir Source of the layout data
+    * @param outputDir Directory to use for the output
+    * @param dataDelimiter Delimiter of the source data
+    * @param maxLevel Maximum hierarchy level in the source data
+    */
   def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int): Unit = {
     val sc = session.sparkContext
 

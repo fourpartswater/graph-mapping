@@ -18,7 +18,16 @@ import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.io.Source
 
+/**
+  * Trait that provides a simple function to combine environmental, CLI and file configuration.
+  */
 trait ConfigReader {
+  /**
+    * Read the complete configuration by joining environmental, CLI parameter & file configuration values.
+    * @param configFile Optional name of the configuration file.
+    * @param cliParser Function to parse CLI parameters.
+    * @return Complete configuration values prioritizing file over CLI over environmental values.
+    */
   def readConfigArguments (configFile: Option[String], cliParser: Config => Config): Config = {
     val environmentalConfig = ConfigFactory.load()
     var configActive = cliParser(environmentalConfig)
