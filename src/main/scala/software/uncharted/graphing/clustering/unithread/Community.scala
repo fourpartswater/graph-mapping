@@ -30,7 +30,7 @@ import scala.util.{Failure, Random, Success}
   * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
   */
 
-//scalastyle:off file.size.limit method.length cyclomatic.complexity
+//scalastyle:off file.size.limit method.length cyclomatic.complexity multiple.string.literals
 
 /**
   * Trait to specify what modification to apply to the baseline algorithm, along with the parameters needed
@@ -527,18 +527,35 @@ object Community extends ConfigReader {
 
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
-    loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
-    loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.WEIGHT_FILENAME}")
-    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
-    loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.PARTITION_FILENAME}")
-    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than epsilon.", Some(0.000001)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.EPSILON}")
-    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure.", Some(-2)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
-    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.K}")
-    loader.putBooleanValue(argParser.getBooleanOption("v", "verbose mode: gives computation time, information about the hierarchy and modularity.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.VERBOSE}")
-    loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
-    loader.putValue(argParser.getStringOption("a", "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
-    loader.putIntValue(argParser.getIntOption("nd", "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.NODE_DEGREE}")
-    loader.putIntValue(argParser.getIntOption("cs", "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd.", None), s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.COMMUNITY_SIZE}")
+    loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
+    loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.WEIGHT_FILENAME}")
+    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
+    loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.PARTITION_FILENAME}")
+    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than epsilon.", Some(0.000001)),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.EPSILON}")
+    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure.", Some(-2)),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
+    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.K}")
+    loader.putBooleanValue(argParser.getBooleanOption("v", "verbose mode: gives computation time, information about the hierarchy and modularity.", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.VERBOSE}")
+    loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
+    loader.putValue(argParser.getStringOption("a",
+      "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
+    loader.putIntValue(argParser.getIntOption("nd",
+      "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the " +
+        "first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.NODE_DEGREE}")
+    loader.putIntValue(argParser.getIntOption("cs",
+      "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than " +
+        "the specified size. Exclusive with -nd.", None),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.COMMUNITY_SIZE}")
 
     loader.config
   }
@@ -664,4 +681,4 @@ object Community extends ConfigReader {
     Console.err.println("Final modularity: " + mod)
   }
 }
-//scalastyle:on file.size.limit method.length cyclomatic.complexity
+//scalastyle:on file.size.limit method.length cyclomatic.complexity multiple.string.literals

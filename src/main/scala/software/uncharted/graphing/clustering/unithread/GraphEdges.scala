@@ -51,7 +51,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
     metaData.foreach{data =>
       var line = metadataInput.readLine()
-      while (null != line) {
+      while (null != line) {  //scalastyle:ignore
         if (!line.trim.isEmpty) {
           val fields = line.split(separator)
           if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
@@ -198,7 +198,7 @@ object GraphEdges {
     var maxNode = 0
     var line = countReader.readLine()
     var n = 0
-    while (null != line) {
+    while (null != line) {  //scalastyle:ignore
       val fields = line.split(edge_separator)
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
         val source = fields(source_column).toInt
@@ -234,7 +234,7 @@ object GraphEdges {
     var line = edge_input.readLine()
     var n = 0
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
-    while (null != line) {
+    while (null != line) {  //scalastyle:ignore
       val fields = line.split(edge_separator)
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
         val source = fields(source_column).toInt

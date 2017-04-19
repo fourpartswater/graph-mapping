@@ -21,6 +21,7 @@ import com.typesafe.config.Config
 import scala.collection.JavaConverters._ // scalastyle:ignore
 import scala.util.{Failure, Success}
 
+//scalastyle:off multiple.string.literals
 object ESIngestExport extends ConfigReader {
   private def applySparkConfigEntries (config: Config)(conf: SparkConf): SparkConf = {
     config.getConfig("spark")
@@ -33,10 +34,14 @@ object ESIngestExport extends ConfigReader {
 
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
-    loader.putValue(argParser.getStringOption("sourceLayout", "The source directory containing the graph layout data", None), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.SOURCE}")
-    loader.putValue(argParser.getStringOption("output", "The output location where to save data", None), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.OUTPUT}")
-    loader.putValue(argParser.getStringOption("d", "Delimiter for the source graph data. Default is tab-delimited", Some("\t")), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.DELIMITER}")
-    loader.putIntValue(argParser.getIntOption("maxLevel", "Max cluster hierarchy level when the data was clustered", Some(0)), s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.MAX_LEVEL}")
+    loader.putValue(argParser.getStringOption("sourceLayout", "The source directory containing the graph layout data", None),
+      s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.SOURCE}")
+    loader.putValue(argParser.getStringOption("output", "The output location where to save data", None),
+      s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.OUTPUT}")
+    loader.putValue(argParser.getStringOption("d", "Delimiter for the source graph data. Default is tab-delimited", Some("\t")),
+      s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.DELIMITER}")
+    loader.putIntValue(argParser.getIntOption("maxLevel", "Max cluster hierarchy level when the data was clustered", Some(0)),
+      s"${ExportConfigParser.SECTION_KEY}.${ExportConfigParser.MAX_LEVEL}")
 
     loader.config
   }
@@ -73,3 +78,4 @@ object ESIngestExport extends ConfigReader {
     println(s"Data extracted and available at ${exportConfig.output}")
   }
 }
+//scalastyle:on multiple.string.literals

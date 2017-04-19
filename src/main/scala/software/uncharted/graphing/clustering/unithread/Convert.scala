@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io._
+import java.io._ //scalastyle:ignore
 
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -29,6 +29,7 @@ import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, Conf
   * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
   */
 
+//scalastyle:off multiple.string.literals
 object Convert extends ConfigReader {
 
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
@@ -98,3 +99,4 @@ object Convert extends ConfigReader {
     metadataStream.foreach{s => s.flush(); s.close()}
   }
 }
+//scalastyle:on multiple.string.literals
