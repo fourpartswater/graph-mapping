@@ -26,6 +26,7 @@ import scala.reflect.ClassTag
  */
 class ExtendedRDDOpertations[T: ClassTag] (rdd: RDD[T]) {
 
+  //scalastyle:off method.length cyclomatic.complexity
   /**
    * Repartition an RDD into roughly equal-sized partitions, without changing order
    * @param partitions The number of partitions into which to divide the RDD
@@ -100,6 +101,7 @@ class ExtendedRDDOpertations[T: ClassTag] (rdd: RDD[T]) {
 
     result
   }
+  //scalastyle:on method.length cyclomatic.complexity
 }
 
 object ExtendedRDDOpertations {
