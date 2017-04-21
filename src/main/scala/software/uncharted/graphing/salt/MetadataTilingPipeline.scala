@@ -33,6 +33,13 @@ import scala.util.{Failure, Success, Try}
 
 
 //scalastyle:off null underscore.import import.grouping
+/**
+  * A job to produce a set of tiles showing the node metadata in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set.
+  */
 object MetadataTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {

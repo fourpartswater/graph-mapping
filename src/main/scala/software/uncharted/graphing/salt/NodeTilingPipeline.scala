@@ -28,6 +28,13 @@ import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 import scala.util.{Failure, Success}
 
 //scalastyle:off null underscore.import import.grouping
+/**
+  * A job to produce a set of tiles showing the nodes in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set.
+  */
 object NodeTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
