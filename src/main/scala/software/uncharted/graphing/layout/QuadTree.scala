@@ -28,10 +28,22 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
     _root
   }
 
+  /**
+    * Insert quad node into the tree.
+    * @param x X position of the node
+    * @param y Y position of the node
+    * @param id Id of the node
+    * @param size Size of the node
+    */
   def insert(x: Double, y: Double, id: Long, size: Double): Unit = {
     insertIntoQuadNode(_root, new QuadNodeData(x, y, id, size))
   }
 
+  /**
+    * Insert quad node into the tree
+    * @param qn Base quad node to use for insertion
+    * @param data Quad node data to insert
+    */
   def insertIntoQuadNode(qn: QuadNode, data: QuadNodeData): Unit = {
 
     if (qn == null) {
