@@ -73,7 +73,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
  *
  * @param degrees A list of the cumulative degree of each node, in order:
  *                deg(0) = degrees[0]
- *                deg(k) = degrees[k]=degrees[k-1]
+ *                deg(k) = degrees[k]-degrees[k-1]
  * @param links A list of the links to other nodes
  * @param nodeInfos Extra information about each node
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
