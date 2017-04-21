@@ -19,6 +19,12 @@ import org.apache.spark.rdd.RDD
   * An object that can calculate the median of a dataset
   */
 object MedianCalculator {
+  /**
+    * Calculate the median in a dataset.
+    * @param dataset Dataset from which to calculate the median
+    * @param r
+    * @return The median of the dataset
+    */
   def median (dataset: RDD[Double], r: Int): Double = {
     val sc = dataset.context
     val partitionMids: Array[Array[Double]] = dataset.mapPartitions { i =>

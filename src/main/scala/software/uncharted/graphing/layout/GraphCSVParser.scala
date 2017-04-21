@@ -112,5 +112,20 @@ class GraphCSVParser {
   }
 }
 
+/**
+  * Wrapper class for a graph node
+  * @param id Node id
+  * @param parentId Node's parent id
+  * @param internalNodes Number of nodes within the community
+  * @param degree Number of edges of the node
+  * @param metadata Metadata associated with the node
+  */
 case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String)
+
+/**
+  * Wrapper class for a graph edge
+  * @param srcId Source node id
+  * @param dstId Destination node id
+  * @param weight Edge weight
+  */
 case class GraphEdge (srcId: Long, dstId: Long, weight: Long)
