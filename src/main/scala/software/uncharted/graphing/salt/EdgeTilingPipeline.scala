@@ -34,7 +34,7 @@ import scala.util.{Failure, Success}
   *
   * The input to this job should be the output of the ClusteredGraphLayoutApp.
   *
-  * The output is a tile set, of course.
+  * The output is a tile set.
   */
 //scalastyle:off null underscore.import import.grouping
 object EdgeTilingPipeline extends AbstractJob {

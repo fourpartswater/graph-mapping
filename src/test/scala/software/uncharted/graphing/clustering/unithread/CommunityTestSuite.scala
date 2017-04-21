@@ -28,7 +28,7 @@ class CommunityTestSuite extends FunSuite {
     assert(c.n2c(4) === 4)
     assert(c.n2c(11) === 11)
 
-    c.one_level(false)
+    c.oneLevel(false)
     assert(c.n2c(0) === 3)
     assert(c.n2c(4) === 7)
     assert(c.n2c(11) === 11)
@@ -63,7 +63,7 @@ class CommunityTestSuite extends FunSuite {
     assert(c.n2c(4) === 4)
     assert(c.n2c(11) === 11)
 
-    c.one_level(false)
+    c.oneLevel(false)
     assert(c.n2c(0) === 3)
     assert(c.n2c(4) === 7)
     assert(c.n2c(11) === 11)
