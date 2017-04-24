@@ -21,10 +21,9 @@
 package software.uncharted.graphing.clustering.unithread
 
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
-import java.util.Date
 
+import grizzled.slf4j.Logging
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.utilities.SimpleProfiling
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
@@ -80,9 +79,6 @@ class Community (val g: Graph,
             nbp: Int, minm: Double, customAnalytics: Array[CustomGraphAnalytic[_]],
             algorithmMod: AlgorithmModification) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
-
-
-
 
   val size = g.nb_nodes
   val n2c = new Array[Int](size)
@@ -209,7 +205,6 @@ class Community (val g: Graph,
 
       // for each node: remove the node from its community and insert it in the best community
       for (node_tmp <- 0 until size) {
-        if (0 == (node_tmp % 100000)) println(node_tmp+" ...")
         val node = random_order(node_tmp)
         val node_comm = n2c(node)
         val w_degree = g.weighted_degree(node)
@@ -481,7 +476,6 @@ object Community {
   var filename_w: Option[String] = None
   var filename_m: Option[String] = None
   var filename_part: Option[String] = None
-  var verbose = false
   var randomize = true
   var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
@@ -498,7 +492,6 @@ object Community {
     println("-q eps\ta given pass stops when the modularity is increased by less than epsilon.")
     println("-l k\tdisplays the graph of level k rather than the hierachical structure.")
     println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
-    println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
     println("-h\tshow this usage message.")
     println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
     println("-a customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
@@ -549,9 +542,6 @@ object Community {
             i = i + 1
             tempAnalytics += CustomGraphAnalytic(analytic, args(i))
 
-          case "v" =>
-            verbose = true
-
           case "n" => randomize = false
 
           case "nd" =>
@@ -580,9 +570,6 @@ object Community {
     analytics = tempAnalytics.toArray
   }
 
-  def display_time (msg: String): Unit =
-    Console.err.println(msg+": "+new Date(System.currentTimeMillis()))
-
   def main (args: Array[String]): Unit = {
     parse_args(args)
 
@@ -600,88 +587,137 @@ object Community {
       }
     }
 
-    val time_begin = System.currentTimeMillis()
-    if (verbose) display_time("Begin")
     val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
 
-    SimpleProfiling.register("init.community")
-    var c = new Community(filename.get, filename_w, filename_m, -1, precision, analytics, algorithmByLevel(0))
-    SimpleProfiling.finish("init.community")
+    // Perform our clustering
+    new CommunityClusterer(
+      {
+        val c = new Community(Graph(filename.get, filename_w, filename_m, analytics), -1, precision, algorithmByLevel(0))
+        filename_part.foreach(part => c.init_partition(part))
+        c
+      },
+      randomize,
+      filename_part.isDefined,
+        precision,
+      algorithmByLevel
+    ).doClustering[Int](
+      withLevel(display_level, curDir)
+    )
+  }
 
-    SimpleProfiling.register("init.partition")
-    filename_part.foreach(part => c.init_partition(part))
-    SimpleProfiling.finish("init.partition")
+  // Write out input and output communities as needed
+  private def withLevel (display_level: Int, curDir: Option[File])
+                        (level: Int,
+                         initialGraph: Graph,
+                         initialModularity: Double,
+                         community: Community): Int = {
+    if (level == display_level && null != initialGraph) {
+      initialGraph.display_nodes(Console.out)
+      initialGraph.display_links(Console.out)
+    }
+
+    curDir.foreach { pwd =>
+      val levelDir = new File(pwd, "level_" + (level-1))
+      levelDir.mkdir()
+      val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
+      val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
+      community.display_partition(level, out, Some(stats))
+      out.flush()
+      out.close()
+      stats.flush()
+      stats.close()
+    }
+    level
+  }
+}
+
+/**
+  * We separate the actual clustering procedure out into its own class for the sole reason that this allows the
+  * initial input community to be garbage-collected during processing - having it as a member of the Community class
+  * would of course keep a pointer to the community, and we can't make functions with var arguments in the Community
+  * object.
+  *
+  * Needless to say, this class is one-use-only.
+  *
+  * @param c A community built off of the graph on which to perform clustering
+  * @param randomize Whether or not the order in which nodes are considered when checking for clusters should be
+  *                  randomized
+  * @param forceSecondIteration Whether or not the clustering should necessarily run for at least two iterations - even
+  *                             if the first iteration did nothing useful
+  * @param min_modularity The threshold determining whether another level will be generated.  A new level is computed
+  *                       if the last one has generated an increase greater than min_modularity.  If 0, even a minor
+  *                       increase is enough to go for one more pass
+  * @param algorithmByLevel A function that returns what modifications should be made to the clustering algorithm at
+  *                         a given level
+  */
+private[unithread] class CommunityClusterer (var c: Community,
+                                             randomize: Boolean,
+                                             forceSecondIteration: Boolean,
+                                             min_modularity: Double,
+                                             algorithmByLevel: Int => AlgorithmModification)  extends Logging {
+  private var used = false
+
+  /**
+    * Actually perform our clustering task, generating a hierarchy of communities that represent a sensible, geometry-
+    * based clustering of the initial graph
+    *
+    * @param withLevel A function to run on each level of the community hierarchy, to pull out what information is
+    *                  needed.  Parameters passed to this function are:
+    *                  <ol>
+    *                    <li>level - the level of clustering the current call describes</li>
+    *                    <li>initialGraph - the graph passed into this level of clustering - i.e., the start point
+    *                      from which the current level of clustering was performed.</li>
+    *                    <li>initialModularity - the modularity before this level of clustering</li>
+    *                    <li>community - the results of the current level of clustering.  This contains the modularity
+    *                      achieved as a result of this round of clustering</li>
+    *                  </ol>
+    * @tparam T The type of information retained and returned about the community hierarchy generated
+    */
+  def doClustering[T] (withLevel: (Int, Graph, Double, Community) => T): Seq[T] = {
+    if (used) {
+      throw new IllegalStateException("Community clusterer may not be called more than once")
+    }
+    used = true
+
+    val time_begin = System.currentTimeMillis()
+    info("Begining hierarchical clustering")
+
+    // Track our results
+    val results = MutableBuffer[T]()
 
     var g: Graph = null
     var improvement: Boolean = true
-    SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
-    SimpleProfiling.finish("init.modularity")
     var level: Int = 0
 
     do {
-      SimpleProfiling.register("iterative")
-      if (verbose) {
-        Console.err.println("level "+level+":")
-        display_time("  start computation")
-        Console.err.println("  network size: "+c.g.nb_nodes+" nodes, "+c.g.nb_links+" links, "+c.g.total_weight+" weight.")
-      }
+      info(s"Starting computation on level $level.  Network size: ${c.g.nb_nodes} nodes, ${c.g.nb_links} links, ${c.g.total_weight} weight.")
 
-      SimpleProfiling.register("iterative.one_level")
       improvement = c.one_level(randomize)
-      SimpleProfiling.finish("iterative.one_level")
-      SimpleProfiling.register("iterative.modularity")
       val new_mod = c.modularity
-      SimpleProfiling.finish("iterative.modularity")
 
       level = level + 1
-      if (level == display_level && null != g) {
-        g.display_nodes(Console.out)
-        g.display_links(Console.out)
-      }
+      results += withLevel (level, g, mod, c)
 
-      SimpleProfiling.register("iterative.write")
-      curDir.foreach { pwd =>
-        val levelDir = new File(pwd, "level_" + (level-1))
-        levelDir.mkdir()
-        val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
-        val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
-        c.display_partition(level, out, Some(stats))
-        out.flush()
-        out.close()
-        stats.flush()
-        stats.close()
-      }
-      SimpleProfiling.finish("iterative.write")
-
-      SimpleProfiling.register("iterative.convert")
       g = c.partition2graph_binary()
-      SimpleProfiling.finish("iterative.convert")
 
       val levelAlgorithm = algorithmByLevel(level)
-      SimpleProfiling.register("iterative.communitize")
-      c = new Community(g, -1, precision, levelAlgorithm)
-      SimpleProfiling.finish("iterative.communitize")
+      c = new Community(g, -1, min_modularity, levelAlgorithm)
 
-      if (verbose)
-        Console.err.println("  modularity increased from " + mod + " to "+new_mod)
+      info(s"  modularity increased from ${mod} to ${new_mod}")
 
       mod = new_mod
-      if (verbose)
-        display_time("  end computation")
+      info(s"  Finished computation on level ${level - 1}")
 
       // do at least one more computation if partition is provided
-      filename_part.foreach(part => if (1 == level) improvement = true)
-      println
-      println("After level "+level+": ")
-      SimpleProfiling.report(System.out)
-      SimpleProfiling.finish("iterative")
+      if (forceSecondIteration && 1 == level) improvement = true
     } while (improvement)
+
+
     val time_end = System.currentTimeMillis()
-    if (verbose) {
-      display_time("End")
-      Console.err.println("Total duration: %.3f sec.".format((time_end-time_begin)/1000.0))
-    }
-    Console.err.println("Final modularity: "+mod)
+    info("Finished hierarchical clustering.  Total duration: %.3f sec.".format((time_end - time_begin) / 1000.0))
+    info(s"Final modularity: ${mod}")
+
+    results
   }
 }
