@@ -69,7 +69,7 @@ class CommunityClusteringTestSuite extends FunSuite {
     assert(9 === results(0).size)
     assert(3 === results(0).values.toSet.size)
 
-    // 3 sensible groups, one with nodes 0, 1, and 2
+     // 3 sensible groups, one with nodes 0, 1, and 2
     assert(results(0)("Node 0") === results(0)("Node 1"))
     assert(results(0)("Node 0") === results(0)("Node 2"))
 
