@@ -650,11 +650,11 @@ object Community {
   * @param algorithmByLevel A function that returns what modifications should be made to the clustering algorithm at
   *                         a given level
   */
-private[unithread] class CommunityClusterer (var c: Community,
-                                             randomize: Boolean,
-                                             forceSecondIteration: Boolean,
-                                             min_modularity: Double,
-                                             algorithmByLevel: Int => AlgorithmModification)  extends Logging {
+class CommunityClusterer (var c: Community,
+                          randomize: Boolean,
+                          forceSecondIteration: Boolean,
+                          min_modularity: Double,
+                          algorithmByLevel: Int => AlgorithmModification)  extends Logging {
   private var used = false
 
   /**
