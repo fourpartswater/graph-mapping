@@ -70,12 +70,11 @@ class HierarchicalFDLayoutTestSuite extends FunSuite with SharedSparkContext {
   }
 
   test("Inline layout should lay nodes out without writing anything") {
-    val arranger = new HierarchicFDLayout
     val config: HierarchicalLayoutConfig = getConfig
     val params: ForceDirectedLayoutParameters = getParams.get
     val inputGraph: Seq[Graph[GraphNode, Long]] = getInputGraph
 
-    val layouts = arranger.determineLayout[Graph[LayoutNode, Long]](config, params)(
+    val layouts = HierarchicFDLayout.determineLayout[Graph[LayoutNode, Long]](config, params)(
       level => (inputGraph(level), Some(-1L)),
       (level, layout, width, maxLevel) => layout
     )

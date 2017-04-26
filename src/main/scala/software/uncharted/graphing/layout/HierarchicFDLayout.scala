@@ -27,7 +27,7 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayout, Fo
   * Hierarchical algorithm that runs force-Directed layout on each community, starting at the most inclusive level,
   * laying out each community within the area of its parent.
   **/
-class HierarchicFDLayout extends Serializable {
+object HierarchicFDLayout {
   private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig)(level: Int): (Graph[GraphNode, Long], Option[Long]) = {
     // parse edge data
     val gparser = new GraphCSVParser
@@ -361,5 +361,3 @@ class HierarchicFDLayout extends Serializable {
 		sc.parallelize(statsStrings, 1).saveAsTextFile(outputDir+"/stats")
 	}
 }
-
-//case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
