@@ -217,7 +217,12 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     for (i <- 0 until numNodes) {
       nodes(i) =
         metaData.map(_ (i)).map { case (metaDatum, analyticData) =>
-          NodeInfo(i, 1, Some(metaDatum), analyticData.toArray, customAnalytics)
+          val typedAnalyticData: Array[Any] =
+            customAnalytics.map(Some(_)).zipAll(analyticData.map(Some(_)), None, None).flatMap {
+              case (Some(analytic), datum) => Some(induceAnalyticType(analytic, datum))
+              case (None, _) => None
+            }
+          NodeInfo(i, 1, Some(metaDatum), typedAnalyticData, customAnalytics)
         }.getOrElse {
           NodeInfo(i, 1, None, Array[Any](), customAnalytics)
         }
@@ -225,6 +230,10 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
 
     new Graph(degrees, edgeDestinations, nodes, edgeWeights)
   }
+
+  private def induceAnalyticType[AIT] (analytic: CustomGraphAnalytic[AIT], datum: Option[String]): AIT =
+    analytic.aggregator.add(analytic.aggregator.default(), datum)
+
 }
 
 
