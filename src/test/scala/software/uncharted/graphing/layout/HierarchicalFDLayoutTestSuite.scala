@@ -15,6 +15,7 @@ package software.uncharted.graphing.layout
 
 
 import com.typesafe.config.ConfigFactory
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.FunSuite
@@ -26,7 +27,7 @@ class HierarchicalFDLayoutTestSuite extends FunSuite with SharedSparkContext {
   private def getConfig =
     HierarchicalLayoutConfig(null, None, null, null, None, 256.0, 1, 8)
   private def getParams =
-    ForceDirectedLayoutParametersParser.parse(ConfigFactory.empty)
+    ForceDirectedLayoutParametersParser.parse(ConfigFactory.parseString("layout.force-directed.use-node-sizes=true"))
   private def getInputGraph: Seq[Graph[GraphNode, Long]] = {
     // raw level
     val nodes0 = Seq[GraphNode](
@@ -70,13 +71,21 @@ class HierarchicalFDLayoutTestSuite extends FunSuite with SharedSparkContext {
   }
 
   test("Inline layout should lay nodes out without writing anything") {
+    Logger.getRootLogger.setLevel(Level.WARN)
     val config: HierarchicalLayoutConfig = getConfig
     val params: ForceDirectedLayoutParameters = getParams.get
     val inputGraph: Seq[Graph[GraphNode, Long]] = getInputGraph
 
     val layouts = HierarchicFDLayout.determineLayout[Graph[LayoutNode, Long]](config, params)(
-      level => (inputGraph(level), Some(-1L)),
-      (level, layout, width, maxLevel) => layout
+      level => inputGraph(level),
+      (level, layout, width, maxLevel) => {
+        // Lock output so it doesn't change next iteration
+        layout.cache
+        layout.vertices.count
+        layout.edges.count
+
+        layout
+      }
     )
 
     assert(2 === layouts.length)

@@ -28,7 +28,7 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayout, Fo
   * laying out each community within the area of its parent.
   **/
 object HierarchicFDLayout {
-  private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig)(level: Int): (Graph[GraphNode, Long], Option[Long]) = {
+  private def getGraph (sc: SparkContext, config: HierarchicalLayoutConfig)(level: Int): Graph[GraphNode, Long] = {
     // parse edge data
     val gparser = new GraphCSVParser
     val rawData = config.inputParts
@@ -37,29 +37,11 @@ object HierarchicFDLayout {
 
     val edges = gparser.parseEdgeData(rawData, config.inputDelimiter, 1, 2, 3)
 
-    val rawNodeData = gparser.parseNodeData(rawData, config.inputDelimiter, 1, 2, 3, 4)
+    val nodeData = gparser.parseNodeData(rawData, config.inputDelimiter, 1, 2, 3, 4)
 
-    val rootNode = if (level == config.maxHierarchyLevel) {
-      // If we're on the top hierarchy level, other parts of the system will need to know the root node.
-      Some(rawNodeData.map(n => (n.id, n.internalNodes)).top(1)(Ordering.by(_._2))(0)._1)
-    } else {
-      None
-    }
-
-    val nodes = if (level == config.maxHierarchyLevel) {
-      // for the top hierarachy level, force the 'parentID' of all nodes to the largest community,
-      // so the largest community will be placed in the centre of the graph layout
-      rawNodeData.map(node => GraphNode(node.id, rootNode.get, node.internalNodes, node.degree, node.metadata))
-    } else {
-      rawNodeData
-    }
-
-    (
-      Graph(nodes.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
-        (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0)
-      }),
-      rootNode
-      )
+    Graph(nodeData.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
+      (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0)
+    })
   }
 
   def getIntraCommunityEdgesByCommunity (graph: Graph[GraphNode, Long],
@@ -99,10 +81,17 @@ object HierarchicFDLayout {
                          edges: Iterable[GraphEdge],
                          bounds: Circle)
 
-  def getLayoutData (graph: Graph[GraphNode, Long],
+  private def getLayoutData (graph: Graph[GraphNode, Long],
                      lastLevelLayout: RDD[(Long, Circle)],
                      config: HierarchicalLayoutConfig,
                      level: Int): RDD[LayoutData] = {
+    val vCount = graph.vertices.count
+    val eCount = graph.edges.count
+    val nbc = getNodesByCommunity(graph, config).collect
+    val icec = getIntraCommunityEdgesByCommunity(graph, config).collect
+    val lll = lastLevelLayout.collect()
+
+
     // join raw nodes with intra-community edges (key is parent ID), AND join with lastLevelLayout so have access
     // to parent rectangle coords too
     getNodesByCommunity(graph, config)
@@ -113,6 +102,25 @@ object HierarchicFDLayout {
       // Not sure why.
       val edges = edgesOption.getOrElse(Iterable(GraphEdge(-1L, -1L, 0L)))
       LayoutData(parentId, nodes, edges, bounds)
+    }
+  }
+
+  // If the graph is the top-level graph, replace parents with a common parent ID
+  // The common parent ID is the id of the largest node
+  //
+  // @param topLevel Indicates if this graph represents the top (most zoomed-out) level or not
+  // @param graph The graph at the current level
+  // @return (The adjusted graph, the new parent node ID (if one was used))
+  private def adjustGraph (topLevel: Boolean, graph: Graph[GraphNode, Long]): (Graph[GraphNode, Long], Option[Long]) = {
+    if (topLevel) {
+      // find the top node
+      val rootNode = graph.vertices.map { case (id, node) => (node.id, node.internalNodes) }.top(1)(Ordering.by(_._2))(0)._1
+      (
+        graph.mapVertices { case (id, node) => node.replaceParent(rootNode) },
+        Some(rootNode)
+        )
+    } else {
+      (graph, None)
     }
   }
 
@@ -151,7 +159,7 @@ object HierarchicFDLayout {
 
   def determineLayout[T] (layoutConfig: HierarchicalLayoutConfig,
                           layoutParameters: ForceDirectedLayoutParameters)
-                         (getGraphLevel: Int => (Graph[GraphNode, Long], Option[Long]),
+                         (getGraphLevel: Int => Graph[GraphNode, Long],
                           withLayout: (Int, Graph[LayoutNode, Long], Double, Boolean) => T): Seq[T] = {
 		//TODO -- this class assumes edge weights are Longs.  If this becomes an issue for some datasets, then change expected edge weights to Doubles?
 		if (layoutConfig.maxHierarchyLevel < 0) throw new IllegalArgumentException("maxLevel parameter must be >= 0")
@@ -172,7 +180,7 @@ object HierarchicFDLayout {
       // Group by parent community, and do Group-in-Box layout once for each parent community.
       // Then consolidate results and save in format (community id, rectangle in 'global coordinates')
       println(s"\n\nGetting graph nodes and edges for hierarchy level $level\n\n")
-      val (graph, rootNode) = getGraphLevel(level)
+      val (graph, rootNode) = adjustGraph((level == layoutConfig.maxHierarchyLevel), getGraphLevel(level))
       val edges = graph.edges.cache()
       val sc = edges.context
 
