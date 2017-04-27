@@ -85,13 +85,6 @@ object HierarchicFDLayout {
                      lastLevelLayout: RDD[(Long, Circle)],
                      config: HierarchicalLayoutConfig,
                      level: Int): RDD[LayoutData] = {
-    val vCount = graph.vertices.count
-    val eCount = graph.edges.count
-    val nbc = getNodesByCommunity(graph, config).collect
-    val icec = getIntraCommunityEdgesByCommunity(graph, config).collect
-    val lll = lastLevelLayout.collect()
-
-
     // join raw nodes with intra-community edges (key is parent ID), AND join with lastLevelLayout so have access
     // to parent rectangle coords too
     getNodesByCommunity(graph, config)
