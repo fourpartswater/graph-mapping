@@ -476,6 +476,7 @@ object Community {
   var filename_w: Option[String] = None
   var filename_m: Option[String] = None
   var filename_part: Option[String] = None
+  var filename_output: Option[String] = None
   var randomize = true
   var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
@@ -497,6 +498,7 @@ object Community {
     println("-a customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
     println("-nd <base>\tUse the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.")
     println("-cs <size>\tUse the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd")
+    println("-o <directory>\tThe directory into which to put output communities")
     System.exit(0)
   }
 
@@ -531,6 +533,10 @@ object Community {
           case "k" =>
             i = i + 1
             k1 = args(i).toInt
+
+          case "o" =>
+            i = i + 1
+            filename_output = Some(args(i))
 
           case "a" =>
             i = i + 1
@@ -587,7 +593,10 @@ object Community {
       }
     }
 
-    val curDir: Option[File] = if (-1 == display_level) Some(new File(".")) else None
+    val curDir: Option[File] = if (-1 == display_level)
+      Some(new File(filename_output.getOrElse(".")))
+    else
+      None
 
     // Perform our clustering
     new CommunityClusterer(
