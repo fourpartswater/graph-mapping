@@ -12,15 +12,22 @@
   */
 package software.uncharted.graphing
 
+
+import scala.collection.mutable
+import java.io.{File, FileOutputStream}
+import java.nio.file.Files
+
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SharedSparkContext
 import org.scalatest.FunSuite
-import org.apache.spark.graphx.{Graph => SparkGraph}
-import software.uncharted.graphing.analytics.SumAnalytic0
+import org.apache.spark.graphx.{Edge, Graph => SparkGraph}
+import software.uncharted.graphing.analytics.{SumAnalytic0, SumAnalytic2}
 import software.uncharted.graphing.clustering.unithread.{Graph => InputGraph, _}
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParametersParser, LayoutNode}
-import software.uncharted.graphing.layout.{GraphNode, HierarchicFDLayout, HierarchicalLayoutConfig}
+import software.uncharted.graphing.layout.{Circle, ClusteredGraphLayoutApp, GraphNode, HierarchicFDLayout, HierarchicalLayoutConfig, V2}
+
+import scala.io.Source
 
 /**
   * Test our full graph pipeline, from clustering to layout
@@ -79,7 +86,114 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
     val edgeRepresentation = new GraphEdges(rawLinks)
     edgeRepresentation.metaData = Some(rawNodes)
 
-    edgeRepresentation.toGraph(Array(SumAnalytic0))
+    edgeRepresentation.toGraph(Array(new SumAnalytic0))
+  }
+
+  test("Full graph processing one part at a time") {
+    val filesToRemove = mutable.Buffer[File]()
+    try {
+      // write out our data
+      val tmpEdges = File.createTempFile("test-graph", ".edges")
+      filesToRemove.append(tmpEdges)
+      val edgeOS = new FileOutputStream(tmpEdges)
+      rawLinks.zipWithIndex.foreach { case (toNodes, from) =>
+        toNodes.foreach { case (to, weight, edgeAnalytics) =>
+          edgeOS.write(s"$from\t$to\n".getBytes)
+        }
+      }
+      edgeOS.flush()
+      edgeOS.close()
+
+      val tmpNodes = File.createTempFile("test-graph", ".nodes")
+      filesToRemove.append(tmpNodes)
+      val nodeOS = new FileOutputStream(tmpNodes)
+      rawNodes.zipWithIndex.foreach { case ((metaData, analytics), id) =>
+        nodeOS.write((s"$id\t$metaData" + analytics.mkString("\t", "\t", "\n")).getBytes)
+      }
+      nodeOS.flush()
+      nodeOS.close()
+
+
+
+      // Convert to binary form
+      val tmpEdgesBin = File.createTempFile("test-graph", ".edges.bin")
+      filesToRemove.append(tmpEdgesBin)
+      val tmpNodesBin = File.createTempFile("test-graph", ".nodes.bin")
+      filesToRemove.append(tmpNodesBin)
+
+      Convert.main(Array(
+        "-ie", tmpEdges.getAbsolutePath, "-ce", "\t", "-s", "0", "-d", "1", "-oe", tmpEdgesBin.getAbsolutePath,
+        "-in", tmpNodes.getAbsolutePath, "-cn", "\t", "-n", "0", "-m", "1", "-an", classOf[SumAnalytic2].getName, "-om", tmpNodesBin.getAbsolutePath
+      ))
+
+
+
+      // Cluster the graph
+      val tmpLoc = Files.createTempDirectory("test-graph").toFile
+      filesToRemove.append(tmpLoc)
+      val clusterLoc = new File(tmpLoc, "clusters")
+      clusterLoc.mkdirs()
+      Community.main(Array(
+        "-m", tmpNodesBin.getAbsolutePath, "-l", "-1", "-n", tmpEdgesBin.getAbsolutePath, "-ac", classOf[SumAnalytic2].getName, "", "-o", clusterLoc.getAbsolutePath
+      ))
+
+
+
+      // Lay the graph out
+      val layoutLoc = new File(tmpLoc, "layout")
+      layoutLoc.mkdirs()
+      val tmpConfig = File.createTempFile("test-graph", ".config")
+      filesToRemove.append(tmpConfig)
+      val configOS = new FileOutputStream(tmpConfig)
+      configOS.write(
+        s"""layout.input.location="${clusterLoc.toURI.toString.dropRight(1)}"
+           |layout.input.delimiter="\\t"
+           |layout.output.location="${layoutLoc.toURI.toString.dropRight(1)}"
+           |layout.max-level=1
+           |layout.community-size-threshold=0
+           |layout.force-directed.use-node-sizes=true
+           |spark.master=local
+         """.stripMargin.getBytes)
+      configOS.flush()
+      configOS.close()
+      ClusteredGraphLayoutApp.execute(session, ConfigFactory.parseFile(tmpConfig))
+
+      // Check that our layout produced what it was supposed to
+      val (e0, n0) = parseLayoutOutput(new File(layoutLoc, "level_1"))
+      val (e1, n1) = parseLayoutOutput(new File(layoutLoc, "level_0"))
+
+      checkOutput(e0, n0, e1, n1)
+    } finally {
+      filesToRemove.foreach(removeFile)
+    }
+  }
+
+  // Parse the [file] output of the stand-along layout stage
+  private def parseLayoutOutput (location: File): (Seq[Edge[Long]], Map[Long, LayoutNode]) = {
+    val contents = location
+      .listFiles()
+      .filter(_.getName.startsWith("part-"))
+      .map(part => Source.fromFile(part).getLines().toArray)
+      .reduce(_ ++ _)
+    val edges = contents.filter(_.startsWith("edge")).map { line =>
+      val fields = line.split("\t")
+      new Edge[Long](fields(1).toLong, fields(4).toLong, fields(7).toLong)
+    }.toSeq
+    val nodes = contents.filter(_.startsWith("node")).map { line =>
+      val fields = line.split("\t")
+      fields(1).toLong -> new LayoutNode(
+        fields(1).toLong, fields(5).toLong, fields(9).toLong, fields(10).toInt, fields.drop(10).mkString("\t"),
+        Circle(V2(fields(2).toDouble, fields(3).toDouble), fields(4).toDouble),
+        Some(Circle(V2(fields(6).toDouble, fields(7).toDouble), fields(8).toDouble))
+      )
+    }.toMap
+    (edges, nodes)
+  }
+  private def removeFile (file: File): Unit = {
+    if (file.isDirectory) {
+      file.listFiles().foreach(removeFile)
+    }
+    file.delete
   }
 
   test("Full graph processing suite") {
@@ -89,12 +203,12 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
 
     // Step 2: Cluster our graph
     val baseCommunity = new Community(flatGraph, -1, 0.0)
-    val clusterer = new CommunityClusterer(baseCommunity, true, false, 0.0, level => new BaselineAlgorithm)
+    val clusterer = new CommunityClusterer(baseCommunity, false, false, 0.0, level => new BaselineAlgorithm)
     val clusters = clusterer.doClustering[SparkGraph[GraphNode, Long]](ClusterToLayoutConverter.withLevel(session.sparkContext))
 
     // Step 3: Do layout
     val layoutConfig = HierarchicalLayoutConfig(null, None, null, null, None,
-      256.0, clusters.length - 1, 10)
+      256.0, clusters.length - 1, 0)
     val layoutParams =
       ForceDirectedLayoutParametersParser.parse(ConfigFactory.parseString("layout.force-directed.use-node-sizes=true")).get
     def getGraphLevel (level: Int) = clusters(level)
@@ -118,24 +232,24 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
 
     assert(2 === arrangedClusters.length)
 
-    // Bottom level
-    assert(30 === arrangedClusters(1)._1.length)
-    assert(132 === arrangedClusters(1)._2.length)
+    checkOutput(
+      arrangedClusters(0)._2, arrangedClusters(0)._1.map(node => (node.id, node)).toMap,
+      arrangedClusters(1)._2, arrangedClusters(1)._1.map(node => (node.id, node)).toMap
+    )
+  }
 
-    // Middle level
-    assert(6 === arrangedClusters(0)._1.length)
-    assert(18 === arrangedClusters(0)._2.length)
+  private def checkOutput (e0: Seq[Edge[Long]], n0: Map[Long, LayoutNode],
+                           e1: Seq[Edge[Long]], n1: Map[Long, LayoutNode]): Unit = {
+
+    // Bottom level
+    assert(30 === n1.size)
+    assert(132 == e1.length || 264 === e1.length)
+
+    // Top level
+    assert(6 === n0.size)
+    assert(18 === e0.length)
 
     // Check results in detail
-    val foo1 = arrangedClusters(1)
-    val foo2 = foo1._1
-    val foo3 = foo2.map(node =>
-      (node.id, node)
-    )
-    val foo4 = foo3.toMap
-    val n1 = arrangedClusters(1)._1.map(node => (node.id, node)).toMap
-    val n0 = arrangedClusters(0)._1.map(node => (node.id, node)).toMap
-
     // Check that nodes are clustered with the nodes with which we expect them to be clustered
     assert(n1(0).parentId === n1(1).parentId)
     assert(n1(0).parentId === n1(2).parentId)
