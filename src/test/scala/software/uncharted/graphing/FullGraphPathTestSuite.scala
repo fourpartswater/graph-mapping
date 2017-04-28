@@ -90,6 +90,7 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
   }
 
   test("Full graph processing one part at a time") {
+    Logger.getRootLogger.setLevel(Level.WARN)
     val filesToRemove = mutable.Buffer[File]()
     try {
       // write out our data
@@ -182,7 +183,7 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
     val nodes = contents.filter(_.startsWith("node")).map { line =>
       val fields = line.split("\t")
       fields(1).toLong -> new LayoutNode(
-        fields(1).toLong, fields(5).toLong, fields(9).toLong, fields(10).toInt, fields.drop(10).mkString("\t"),
+        fields(1).toLong, fields(5).toLong, fields(9).toLong, fields(10).toInt, fields.drop(12).mkString("\t"),
         Circle(V2(fields(2).toDouble, fields(3).toDouble), fields(4).toDouble),
         Some(Circle(V2(fields(6).toDouble, fields(7).toDouble), fields(8).toDouble))
       )
@@ -302,6 +303,13 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
 
     assert(n1(20).parentId !== n1(25).parentId)
 
+    // Check that metadata was correctly aggregated
+    assert(n0(n1(0).parentId).metadata.split("\t")(1).toDouble.round.toInt === 10)
+    assert(n0(n1(5).parentId).metadata.split("\t")(1).toDouble.round.toInt === 35)
+    assert(n0(n1(10).parentId).metadata.split("\t")(1).toDouble.round.toInt === 60)
+    assert(n0(n1(15).parentId).metadata.split("\t")(1).toDouble.round.toInt === 85)
+    assert(n0(n1(20).parentId).metadata.split("\t")(1).toDouble.round.toInt === 110)
+    assert(n0(n1(25).parentId).metadata.split("\t")(1).toDouble.round.toInt === 135)
 
     // Check that clustered nodes are within their parent
     def distance (a: Long, b: Long): Double = {

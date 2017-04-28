@@ -40,10 +40,11 @@ object ClusterToLayoutConverter {
       val parentId = community.g.nodeInfo(n).communityNode.id
       val size = community.g.internalSize(n)
       val weight = community.g.weighted_degree(n).round.toInt
-      val metadata = community.g.metaData(n)
+      val simpleMetadata = community.g.metaData(n)
       val analyticData = community.g.nodeInfo(n).finishedAnalyticValues
+      val metadataWithAnalytics = simpleMetadata + analyticData.mkString("\t", "\t", "")
 
-      val graphNode = new GraphNodeWithAnalytics(id.toLong, parentId.toLong, size, weight, metadata, analyticData)
+      val graphNode = new GraphNode(id.toLong, parentId.toLong, size, weight, metadataWithAnalytics)
       (id.toLong, graphNode)
     }
     val vertices: RDD[(VertexId, GraphNode)] = sc.parallelize(localVertices)
@@ -58,24 +59,5 @@ object ClusterToLayoutConverter {
     val edges: RDD[Edge[Long]] = sc.parallelize(localEdges)
 
     org.apache.spark.graphx.Graph(vertices, edges)
-  }
-}
-
-class GraphNodeWithAnalytics (override val id: Long,
-                              override val parentId: Long,
-                              override val internalNodes: Long,
-                              override val degree: Int,
-                              override val metadata: String,
-                              val analyticData: Seq[String])
-  extends GraphNode(id, parentId, internalNodes, degree, metadata) {
-
-  override def toString =
-    s"GraphNodeWithAnalytics($id,$parentId,$internalNodes,$degree,$metadata"+analyticData.mkString(",",",",")")
-  override def hashCode =
-    super.hashCode + analyticData.hashCode() * 7
-  override def equals (other: Any): Boolean = other match {
-    case that: GraphNodeWithAnalytics =>
-      super.equals(that) && this.analyticData == that.analyticData
-    case _ => false
   }
 }
