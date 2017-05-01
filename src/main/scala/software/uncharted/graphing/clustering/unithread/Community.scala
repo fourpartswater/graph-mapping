@@ -26,7 +26,7 @@ import grizzled.slf4j.Logging
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
-import scala.collection.Seq
+import scala.collection.{Seq, mutable}
 import scala.util.Random
 
 
@@ -149,15 +149,18 @@ class Community (val g: Graph,
           0.0
         }
 
-      lastModularityComponents.map(lastModComp =>
+      modComp(i) = increment
+      lastModularityComponents.foreach(lastModComp =>
         if (lastModComp(i) != modComp(i)) {
           println(s"Modularity for node $i changed from ${lastModComp(i)} to ${modComp(i)}: tot($i)=${tot(i)}, in($i)=${in(i)}, m2=${m2}")
         }
       )
+
       q += increment
     }
 
     lastModularityComponents = Some(modComp)
+
     q
   }
 
@@ -232,6 +235,8 @@ class Community (val g: Graph,
       nb_moves = 0
       nb_pass_done += 1
 
+      val changes = mutable.Buffer[String]()
+
       // for each node: remove the node from its community and insert it in the best community
       for (node_tmp <- 0 until size) {
         val node = random_order(node_tmp)
@@ -241,6 +246,14 @@ class Community (val g: Graph,
         // computation of all neighboring communities of current node
         neigh_comm(node)
         // remove node from its current community
+
+        val comm0Tot = tot(node_comm)
+        val comm0In  = in(node_comm)
+        val comm0Size = community_size(node_comm)
+        val comm0 = n2c(node)
+        val comm0Weight = neigh_weight(node_comm)
+
+
         remove(node, node_comm, neigh_weight(node_comm))
 
         // compute the nearest community for node
@@ -257,11 +270,19 @@ class Community (val g: Graph,
           }
         }
 
+        val comm1Tot = tot(best_comm)
+        val comm1In  = in(best_comm)
+        val comm1Size = community_size(best_comm)
+        val comm1 = best_comm
+        val comm1Weight = neigh_weight(node_comm)
         // insert node in the nearest community
         insert(node, best_comm, best_nblinks)
 
-        if (best_comm != node_comm)
+        if (best_comm != node_comm) {
           nb_moves += 1
+          changes.append(s"${comm0}\t${nb_pass_done}\t(${node})\t${comm0Tot}\t${tot(comm0)}\t${comm0In}\t${in(comm0)}\t${comm0Weight}\t${neigh_weight(comm0)}\t${comm0Size}\t${community_size(comm0)}")
+          changes.append(s"${comm1}\t${nb_pass_done}\t ${node} \t${comm1Tot}\t${tot(comm1)}\t${comm1In}\t${in(comm1)}\t${comm1Weight}\t${neigh_weight(comm1)}\t${comm1Size}\t${community_size(comm1)}")
+        }
       }
 
       var total_tot = 0.0
@@ -275,6 +296,9 @@ class Community (val g: Graph,
       if (nb_moves > 0)
         improvement = true
 
+      println
+      println("comm\tpass\tnode\ttot\t\tin\t\tweight\t\tsize")
+      changes.foreach(println)
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
     val (renumber, _) = getRenumbering
