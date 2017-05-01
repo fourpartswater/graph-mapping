@@ -35,13 +35,47 @@ import scala.reflect.ClassTag
 class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   var metaData: Option[Array[(String, Seq[String])]] = None
 
-  def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
+  /**
+    * Read the metadata from source.
+    * @param metadataFile Reader for the metadata.
+    * @param md_filter Value compared to the start of the line to filter metadata.
+    * @param separator Separator of the fields.
+    * @param id_column 0 based index of the id column.
+    * @param md_column 0 based index of the metadata column.
+    * @param analytics Analytics to apply to the metadata.
+    */
+  def readMetadata (metadataFile: String, md_filter: Option[String], separator: String,
                     id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
-    metaData = Some(new Array[(String, Seq[String])](links.length))
+    // Get the number of nodes in the input data.
+    var metadataReader = new BufferedReader(new InputStreamReader(new FileInputStream(metadataFile)))
+    var nodeCount = 0
+    var line = metadataReader.readLine()
+    while (null != line) {  //scalastyle:ignore
+      if (!line.trim.isEmpty) {
+        val fields = line.split(separator)
+        if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+          val nodeId = fields(id_column).toInt
+          if (nodeId > nodeCount) nodeCount = nodeId
+        }
+      }
+      line = metadataReader.readLine()
+    }
+
+    metadataReader.close()
+
+    // Read the metadata.
+    metadataReader = new BufferedReader(new InputStreamReader(new FileInputStream(metadataFile)))
+    readMetadata(metadataReader, md_filter, separator, id_column, md_column, nodeCount + 1, analytics)
+    metadataReader.close()
+  }
+
+  def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
+                    id_column: Int, md_column: Int, nodeCount: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
+    metaData = Some(new Array[(String, Seq[String])](nodeCount))
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
     metaData.foreach{data =>
       var line = metadataInput.readLine()
-      while (null != line) {
+      while (null != line) {  //scalastyle:ignore
         if (!line.trim.isEmpty) {
           val fields = line.split(separator)
           if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
@@ -49,8 +83,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
             if (fields.size <= md_column) println("Too short")
             val md = fields(md_column)
             val analyticValues = analyticColumns.map { c =>
-              if (fields.size <= c) ""
-              else fields(c).trim
+              if (fields.size <= c) "" else fields(c).trim
             }
             data(nodeId) = (md, analyticValues)
           }
