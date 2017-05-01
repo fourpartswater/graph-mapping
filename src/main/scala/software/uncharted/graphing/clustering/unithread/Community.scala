@@ -132,6 +132,35 @@ class Community (val g: Graph,
     q
   }
 
+  private var lastModularityComponents: Option[Array[Double]] = None
+  // Alternate modularity calculation to track what has changed since the last calculation
+  def debugModularity: Double = {
+    val modComp = new Array[Double](size)
+
+    var q = 0.0
+    val m2 = g.total_weight
+
+    for (i <- 0 until size) {
+      val increment =
+        if (tot(i) > 0) {
+          val tm = tot(i) / m2
+          in(i) / m2 - tm * tm
+        } else {
+          0.0
+        }
+
+      lastModularityComponents.map(lastModComp =>
+        if (lastModComp(i) != modComp(i)) {
+          println(s"Modularity for node $i changed from ${lastModComp(i)} to ${modComp(i)}: tot($i)=${tot(i)}, in($i)=${in(i)}, m2=${m2}")
+        }
+      )
+      q += increment
+    }
+
+    lastModularityComponents = Some(modComp)
+    q
+  }
+
   def neigh_comm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
