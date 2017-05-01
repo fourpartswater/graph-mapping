@@ -42,7 +42,12 @@ object ClusterToLayoutConverter {
       val weight = community.g.weighted_degree(n).round.toInt
       val simpleMetadata = community.g.metaData(n)
       val analyticData = community.g.nodeInfo(n).finishedAnalyticValues
-      val metadataWithAnalytics = simpleMetadata + analyticData.mkString("\t", "\t", "")
+      val metadataWithAnalytics =
+        if (analyticData.length > 0) {
+          simpleMetadata + analyticData.mkString("\t", "\t", "")
+        } else {
+          simpleMetadata
+        }
 
       val graphNode = new GraphNode(id.toLong, parentId.toLong, size, weight, metadataWithAnalytics)
       (id.toLong, graphNode)
