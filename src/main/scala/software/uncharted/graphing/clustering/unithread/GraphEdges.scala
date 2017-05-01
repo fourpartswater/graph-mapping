@@ -198,9 +198,9 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
 
     // Allocate destination and weight arrays
     val edgeDestinations: Array[Int]           = new Array(totalEdges)
-    val edgeWeights:      Option[Array[Float]] =
+    val edgeWeights:      Option[Array[Double]] =
       if (weighted) {
-        Some(new Array[Float](totalEdges))
+        Some(new Array[Double](totalEdges))
       } else {
         None
       }

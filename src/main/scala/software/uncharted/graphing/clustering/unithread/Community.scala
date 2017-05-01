@@ -87,8 +87,8 @@ class Community (val g: Graph,
     n2c(i) = i
     community_size(i) = 1
   }
-  val tot = n2c.map(n => g.weighted_degree(n))
-  val in = n2c.map(n => g.nb_selfloops(n))
+  val tot: Array[Double] = n2c.map(n => g.weighted_degree(n))
+  val in: Array[Double] = n2c.map(n => g.nb_selfloops(n))
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
@@ -435,11 +435,11 @@ class Community (val g: Graph,
     val degrees = new Array[Int](nb_nodes)
     val links = MutableBuffer[Int]()
     val nodeInfos = new Array[NodeInfo](nb_nodes)
-    val weights = MutableBuffer[Float]()
+    val weights = MutableBuffer[Double]()
 
     val comm_deg = comm_nodes.size
     for (comm <- 0 until comm_deg) {
-      val m = MutableMap[Int, Float]()
+      val m = MutableMap[Int, Double]()
 
       val comm_size = comm_nodes(comm).size
       for (node <- 0 until comm_size) {
@@ -448,7 +448,7 @@ class Community (val g: Graph,
         for (i <- 0 until deg) {
           val (neigh, neigh_weight) = neighbors.next
           val neigh_comm = renumber(n2c(neigh))
-          m(neigh_comm) = m.getOrElse(neigh_comm, 0.0f) + neigh_weight
+          m(neigh_comm) = m.getOrElse(neigh_comm, 0.0) + neigh_weight
         }
       }
       degrees(comm) = if (0 == comm) m.size else degrees(comm-1) + m.size

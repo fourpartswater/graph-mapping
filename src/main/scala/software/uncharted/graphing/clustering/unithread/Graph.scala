@@ -78,7 +78,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
  * @param nodeInfos Extra information about each node
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
  */
-class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo], weightsOpt: Option[Array[Float]] = None) {
+class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo], weightsOpt: Option[Array[Double]] = None) {
   val nb_nodes = degrees.length
   val nb_links = links.length
   // A place to cache node weights, so it doesn't have to be calculated multiple times.
@@ -99,17 +99,17 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
       degrees(node) - degrees(node - 1)
     }
 
-  def neighbors (node: Int): Iterator[(Int, Float)] =
+  def neighbors (node: Int): Iterator[(Int, Double)] =
     new NeighborIterator(node)
 
   def nb_selfloops (node: Int): Double =
-    neighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
+    neighbors(node).filter(_._1 == node).map(_._2).fold(0.0)(_ + _)
 
   def weighted_degree (node: Int): Double = {
     // Only calculated the degree of a node once
     if (null == weights(node) || weights(node).isEmpty) {
       weights(node) = Some(weightsOpt.map(weights =>
-        neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
+        neighbors(node).map(_._2).fold(0.0)(_ + _)
       ).getOrElse(nb_neighbors(node))
       )
     }
@@ -129,26 +129,26 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     }
   }
 
-  class NeighborIterator (node: Int) extends Iterator[(Int, Float)] {
+  class NeighborIterator (node: Int) extends Iterator[(Int, Double)] {
     var index= if (0 == node) 0 else degrees(node-1)
     val end = degrees(node)
 
     override def hasNext: Boolean = index < end
 
-    override def next(): (Int, Float) = {
+    override def next(): (Int, Double) = {
       val nextLink: Int = links(index)
-      val nextWeight = weightsOpt.map(_(index)).getOrElse(1.0f)
+      val nextWeight = weightsOpt.map(_(index)).getOrElse(1.0)
       index = index + 1
       (nextLink, nextWeight)
     }
   }
 
-  def toSpark(sc: SparkContext): SparkGraph[Int, Float] = {
+  def toSpark(sc: SparkContext): SparkGraph[Int, Double] = {
     val nodes = (0 until nb_nodes).map(n => (n.toLong, n))
     var i = 0
     val edges = for (src <- 0 until nb_nodes; j <- 0 until degrees(src)) yield {
       val target = links(i)
-      val weight = weightsOpt.map(_(i)).getOrElse(1.0f)
+      val weight = weightsOpt.map(_(i)).getOrElse(1.0)
       i = i + 1
 
       new Edge(src, target, weight)
@@ -159,7 +159,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
 
 object Graph {
   def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED],
-                     getEdgeWeight: Option[ED => Float] = None,
+                     getEdgeWeight: Option[ED => Double] = None,
                      extractMetadataValue: VD => String,
                      extractAnalyticValues: Option[VD => Seq[String]],
                      customGraphAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
@@ -219,8 +219,8 @@ object Graph {
         linkNum = linkNum + 1
       }
     }
-    val weights: Option[Array[Float]] = getEdgeWeight.map { edgeWeightFcn =>
-      val weightsInner = new Array[Float](nb_links)
+    val weights: Option[Array[Double]] = getEdgeWeight.map { edgeWeightFcn =>
+      val weightsInner = new Array[Double](nb_links)
 
       linkNum = 0
       for (i <- 0 until nb_nodes) {
@@ -273,10 +273,10 @@ object Graph {
 
 
 
-    val weights:Option[Array[Float]] =
+    val weights:Option[Array[Double]] =
       weightDataStreamOpt.map { weightDataStream =>
-        val weightsInner = new Array[Float](nb_links)
-        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat
+        val weightsInner = new Array[Double](nb_links)
+        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat().toDouble
         weightsInner
       }
 
