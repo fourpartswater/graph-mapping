@@ -84,8 +84,9 @@ object Convert extends ConfigReader {
       convertConfig.weightColumn,
       convertConfig.edgeAnalytics)
 
-    infile_node.foreach { nodeFile =>
-      g.readMetadata(nodeFile, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
+    convertConfig.nodeInputFilename.foreach { nodeFile =>
+      g.readMetadata(nodeFile, convertConfig.nodeLineFilter, convertConfig.nodeSeparator, convertConfig.nodeColumn,
+        convertConfig.metaColumn, convertConfig.nodeAnalytics)
     }
 
     if (convertConfig.renumber) {

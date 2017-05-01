@@ -40,7 +40,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   /**
     * Read the metadata from source.
     *
-    * @param metadataFile Reader for the metadata.
+    * @param metadataFile Metadata file.
     * @param md_filter Value compared to the start of the line to filter metadata.
     * @param separator Separator of the fields.
     * @param id_column 0 based index of the id column.
@@ -67,6 +67,17 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
       separator, id_column, md_column, maxNode + 1, analytics)
   }
 
+  /**
+    * Read the metadata from source.
+    *
+    * @param metadataInput Metadata input.
+    * @param md_filter Value compared to the start of the line to filter metadata.
+    * @param separator Separator of the fields.
+    * @param id_column 0 based index of the id column.
+    * @param md_column 0 based index of the metadata column.
+    * @param nodeCount Number of nodes in the metadata. Should be equal to the (highest id + 1).
+    * @param analytics Analytics to apply to the metadata.
+    */
   def readMetadata (metadataInput: Iterator[String], md_filter: Option[String], separator: String,
                     id_column: Int, md_column: Int, nodeCount: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     metaData = Some(new Array[(String, Seq[String])](nodeCount))
