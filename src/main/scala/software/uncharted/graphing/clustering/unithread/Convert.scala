@@ -86,10 +86,8 @@ object Convert extends ConfigReader {
 
 
     convertConfig.nodeInputFilename.foreach { nodeFile =>
-      val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))
-      g.readMetadata(nodeReader, convertConfig.nodeLineFilter, convertConfig.nodeSeparator, convertConfig.nodeColumn,
+      g.readMetadata(nodeFile, convertConfig.nodeLineFilter, convertConfig.nodeSeparator, convertConfig.nodeColumn,
         convertConfig.metaColumn, convertConfig.nodeAnalytics)
-      nodeReader.close()
     }
 
     if (convertConfig.renumber) {

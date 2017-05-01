@@ -30,9 +30,9 @@ pushd ${DATASET}
 
 if [ -e metadata.bin ]
 then
-	ARGS="edges.bin -m metadata.bin -l -1 -v"
+	ARGS="-i edges.bin -m metadata.bin -l -1 -v true"
 else
-	ARGS="edges.bin -l -1 -v"
+	ARGS="-i edges.bin -l -1 -v true"
 fi
 
 if [ -e weights.bin ]
@@ -58,7 +58,7 @@ case ${DATASET} in
 
     grant-graph)
             ARGS="${ARGS} -nd 10"
-            ARGS="${ARGS} -ac software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
+            ARGS="${ARGS} -a software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
             ;;
 
 
