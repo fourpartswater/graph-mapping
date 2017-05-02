@@ -15,6 +15,8 @@ package software.uncharted.graphing.clustering.utilities
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd.RDD
 
+import scala.reflect.ClassTag
+
 /**
   * Utility functions to determine if a graph is bidirectional or unidirectional, and to convert between them
   * where possible
@@ -38,6 +40,6 @@ object GraphDirectionality {
   /**
     * Take an edge list that is not bidirectional and make it bidirectional
     */
-  def makeBidirectional[T] (edges: RDD[T], reverse: T => T): RDD[T] =
+  def makeBidirectional[T: ClassTag] (edges: RDD[T], reverse: T => T): RDD[T] =
     edges.flatMap(t => Seq(t, reverse(t)))
 }
