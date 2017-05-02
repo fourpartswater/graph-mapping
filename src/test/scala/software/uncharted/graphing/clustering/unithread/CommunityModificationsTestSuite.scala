@@ -116,7 +116,7 @@ class CommunityModificationsTestSuite extends FunSuite {
       """.stripMargin
     ge.readMetadata(
       new BufferedReader(new InputStreamReader(new ByteArrayInputStream(metadata.getBytes))),
-      None, " ", 0, 1, analytics
+      None, " ", 0, 1, 3, analytics
     )
 
     // Write out our gGraphEdges

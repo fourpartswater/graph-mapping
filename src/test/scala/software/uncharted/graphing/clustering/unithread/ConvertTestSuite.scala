@@ -73,7 +73,7 @@ class ConvertTestSuite extends FunSuite {
     val edgeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
     val edges = GraphEdges(edgeReader, Some("edge"), "[ \t]+", 2, 3, None)
     val nodeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    edges.readMetadata(nodeReader, Some("node"), "[ \t]+", 1, 3, Seq())
+    edges.readMetadata(nodeReader, Some("node"), "[ \t]+", 1, 3, 5, Seq())
     assert(edges.metaData.get.length === 5)
     assert(("zero", List()) === edges.metaData.get.apply(0))
     assert(("one", List()) === edges.metaData.get.apply(1))
