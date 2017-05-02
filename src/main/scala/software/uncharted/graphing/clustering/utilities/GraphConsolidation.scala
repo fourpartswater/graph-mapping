@@ -17,7 +17,7 @@ import org.apache.spark.rdd.RDD
 /**
   * Functions to consolidate redundant elements in graphs
   */
-class GraphConsolidation {
+object GraphConsolidation {
   /**
     * Consolidate edges in a graph that are between the same two nodes
     * @param edges A dataset of graph edges
