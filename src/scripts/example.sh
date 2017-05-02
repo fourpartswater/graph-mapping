@@ -70,17 +70,14 @@ BASE_LOCATION=/user/${USER}/graphs
 
 REMOVE_EXISTING=true
 
-
-
 echo
 echo Running layout in `pwd`
 echo Starting at `date`
 
 MAX_LEVEL=`ls -d level_* | awk -F'_' '{print $2}' | sort -nr | head -n1`
-MAX_SIZE=`du -s -BM level_0 | awk -F M '{print $1}'`
-# one part per 16M data
-PARTITIONS=$(( 1 > ${MAX_SIZE} / 8 ? 1 : ${MAX_SIZE} / 8 ))
-EXECUTORS=$(expr $(expr ${PARTITIONS} + 7) / 8)
+MAX_SIZE=5
+PARTITIONS=1
+EXECUTORS=1
 
 echo MAX_LEVEL: ${MAX_LEVEL}
 echo MAX_SIZE: ${MAX_SIZE}
@@ -104,12 +101,6 @@ function countHDFSFiles {
 		echo ${RESULTS}
 	fi
 }
-
-echo Checking base location
-if [ 0 -eq "$(countHDFSFiles ${BASE_LOCATION})" ]; then
-	echo Base location ${BASE_LOCATION} does not exists!
-	exit
-fi
 
 echo Checking file existence
 COPY_LOCAL=0
@@ -210,8 +201,6 @@ HBASE_VERSION=1.0.0-cdh5.5.2
 HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
 EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
 
-
-
 # OK, that's all we need - start tiling.
 STARTTIME=$(date +%s)
 echo Starting tiling
@@ -230,13 +219,7 @@ echo Starting tiling
 	${CONFIGURATION} \
 	|& tee -a node-tiling.log
 
-
-
 ENDTIME=$(date +%s)
-
-cleanupConfigFile ${OUTPUT_COPIED} output.conf
-cleanupConfigFile ${TILING_COPIED} tiling.conf
-cleanupConfigFile ${GRAPH__COPIED} graph.conf
 
 echo >> node-tiling.log
 echo >> node-tiling.log
@@ -248,10 +231,6 @@ echo
 echo
 echo Done at `date`
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
-
-popd
-
-
 
 
 # Set up application-specific parameters
@@ -267,13 +246,6 @@ echo Running ${APPLICATION_NAME}
 echo Running in `pwd`
 echo Starting at `date`
 
-echo DATATABLE: ${DATATABLE}
-echo MAX_LEVEL: ${MAX_LEVEL}
-echo PARTITIONS: ${PARTITIONS}
-echo EXECUTORS: ${EXECUTORS}
-echo LEVELS: ${LEVELS}
-echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS}
-
 echo DATATABLE: ${DATATABLE} > metadata-tiling.log
 echo MAX_LEVEL: ${MAX_LEVEL} >> metadata-tiling.log
 echo PARTITIONS: ${PARTITIONS} >> metadata-tiling.log
@@ -281,54 +253,11 @@ echo EXECUTORS: ${EXECUTORS} >> metadata-tiling.log
 echo LEVELS: ${LEVELS} >> metadata-tiling.log
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> metadata-tiling.log
 
-echo
-echo Removing old tile set
-echo "disable '${DATATABLE}'" > clear-hbase-table
-echo "drop '${DATATABLE}'" >> clear-hbase-table
-
-hbase shell < clear-hbase-table
-
-
-
-# See if there is a local inter-community edge configuration file
-if [ -e metadata-tiling.conf ]; then
-	CONFIGURATION=metadata-tiling.conf
-else
-	CONFIGURATION=
-fi
-
-
-
-# Extra jars needed by tiling processes
-HBASE_VERSION=1.0.0-cdh5.5.2
-HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
-EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
-
-
-
 # OK, that's all we need - start tiling
 STARTTIME=$(date +%s)
 echo Starting tiling
 
-echo Run command: >> metadata-tiling.log
-echo spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
-    --conf spark.executor.extraClassPath=${EXTRA_JARS} \
-    --driver-class-path ${EXTRA_JARS} \
-    --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	>> metadata-tiling.log
-echo >> metadata-tiling.log
-echo >> metadata-tiling.log
-
-
-spark-submit \
+/opt/spark-2.0.1-bin-hadoop2.6/bin/spark-submit \
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
@@ -346,14 +275,6 @@ spark-submit \
 
 ENDTIME=$(date +%s)
 
-
-
-cleanupConfigFile ${OUTPUT_COPIED} output.conf
-cleanupConfigFile ${TILING_COPIED} tiling.conf
-cleanupConfigFile ${GRAPH__COPIED} graph.conf
-
-
-
 echo >> metadata-tiling.log
 echo >> metadata-tiling.log
 echo Start time: ${STARTTIME} >> metadata-tiling.log
@@ -365,12 +286,6 @@ echo
 echo Done at `date`
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
-popd
-
-
-
-
-
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
@@ -378,23 +293,10 @@ MAIN_CLASS=software.uncharted.graphing.salt.EdgeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Inter-community edge tiling pipeline"
 
-
 echo
 echo Running ${APPLICATION_NAME}
 echo Running in `pwd`
 echo Starting at `date`
-
-EXTRA_DRIVER_JAVA_OPTS="-Dgraph.edges.type=inter"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} -Dtiling.source=$( relativeToSource ${DATASET} layout )"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}"
-
-echo DATATABLE: ${DATATABLE}
-echo MAX_LEVEL: ${MAX_LEVEL}
-echo PARTITIONS: ${PARTITIONS}
-echo EXECUTORS: ${EXECUTORS}
-echo LEVELS: ${LEVELS[@]}
-echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS}
 
 echo DATATABLE: ${DATATABLE} > inter-edge-tiling.log
 echo MAX_LEVEL: ${MAX_LEVEL} >> inter-edge-tiling.log
@@ -403,70 +305,26 @@ echo EXECUTORS: ${EXECUTORS} >> inter-edge-tiling.log
 echo LEVELS: ${LEVELS[@]} >> inter-edge-tiling.log
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> inter-edge-tiling.log
 
-
-# See if there is a local inter-community edge configuration file
-if [ -e inter-edge-tiling.conf ]; then
-	CONFIGURATION=inter-edge-tiling.conf
-else
-	CONFIGURATION=
-fi
-
-
-
-# Extra jars needed by tiling processes
-HBASE_VERSION=1.0.0-cdh5.5.2
-HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
-EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
-
-
-
 # OK, that's all we need - start tiling.
 STARTTIME=$(date +%s)
 echo Starting tiling
 
-echo Run command: >> inter-edge-tiling.log
-echo spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
+/opt/spark-2.0.1-bin-hadoop2.6/bin/spark-submit \
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	>> inter-edge-tiling.log
-echo >> inter-edge-tiling.log
-echo >> inter-edge-tiling.log
-
-if [ "${DEBUG}" != "true" ]; then
-	spark-submit \
-		--num-executors ${EXECUTORS} \
-		--executor-memory 10g \
-		--executor-cores 4 \
-		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
-		--driver-class-path ${EXTRA_JARS} \
-		--jars `echo ${EXTRA_JARS} | tr : ,` \
-		--class ${MAIN_CLASS} \
-		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-		${MAIN_JAR} \
-		output.conf tiling.conf graph.conf \
-		${CONFIGURATION} \
-		|& tee -a inter-edge-tiling.log
-fi
+    --class ${MAIN_CLASS} \
+    --conf "spark.driver.extraJavaOptions=-Dgraph.edges.type=inter ${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    output.conf tiling.conf graph.conf \
+    ${CONFIGURATION} \
+    |& tee -a inter-edge-tiling.log
 
 
 ENDTIME=$(date +%s)
-
-
-
-cleanupConfigFile ${OUTPUT_COPIED} output.conf
-cleanupConfigFile ${TILING_COPIED} tiling.conf
-cleanupConfigFile ${GRAPH__COPIED} graph.conf
-
-
 
 echo >> inter-edge-tiling.log
 echo >> inter-edge-tiling.log
@@ -479,38 +337,16 @@ echo
 echo Done at `date`
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
-popd
-
-
-
-
-
-
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
 MAIN_CLASS=software.uncharted.graphing.salt.EdgeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Intra-community edge tiling pipeline"
 
-
-
-
 echo
 echo Running ${APPLICATION_NAME}
 echo Running in `pwd`
 echo Starting at `date`
-
-EXTRA_DRIVER_JAVA_OPTS="-Dgraph.edges.type=intra"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} -Dtiling.source=$( relativeToSource ${DATASET} layout )"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
-EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} ${OTHER_ARGS}"
-
-echo DATATABLE: ${DATATABLE}
-echo MAX_LEVEL: ${MAX_LEVEL}
-echo PARTITIONS: ${PARTITIONS}
-echo EXECUTORS: ${EXECUTORS}
-echo LEVELS: ${LEVELS}
-echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS}
 
 echo DATATABLE: ${DATATABLE} > intra-edge-tiling.log
 echo MAX_LEVEL: ${MAX_LEVEL} >> intra-edge-tiling.log
@@ -519,79 +355,29 @@ echo EXECUTORS: ${EXECUTORS} >> intra-edge-tiling.log
 echo LEVELS: ${LEVELS} >> intra-edge-tiling.log
 echo Extra java args: ${EXTRA_DRIVER_JAVA_OPTS} >> intra-edge-tiling.log
 
-echo
-echo Removing old tile set
-echo "disable '${DATATABLE}'" > clear-hbase-table
-echo "drop '${DATATABLE}'" >> clear-hbase-table
-
-hbase shell < clear-hbase-table
-
-
-
-# See if there is a local intra-community edge configuration file
-if [ -e intra-edge-tiling.conf ]; then
-	CONFIGURATION=intra-edge-tiling.conf
-else
-	CONFIGURATION=
-fi
-
-
-
-# Extra jars needed by tiling processes
-HBASE_VERSION=1.0.0-cdh5.5.2
-HBASE_HOME=/opt/cloudera/parcels/CDH/lib/hbase/lib
-EXTRA_JARS=${HBASE_HOME}/htrace-core-3.2.0-incubating.jar:${HBASE_HOME}/hbase-client-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-common-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-protocol-${HBASE_VERSION}.jar:${HBASE_HOME}/hbase-server-${HBASE_VERSION}.jar
-
-
-
 # OK, that's all we need - start tiling.
 STARTTIME=$(date +%s)
 echo Starting tiling
 
-echo Run command: >> intra-edge-tiling.log
-echo spark-submit \
-	--num-executors ${EXECUTORS} \
-	--executor-memory 10g \
-	--executor-cores 4 \
+/opt/spark-2.0.1-bin-hadoop2.6/bin/spark-submit \
+    --num-executors ${EXECUTORS} \
+    --executor-memory 10g \
+    --executor-cores 4 \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
-	--class ${MAIN_CLASS} \
-	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-	${MAIN_JAR} \
-	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
-	>> intra-edge-tiling.log
-echo >> intra-edge-tiling.log
-echo >> intra-edge-tiling.log
-
-if [ "${DEBUG}" != "true" ]; then
-	spark-submit \
-		--num-executors ${EXECUTORS} \
-		--executor-memory 10g \
-		--executor-cores 4 \
-		--conf spark.executor.extraClassPath=${EXTRA_JARS} \
-		--driver-class-path ${EXTRA_JARS} \
-		--jars `echo ${EXTRA_JARS} | tr : ,` \
-		--class ${MAIN_CLASS} \
-		--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
-		${MAIN_JAR} \
-		output.conf tiling.conf graph.conf \
-		${CONFIGURATION} \
-		|& tee -a intra-edge-tiling.log
-fi
-
-
+    --class ${MAIN_CLASS} \
+    --conf "spark.driver.extraJavaOptions=-Dgraph.edges.type=intra ${EXTRA_DRIVER_JAVA_OPTS}" \
+    ${MAIN_JAR} \
+    output.conf tiling.conf graph.conf \
+    ${CONFIGURATION} \
+    |& tee -a intra-edge-tiling.log
 
 ENDTIME=$(date +%s)
-
-
 
 cleanupConfigFile ${OUTPUT_COPIED} output.conf
 cleanupConfigFile ${TILING_COPIED} tiling.conf
 cleanupConfigFile ${GRAPH__COPIED} graph.conf
-
-
 
 echo >> intra-edge-tiling.log
 echo >> intra-edge-tiling.log
