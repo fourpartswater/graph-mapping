@@ -34,7 +34,7 @@ object GraphDirectionality {
       (a._1 + b._1, a._2 + b._2)
     }.filter { case (a, b) =>
       a != b
-    }.take(1).length > 0
+    }.take(1).length == 0
   }
 
   /**
