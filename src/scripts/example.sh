@@ -12,7 +12,7 @@ MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 DATASET=patent-sample
 
 # copy our config files into the dataset, if they're not already there
-CONFIG_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-layout.conf ${DATASET}/layout.conf)
+CONFIG_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/sample-layout.conf ${DATASET}/layout.conf)
 OUTPUT_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-output.conf ${DATASET}/output.conf)
 TILING_COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-tiling.conf ${DATASET}/tiling.conf)
 GRAPH__COPIED=$(checkConfigFile ${SOURCE_LOCATION}/config/default-graph.conf  ${DATASET}/graph.conf)
@@ -42,7 +42,7 @@ echo Done at `date`
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Community
-ARGS="-i edges.bin -m metadata.bin -l -1 -v true -nd 10"
+ARGS="-i edges.bin -m metadata.bin -l -1 -v true -nd 10 -o ./clusters"
 
 echo
 echo Running in `pwd`
@@ -50,7 +50,9 @@ echo Starting at `date`
 STARTTIME=$(date +%s)
 
 echo Removing old results ...
-rm -rf level_*
+#rm -rf level_*
+rm -rf clusters
+mkdir clusters
 
 echo Clustering ...
 java -cp ${MAIN_JAR}:${SCALA_JAR} -Xmx${MEM} ${MAIN_CLASS} ${ARGS} |& tee -a cluster.log
@@ -66,7 +68,10 @@ echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
 
 MAIN_CLASS=software.uncharted.graphing.layout.ClusteredGraphLayoutApp
-BASE_LOCATION=/user/${USER}/graphs
+#BASE_LOCATION=/user/${USER}/graphs
+DIRECTORY=$(pwd)
+BASE_LOCATION=${DIRECTORY}
+BASE_LOCATION_LAYOUT=${DIRECTORY}/layout
 
 REMOVE_EXISTING=true
 
@@ -74,7 +79,7 @@ echo
 echo Running layout in `pwd`
 echo Starting at `date`
 
-MAX_LEVEL=`ls -d level_* | awk -F'_' '{print $2}' | sort -nr | head -n1`
+MAX_LEVEL=`ls -d clusters/level_* | awk -F'_' '{print $2}' | sort -nr | head -n1`
 MAX_SIZE=5
 PARTITIONS=1
 EXECUTORS=1
@@ -91,47 +96,12 @@ echo EXECUTORS: ${EXECUTORS} >> layout.log
 
 TIMEA=$(date +%s)
 
-# Count the number of files that match the given name at the given location in HDFS
-function countHDFSFiles {
-	LOCATION=$1
-	RESULTS=`hdfs dfs -ls -d ${LOCATION} | wc | awk '{print $1}'`
-	if [ "" == "${RESULTS}" ]; then
-		echo 0
-	else
-		echo ${RESULTS}
-	fi
-}
-
 echo Checking file existence
 COPY_LOCAL=0
-if [ 0 -eq "$(countHDFSFiles ${BASE_LOCATION}/${DATASET})" ]; then
-	hdfs dfs -mkdir ${BASE_LOCATION}/${DATASET}
-	COPY_LOCAL=1
-else
-	LOCAL_CLUSTERS_EXIST=($(countHDFSFiles file:${PWD}/level_*))
-	CLUSTERS_EXIST=($(countHDFSFiles ${BASE_LOCATION}/${DATASET}/clusters))
-	LAYOUT_EXISTS=($(countHDFSFiles ${BASE_LOCATION}/${DATASET}/layout))
-
-	if [ "${REMOVE_EXISTING}" == "true" -a 1 -eq "${CLUSTERS_EXIST}" -a 0 -lt "${LOCAL_CLUSTERS_EXIST}" ]; then
-		hdfs dfs -rm -r ${BASE_LOCATION}/${DATASET}/clusters
-		COPY_LOCAL=1
-	elif [ 0 -eq "${CLUSTERS_EXIST}" -a 0 -lt "${LOCAL_CLUSTERS_EXIST}" ]; then
-		COPY_LOCAL=1
-	else
-		COPY_LOCAL=0
-	fi
-
-	if [ 1 -eq "${LAYOUT_EXISTS}" ]; then
-		hdfs dfs -rm -r ${BASE_LOCATION}/${DATASET}/layout
-	fi
+if [ -d "${BASE_LOCATION_LAYOUT}" ]; then
+  rm -rf ${BASE_LOCATION_LAYOUT}
 fi
-
-if [ 1 -eq "${COPY_LOCAL}" ]; then
-	echo Pushing to HDFS
-	hdfs dfs -mkdir ${BASE_LOCATION}/${DATASET}/clusters
-	hdfs dfs -put level_* ${BASE_LOCATION}/${DATASET}/clusters
-	hdfs dfs -rm ${BASE_LOCATION}/${DATASET}/clusters/level_*/stats
-fi
+mkdir ${BASE_LOCATION_LAYOUT}
 
 TIMEB=$(date +%s)
 
@@ -148,8 +118,7 @@ export PARTITIONS
 	--num-executors ${EXECUTORS} \
 	--executor-cores 4 \
 	--executor-memory 10g \
-	--master yarn \
-	--deploy-mode client \
+	--master local \
 	${MAIN_JAR} \
 	debug layout.conf |& tee -a layout.log
 
@@ -183,7 +152,7 @@ LEVELS=(${USER_LEVELS[*]})
 DATATABLE=$DATASET
 export DATATABLE
 
-EXTRA_DRIVER_JAVA_OPTS=-Dtiling.source=$( relativeToSource ${DATASET} layout )
+EXTRA_DRIVER_JAVA_OPTS="-Dtiling.source=file:///${BASE_LOCATION}/layout"
 EXTRA_DRIVER_JAVA_OPTS="${EXTRA_DRIVER_JAVA_OPTS} $( getLevelConfig ${LEVELS[@]} )"
 
 echo LEVELS: ${LEVELS[@]}
@@ -209,6 +178,7 @@ echo Starting tiling
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
+	--master local \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
@@ -216,7 +186,6 @@ echo Starting tiling
 	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
 	|& tee -a node-tiling.log
 
 ENDTIME=$(date +%s)
@@ -261,6 +230,7 @@ echo Starting tiling
 	--num-executors ${EXECUTORS} \
 	--executor-memory 10g \
 	--executor-cores 4 \
+	--master local \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
@@ -268,7 +238,6 @@ echo Starting tiling
 	--conf "spark.driver.extraJavaOptions=${EXTRA_DRIVER_JAVA_OPTS}" \
 	${MAIN_JAR} \
 	output.conf tiling.conf graph.conf \
-	${CONFIGURATION} \
 	|& tee -a metadata-tiling.log
 
 
@@ -313,6 +282,7 @@ echo Starting tiling
     --num-executors ${EXECUTORS} \
     --executor-memory 10g \
     --executor-cores 4 \
+	--master local \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
@@ -320,7 +290,6 @@ echo Starting tiling
     --conf "spark.driver.extraJavaOptions=-Dgraph.edges.type=inter ${EXTRA_DRIVER_JAVA_OPTS}" \
     ${MAIN_JAR} \
     output.conf tiling.conf graph.conf \
-    ${CONFIGURATION} \
     |& tee -a inter-edge-tiling.log
 
 
@@ -363,6 +332,7 @@ echo Starting tiling
     --num-executors ${EXECUTORS} \
     --executor-memory 10g \
     --executor-cores 4 \
+	--master local \
     --conf spark.executor.extraClassPath=${EXTRA_JARS} \
     --driver-class-path ${EXTRA_JARS} \
     --jars `echo ${EXTRA_JARS} | tr : ,` \
@@ -370,7 +340,6 @@ echo Starting tiling
     --conf "spark.driver.extraJavaOptions=-Dgraph.edges.type=intra ${EXTRA_DRIVER_JAVA_OPTS}" \
     ${MAIN_JAR} \
     output.conf tiling.conf graph.conf \
-    ${CONFIGURATION} \
     |& tee -a intra-edge-tiling.log
 
 ENDTIME=$(date +%s)

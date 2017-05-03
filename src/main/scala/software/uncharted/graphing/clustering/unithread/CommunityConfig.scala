@@ -33,7 +33,8 @@ import scala.util.Try
   * @param analytics Analytics aggregations to use when clustering nodes.
   * @param algorithm Algorithm modification to use when clustering.
   */
-case class CommunityConfig (inputFilename: String,
+case class CommunityConfig (output: String,
+                       inputFilename: String,
                        weightFilename: Option[String],
                        metadataFilename: Option[String],
                        partitionFilename: Option[String],
@@ -51,6 +52,7 @@ case class CommunityConfig (inputFilename: String,
 object CommunityConfigParser extends ConfigParser {
 
   val SECTION_KEY = "community"
+  val OUTPUT = "output"
   val INPUT_FILENAME = "files.input"
   val WEIGHT_FILENAME = "files.weight"
   val METADATA_FILENAME = "files.metadata"
@@ -98,6 +100,7 @@ object CommunityConfigParser extends ConfigParser {
       }
 
       CommunityConfig(
+        section.getString(OUTPUT),
         section.getString(INPUT_FILENAME),
         getStringOption(section, WEIGHT_FILENAME),
         getStringOption(section, METADATA_FILENAME),
