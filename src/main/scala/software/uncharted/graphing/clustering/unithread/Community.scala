@@ -535,6 +535,8 @@ object Community extends ConfigReader {
     */
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
+    loader.putValue(argParser.getStringOption("o", "Output directory", Some(".")),
+      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.OUTPUT}")
     loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None),
       s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
     loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None),
@@ -603,7 +605,7 @@ object Community extends ConfigReader {
 
     val time_begin = System.currentTimeMillis()
     if (clusterConfig.verbose) displayTime("Begin")
-    val curDir: Option[File] = if (-1 == clusterConfig.levelDisplay) Some(new File(".")) else None
+    val curDir: Option[File] = if (-1 == clusterConfig.levelDisplay) Some(new File(clusterConfig.output)) else None
 
     SimpleProfiling.register("init.community")
     var c = new Community(clusterConfig.inputFilename, clusterConfig.weightFilename, clusterConfig.metadataFilename,
