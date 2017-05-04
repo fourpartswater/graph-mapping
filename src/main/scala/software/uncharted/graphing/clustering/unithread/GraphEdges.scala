@@ -29,6 +29,7 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.reflect.ClassTag
+import scala.io.Source
 
 
 
@@ -37,6 +38,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
 
   /**
     * Read the metadata from source.
+    *
     * @param metadataFile Reader for the metadata.
     * @param md_filter Value compared to the start of the line to filter metadata.
     * @param separator Separator of the fields.
@@ -48,37 +50,31 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
                     id_column: Int, md_column: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     // Get the number of nodes in the input data.
     var metadataReader = new BufferedReader(new InputStreamReader(new FileInputStream(metadataFile)))
-    var nodeCount = 0
-    var line = metadataReader.readLine()
-    while (null != line) {  //scalastyle:ignore
+    var maxNode = 0
+    Source.fromFile(metadataFile).getLines().foreach { line =>
       if (!line.trim.isEmpty) {
-        val fields = line.split(separator)
         if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+          val fields = line.split(separator)
           val nodeId = fields(id_column).toInt
-          if (nodeId > nodeCount) nodeCount = nodeId
+          if (nodeId > maxNode) maxNode = nodeId
         }
       }
-      line = metadataReader.readLine()
     }
 
-    metadataReader.close()
-
     // Read the metadata.
-    metadataReader = new BufferedReader(new InputStreamReader(new FileInputStream(metadataFile)))
-    readMetadata(metadataReader, md_filter, separator, id_column, md_column, nodeCount + 1, analytics)
-    metadataReader.close()
+    readMetadata(Source.fromFile(metadataFile).getLines(), md_filter,
+      separator, id_column, md_column, maxNode + 1, analytics)
   }
 
-  def readMetadata (metadataInput: BufferedReader, md_filter: Option[String], separator: String,
+  def readMetadata (metadataInput: Iterator[String], md_filter: Option[String], separator: String,
                     id_column: Int, md_column: Int, nodeCount: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     metaData = Some(new Array[(String, Seq[String])](nodeCount))
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
-    metaData.foreach{data =>
-      var line = metadataInput.readLine()
-      while (null != line) {  //scalastyle:ignore
+    metaData.foreach { data =>
+      metadataInput.foreach { line =>
         if (!line.trim.isEmpty) {
-          val fields = line.split(separator)
           if (md_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+            val fields = line.split(separator)
             val nodeId = fields(id_column).toInt
             if (fields.size <= md_column) println("Too short")
             val md = fields(md_column)
@@ -88,8 +84,6 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
             data(nodeId) = (md, analyticValues)
           }
         }
-
-        line = metadataInput.readLine()
       }
     }
   }
@@ -211,34 +205,28 @@ object GraphEdges {
              analytics: Seq[CustomGraphAnalytic[_]]): GraphEdges = {
     // First read through the file once, counting edges
     println("Counting nodes in graph")
-    val countReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
     var maxNode = 0
-    var line = countReader.readLine()
     var n = 0
-    while (null != line) {
-      val fields = line.split(edge_separator)
+    Source.fromFile(edgeInputFile).getLines().foreach { line =>
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+        val fields = line.split(edge_separator)
         val source = fields(source_column).toInt
         val destination = fields(destination_column).toInt
         maxNode = maxNode max source max destination
       }
 
-      line = countReader.readLine()
       n += 1
       if (0 == (n % 100000))
         println("Counted " + n + " ("+new Date()+")")
     }
-    countReader.close()
     println("Reading graph with "+(maxNode+1)+" nodes")
 
     // Now actually read the graph
-    val graphReader = new BufferedReader(new InputStreamReader(new FileInputStream(edgeInputFile)))
-    val result = apply(graphReader, edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
-    graphReader.close()
+    val result = apply(Source.fromFile(edgeInputFile).getLines(), edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
     result
   }
 
-  def apply (edge_input: BufferedReader,
+  def apply (edge_input: Iterator[String],
              edge_filter: Option[String],
              edge_separator: String,
              source_column: Int,
@@ -247,12 +235,11 @@ object GraphEdges {
              initialSize: Option[Int] = None,
              analytics: Seq[CustomGraphAnalytic[_]] = Seq()): GraphEdges = {
     val edges = new GrowableArray[MutableBuffer[(Int, Float, Seq[String])]](initialSize.getOrElse(0), () => MutableBuffer[(Int, Float, Seq[String])]())
-    var line = edge_input.readLine()
     var n = 0
     val analyticColumns = CustomGraphAnalytic.determineColumns(analytics)
-    while (null != line) {
-      val fields = line.split(edge_separator)
+    edge_input.foreach { line =>
       if (edge_filter.map(filter => line.startsWith(filter)).getOrElse(true)) {
+        val fields = line.split(edge_separator)
         val source = fields(source_column).toInt
         val destination = fields(destination_column).toInt
         val weight = weight_column.map(c => fields(c).toFloat)
@@ -263,7 +250,6 @@ object GraphEdges {
           edges(destination).append((source, weight.getOrElse(1.0f), analyticValues))
       }
 
-      line = edge_input.readLine()
       n += 1
       if (0 == (n % 100000))
         println("Read " + n + " ("+new Date()+")")
