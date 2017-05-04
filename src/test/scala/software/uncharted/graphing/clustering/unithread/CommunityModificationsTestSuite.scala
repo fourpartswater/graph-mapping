@@ -108,14 +108,13 @@ class CommunityModificationsTestSuite extends FunSuite {
         (1, 1.0f, Seq("3.5", "3.6", "3.7"))
       )
     ))
-    val metadata =
-      """
-        |0 zero 0.5 0.6 0.7
-        |1 one 1.5 1.6 1.7
-        |2 two 2.5 2.6 2.7
-      """.stripMargin
+    val metadata = Iterator(
+        "0 zero 0.5 0.6 0.7",
+        "1 one 1.5 1.6 1.7",
+        "2 two 2.5 2.6 2.7"
+    )
     ge.readMetadata(
-      new BufferedReader(new InputStreamReader(new ByteArrayInputStream(metadata.getBytes))),
+      metadata,
       None, " ", 0, 1, 3, analytics
     )
 
