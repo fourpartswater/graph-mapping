@@ -176,9 +176,7 @@ object Convert {
     var g = GraphEdges(infile_edge.get, edge_filter, edge_separator, edge_source_column, edge_destination_column, edge_weight_column, edge_analytics)
 
     infile_node.foreach { nodeFile =>
-      val nodeReader = new BufferedReader(new InputStreamReader(new FileInputStream(nodeFile)))
-      g.readMetadata(nodeReader, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
-      nodeReader.close()
+      g.readMetadata(nodeFile, node_filter, node_separator, node_id_column, node_metadata_column, node_analytics)
     }
 
     if (do_renumber)

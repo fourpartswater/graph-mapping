@@ -22,15 +22,15 @@ import org.scalatest.FunSuite
 
 class ConvertTestSuite extends FunSuite {
   test("Test reading of edge files (no weights)") {
-    val rawData =
-      """edge primary 0 1
-        |edge secondary 0 2
-        |edge primary 1 3
-        |edge secondary 1 4
-        |edge primary 2 3
-        |edge secondary 2 4""".stripMargin
-    val reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    val edges = GraphEdges(reader, Some("edge"), "[ \t]+", 2, 3, None)
+    val rawData = Iterator(
+        "edge primary 0 1",
+        "edge secondary 0 2",
+        "edge primary 1 3",
+        "edge secondary 1 4",
+        "edge primary 2 3",
+        "edge secondary 2 4"
+    )
+    val edges = GraphEdges(rawData, Some("edge"), "[ \t]+", 2, 3, None)
     assert(5 === edges.links.length)
     assert(edges.links(0).toList === List((1, 1.0f, List()), (2, 1.0f, List())))
     assert(edges.links(1).toList === List((0, 1.0f, List()), (3, 1.0f, List()), (4, 1.0f, List())))
@@ -40,15 +40,15 @@ class ConvertTestSuite extends FunSuite {
   }
 
   test("Test reading of edge files (with weights)") {
-    val rawData =
-      """edge primary   0 1 1 0.7
-        |edge secondary 0 2 1 0.2
-        |edge primary   1 3 1 0.6
-        |edge secondary 1 4 1 0.3
-        |edge primary   2 3 1 0.5
-        |edge secondary 2 4 1 0.4""".stripMargin
-    val reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    val edges = GraphEdges(reader, Some("edge"), "[ \t]+", 2, 3, Some(5))
+    val rawData = Iterator(
+        "edge primary   0 1 1 0.7",
+        "edge secondary 0 2 1 0.2",
+        "edge primary   1 3 1 0.6",
+        "edge secondary 1 4 1 0.3",
+        "edge primary   2 3 1 0.5",
+        "edge secondary 2 4 1 0.4"
+    )
+    val edges = GraphEdges(rawData, Some("edge"), "[ \t]+", 2, 3, Some(5))
     assert(5 === edges.links.length)
     assert(edges.links(0).toList === List((1, 0.7f, List()), (2, 0.2f, List())))
     assert(edges.links(1).toList === List((0, 0.7f, List()), (3, 0.6f, List()), (4, 0.3f, List())))
@@ -58,22 +58,21 @@ class ConvertTestSuite extends FunSuite {
   }
 
   test("Test adding metadata to edges") {
-    val rawData =
-      """edge primary 0 1
-        |edge secondary 0 2
-        |edge primary 1 3
-        |edge secondary 1 4
-        |edge primary 2 3
-        |edge secondary 2 4
-        |node 0 2 zero
-        |node 1 3 one
-        |node 2 3 two
-        |node 3 4 three
-        |node 4 2 four""".stripMargin
-    val edgeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    val edges = GraphEdges(edgeReader, Some("edge"), "[ \t]+", 2, 3, None)
-    val nodeReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(rawData.getBytes)))
-    edges.readMetadata(nodeReader, Some("node"), "[ \t]+", 1, 3, Seq())
+    val rawData = Array(
+        "edge primary 0 1",
+        "edge secondary 0 2",
+        "edge primary 1 3",
+        "edge secondary 1 4",
+        "edge primary 2 3",
+        "edge secondary 2 4",
+        "node 0 2 zero",
+        "node 1 3 one",
+        "node 2 3 two",
+        "node 3 4 three",
+        "node 4 2 four"
+    )
+    val edges = GraphEdges(rawData.toIterator, Some("edge"), "[ \t]+", 2, 3, None)
+    edges.readMetadata(rawData.toIterator, Some("node"), "[ \t]+", 1, 3, 5, Seq())
     assert(edges.metaData.get.length === 5)
     assert(("zero", List()) === edges.metaData.get.apply(0))
     assert(("one", List()) === edges.metaData.get.apply(1))
