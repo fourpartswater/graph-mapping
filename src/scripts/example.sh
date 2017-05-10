@@ -146,7 +146,7 @@ echo
 echo Running ${APPLICATION_NAME}
 echo Running in `pwd`
 echo Starting at `date`
-USER_LEVELS="2 2 2"
+USER_LEVELS="2 2 2 2"
 LEVELS=(${USER_LEVELS[*]})
 
 DATATABLE=$DATASET
@@ -359,7 +359,6 @@ echo
 echo Done at `date`
 echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
-MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
 MAIN_CLASS=software.uncharted.graphing.export.ESIngestExport
 
 echo
@@ -372,20 +371,21 @@ echo MAX_LEVEL: ${MAX_LEVEL} > export.log
 TIMEA=$(date +%s)
 
 echo Clearing output folder
-hdfs rm -r ${BASE_LOCATION}/${DATASET}/esexport
+rm -r ${BASE_LOCATION}/${DATASET}/esexport
 
 TIMEB=$(date +%s)
 
 echo Starting export run
 
-spark-submit \
+/opt/spark-2.0.1-bin-hadoop2.6/bin/spark-submit \
 	--class ${MAIN_CLASS} \
 	--num-executors 4 \
 	--executor-cores 4 \
 	--executor-memory 10g \
+	--master local\
 	${MAIN_JAR} \
-	-sourceLayout ${BASE_LOCATION}/${DATASET}/layout \
-	-output ${BASE_LOCATION}/${DATASET}/esexport \
+	-sourceLayout "file:///${BASE_LOCATION}/layout" \
+	-output "file:///${BASE_LOCATION}/esexport" \
 	-maxLevel ${MAX_LEVEL} |& tee -a export.log
 
 # Note: Took out -spark yarn-client.  Should be irrelevant, but noted just in case I'm wrong.
