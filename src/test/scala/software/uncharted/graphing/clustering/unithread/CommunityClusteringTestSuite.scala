@@ -47,7 +47,7 @@ class CommunityClusteringTestSuite extends FunSuite {
       Array(3,       5,    7,    9,   12,      14,   16,   18,   21),                                     // cummulative degrees
       Array(1, 2, 3, 0, 2, 0, 1, 4, 5, 3, 5, 7, 3, 4, 7, 8, 6, 8, 6, 7, 2), // links
       (0 until 9).map(mkNode).toArray,                                      // nodes
-      Some(Array[Double](                                                    // weights
+      Some(Array[Float](                                                    // weights
         5, 5, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1, 5, 5, 5, 5, 5, 5, 5, 5, 1
       ))
     )
