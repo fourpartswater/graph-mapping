@@ -39,8 +39,12 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
 
   /**
     * Read the metadata from source.
+<<<<<<< HEAD
     *
     * @param metadataFile Metadata file.
+=======
+    * @param metadataFile Reader for the metadata.
+>>>>>>> a05e7c3579fd22c1e10e9ff2ae3ec29261773cc1
     * @param md_filter Value compared to the start of the line to filter metadata.
     * @param separator Separator of the fields.
     * @param id_column 0 based index of the id column.
@@ -249,6 +253,7 @@ object GraphEdges {
         println("Counted " + n + " (" + new Date() + ")")
       }
     }
+
     println("Reading graph with "+(maxNode+1)+" nodes")
 
     // Now actually read the graph

@@ -38,7 +38,7 @@ class Exporter {
     //Work from top to bottom to generate the data extract.
     for(level <- maxLevel to 0 by -1) {
       //Get the data for the level.
-      val (levelNode, levelEdge) = extractLevel(sourceLayoutDir, dataDelimiter, level)
+      val (levelNode, levelEdge) = extractLevel(sc, sourceLayoutDir, dataDelimiter, level)
 
       //Join the node data to the previous level's community subset.
       val levelDataCommunity = levelNode.map(node => (node.parentId, node))
@@ -76,7 +76,7 @@ class Exporter {
     allEdges.saveAsTextFile(outputDir + "/edges")
   }
 
-  private def extractLevel(sourceLayoutDir:String, delimiter:String, level:Int): (RDD[ClusteredNode], RDD[ClusteredEdge]) = {
+  private def extractLevel(sc: SparkContext, sourceLayoutDir:String, delimiter:String, level:Int): (RDD[ClusteredNode], RDD[ClusteredEdge]) = {
 
     val layoutData = sc.textFile(sourceLayoutDir + "/level_" + level)
 
