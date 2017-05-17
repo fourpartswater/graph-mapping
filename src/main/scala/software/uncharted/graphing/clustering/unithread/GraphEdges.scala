@@ -1,12 +1,4 @@
 /**
-  * This code is copied and translated from https://sites.google.com/site/findcommunities, then modified futher to
-  * support analytics and metadata.
-  *
-  * This means most of it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
-  * we can't distribute it without permission - though as a translation, with some optimization for readability in
-  * scala, it may be a gray area.
-  *
-  * TThe rest is:
   * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
@@ -32,8 +24,18 @@ import scala.reflect.ClassTag
 import scala.io.Source
 
 
-
+/**
+  * An edge-base representation of a graph
+  * @param links A list, by node, of the links in the graph.  Entry n describes node n, and is a list of
+  *              (destination node, edge weight, link analytics values) for each edge.
+  *              Link analytics are currently ignored.
+  */
 class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
+  /**
+    * A list of descriptions of nodes
+    * Entry n describes node n, and contains the metadata for that node, followed by a list of node analytic values
+    * for that node
+    */
   var metaData: Option[Array[(String, Seq[String])]] = None
 
   /**
@@ -192,6 +194,65 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
       }
     }
   }
+
+  /**
+    * Convert the edge-based representation to a proper graph representation for in-line graph clustering
+    * @param customAnalytics The analytics to apply to the graph nodes
+    * @return A proper graph representing the same data
+    */
+  def toGraph (customAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
+    // number of nodes
+    val numNodes:         Int                  = links.length
+    val degrees:          Array[Int]           = new Array[Int](numNodes)
+    val nodes:            Array[NodeInfo]      = new Array(numNodes)
+
+    // figure out how many edges there are total (and record the running total for each node)
+    var totalEdges = 0
+    var weighted = false
+    for (i <- 0 until numNodes) {
+      totalEdges = totalEdges + links(i).size
+      degrees(i) = totalEdges
+      weighted = weighted || links(i).exists(_._2 != 1.0f)
+    }
+
+    // Allocate destination and weight arrays
+    val edgeDestinations: Array[Int]           = new Array(totalEdges)
+    val edgeWeights:      Option[Array[Float]] =
+      if (weighted) {
+        Some(new Array[Float](totalEdges))
+      } else {
+        None
+      }
+
+    // Store nodes and weights
+    var edgeIndex = 0
+    for (i <- 0 until numNodes; j <- links(i).indices) {
+      edgeDestinations(edgeIndex) = links(i)(j)._1
+      edgeWeights.foreach(ew => ew(edgeIndex) = links(i)(j)._2)
+      edgeIndex = edgeIndex + 1
+    }
+
+
+    for (i <- 0 until numNodes) {
+      nodes(i) =
+        metaData.map(_ (i)).map { case (metaDatum, analyticData) =>
+          val typedAnalyticData: Array[Any] =
+            customAnalytics.map(Some(_)).zipAll(analyticData.map(Some(_)), None, None).flatMap {
+              case (Some(analytic), datum) => Some(induceAnalyticType(analytic, datum))
+              case (None, _) => None
+            }
+          NodeInfo(i, 1, Some(metaDatum), typedAnalyticData, customAnalytics)
+        }.getOrElse {
+          NodeInfo(i, 1, None, Array[Any](), customAnalytics)
+        }
+    }
+
+    new Graph(degrees, edgeDestinations, nodes, edgeWeights)
+  }
+
+  private def induceAnalyticType[AIT] (analytic: CustomGraphAnalytic[AIT], datum: Option[String]): AIT =
+    analytic.aggregator.add(analytic.aggregator.default(), datum)
+
 }
 
 

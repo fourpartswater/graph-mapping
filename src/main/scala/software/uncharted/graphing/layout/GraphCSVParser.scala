@@ -113,5 +113,8 @@ class GraphCSVParser {
   }
 }
 
-case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String)
+case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String) {
+  def replaceParent (newParentId: Long): GraphNode =
+    GraphNode(id, newParentId, internalNodes, degree, metadata)
+}
 case class GraphEdge (srcId: Long, dstId: Long, weight: Long)

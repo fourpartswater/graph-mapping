@@ -1,12 +1,4 @@
 /**
-  * This code is copied and translated from https://sites.google.com/site/findcommunities, then modified futher to
-  * support analytics and metadata.
-  *
-  * This means most of it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
-  * we can't distribute it without permission - though as a translation, with some optimization for readability in
-  * scala, it may be a gray area.
-  *
-  * TThe rest is:
   * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
@@ -73,7 +65,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
  *
  * @param degrees A list of the cumulative degree of each node, in order:
  *                deg(0) = degrees[0]
- *                deg(k) = degrees[k]=degrees[k-1]
+ *                deg(k) = degrees[k]-degrees[k-1]
  * @param links A list of the links to other nodes
  * @param nodeInfos Extra information about each node
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
@@ -276,7 +268,7 @@ object Graph {
     val weights:Option[Array[Float]] =
       weightDataStreamOpt.map { weightDataStream =>
         val weightsInner = new Array[Float](nb_links)
-        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat
+        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat()
         weightsInner
       }
 

@@ -142,9 +142,7 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     val fileStartTime = System.currentTimeMillis()
 
     // Hierarchical Force-Directed layout scheme
-    val layouter = new HierarchicFDLayout()
-
-    layouter.determineLayout(sc, config, parameters)
+    HierarchicFDLayout.determineLayout(sc, config, parameters)
 
     sourceDir.delete()
     outputDir.delete()
