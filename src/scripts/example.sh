@@ -371,7 +371,7 @@ echo MAX_LEVEL: ${MAX_LEVEL} > export.log
 TIMEA=$(date +%s)
 
 echo Clearing output folder
-rm -r ${BASE_LOCATION}/${DATASET}/esexport
+rm -r ${BASE_LOCATION}/esexport
 
 TIMEB=$(date +%s)
 

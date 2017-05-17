@@ -32,7 +32,7 @@ class QuadNode(box: (Double, Double, Double, Double)) {
   private var _centerOfMass: (Double, Double) = _
   private var _size: Double = _
 
-  private var _data: QuadNodeData = null
+  private var _data: QuadNodeData = null //scalastyle:ignore
 
 
   def getBounds: (Double, Double, Double, Double) = {

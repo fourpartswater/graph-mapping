@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -26,7 +26,8 @@ class ClusteredEdge (val srcId: String,
   override def toString() : String = {
     val srcIdLevel = ClusteredObject.levelId(srcId, level - 1)
     val dstIdLevel = ClusteredObject.levelId(dstId, level - 1)
-    "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" + attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
+    "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" +
+      attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
   }
 
   private def edgeId(srcId : String, dstId : String) : String = {

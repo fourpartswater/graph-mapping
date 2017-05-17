@@ -57,7 +57,7 @@ class HierarchicFDLayout extends Serializable {
 
     (
       Graph(nodes.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
-        (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0)
+        (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0) //scalastyle:ignore
       }),
       rootNode
       )
@@ -327,7 +327,7 @@ class HierarchicFDLayout extends Serializable {
           et.attr, interCommunityEdge
         ).mkString("\t")
       }.toOption
-    }.filter(line => line != null)
+    }.filter(line => line != null) //scalastyle:ignore
 
     val resultsAll = resultsNodes.union(resultsEdges) // put both node and edge results into one RDD
 

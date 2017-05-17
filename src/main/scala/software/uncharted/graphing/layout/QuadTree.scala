@@ -39,6 +39,7 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
     insertIntoQuadNode(_root, new QuadNodeData(x, y, id, size))
   }
 
+  //scalastyle:off method.length
   /**
     * Insert quad node into the tree
     * @param qn Base quad node to use for insertion
@@ -46,8 +47,8 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
     */
   def insertIntoQuadNode(qn: QuadNode, data: QuadNodeData): Unit = {
 
-    if (qn == null) {
-      return
+    if (qn == null) { //scalastyle:ignore
+      return //scalastyle:ignore
     }
 
     qn.incrementChildren()
@@ -58,17 +59,17 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
       qn.setData(data)
       qn.setCenterOfMass((data.getX, data.getY))
       qn.setSize(data.getSize)
-      return
+      return //scalastyle:ignore
     }
 
     // case 2: check that two nodes aren't located in exact same location
     // (to prevent quadtree with infinite depth)
-    if ((qn.getData != null) && (qn.getNumChildren == 2)) {
+    if ((qn.getData != null) && (qn.getNumChildren == 2)) { //scalastyle:ignore
       val x1 = qn.getData.getX
       val y1 = qn.getData.getY
       if ((x1 == data.getX) && (y1 == data.getY)) {
         qn.setNumChildren(1) // force two nodes at same location to be considered as one node
-        return
+        return //scalastyle:ignore
       }
     }
 
@@ -82,7 +83,7 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
     qn.setSize(newSize)
 
     // case 3: current leaf needs to become internal, and four new child quad nodes need to be created
-    if (qn.getData != null) {
+    if (qn.getData != null) { //scalastyle:ignore
       val rect = qn.getBounds
       val halfwidth = rect._3 / 2
       val halfheight = rect._4 / 2
@@ -91,7 +92,7 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
       qn.setSW( new QuadNode(rect._1, rect._2, halfwidth, halfheight))
       qn.setSE( new QuadNode(rect._1 + halfwidth, rect._2, halfwidth, halfheight))
       val oldNodeData = qn.getData
-      qn.setData(null)
+      qn.setData(null) //scalastyle:ignore
       insertIntoContainingChildQuandrant(qn, oldNodeData)
     }
 
@@ -99,9 +100,10 @@ class QuadTree(box: (Double, Double, Double, Double)) { // bounding box of entir
     //    just push into the proper subquadrant (which already exists)
     insertIntoContainingChildQuandrant(qn, data)
   }
+  //scalastyle:on method.length
 
   private def insertIntoContainingChildQuandrant(qn: QuadNode, qnData: QuadNodeData) = {
-    var childRecursionQuad: QuadNode = null
+    var childRecursionQuad: QuadNode = null //scalastyle:ignore
 
     if (qn.getNW.isPointInBounds(qnData.getX, qnData.getY)) {
       childRecursionQuad = qn.getNW

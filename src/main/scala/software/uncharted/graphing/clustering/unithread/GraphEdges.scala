@@ -212,7 +212,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     metadataStream.foreach{stream =>
       metaData.foreach { data =>
         for (i <- 0 until s) {
-          if (null == data(i)) {
+          if (null == data(i)) { //scalastyle:ignore
             stream.writeUTF("")
             stream.writeInt(0)
           } else {
@@ -254,10 +254,10 @@ object GraphEdges {
       }
     }
 
-    println("Reading graph with "+(maxNode+1)+" nodes")
+    println("Reading graph with " + (maxNode + 1) + " nodes")
 
     // Now actually read the graph
-    val result = apply(Source.fromFile(edgeInputFile).getLines(), edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
+    val result = apply(Source.fromFile(edgeInputFile).getLines(), edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode + 1))
     result
   }
 

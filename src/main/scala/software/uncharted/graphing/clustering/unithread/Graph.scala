@@ -67,8 +67,8 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
   def +(that: NodeInfo): NodeInfo = {
     val aggregatedAnalyticData = for (i <- analytics.indices) yield {
       val a = analytics(i)
-      val left = if (i < this.analyticData.length) this.analyticData(i) else null
-      val right = if (i < that.analyticData.length) that.analyticData(i) else null
+      val left = if (i < this.analyticData.length) this.analyticData(i) else null //scalastyle:ignore
+      val right = if (i < that.analyticData.length) that.analyticData(i) else null //scalastyle:ignore
       mergeCurrentValues(left, right, a)
     }
     NodeInfo(
@@ -141,7 +141,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     */
   def weightedDegree (node: Int): Double = {
     // Only calculated the degree of a node once
-    if (null == weights(node) || weights(node).isEmpty) {
+    if (null == weights(node) || weights(node).isEmpty) { //scalastyle:ignore
       weights(node) = Some(weightsOpt.map(weights =>
         neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
       ).getOrElse(nbNeighbors(node))
