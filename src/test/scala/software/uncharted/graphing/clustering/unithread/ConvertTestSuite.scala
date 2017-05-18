@@ -14,9 +14,12 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io.{ByteArrayInputStream, InputStreamReader, BufferedReader}
+import java.io.{BufferedReader, ByteArrayInputStream, InputStreamReader}
 
+import com.typesafe.config.Config
 import org.scalatest.FunSuite
+import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.salt.core.analytic.Aggregator
 
 
 
@@ -97,5 +100,103 @@ class ConvertTestSuite extends FunSuite {
     assert(newEdges.links(0)(0)._1 === 1)
     assert(newEdges.links(2).length === 4)
     assert(newEdges.links(2)(0)._1 === 0)
+  }
+
+  test("Test raw reading and conversion to a graph") {
+    // The third value in each link is a sequence of link analytics.  Link analytics are currently ignored.
+    val links = Array(
+      Seq(
+        (1, 1.0f, Seq("aaa", "bbb", "ccc")),
+        (2, 1.0f, Seq("ddd", "eee", "fff"))
+      ),
+      Seq(
+        (0, 1.0f, Seq("ggg", "hhh", "iii")),
+        (1, 1.0f, Seq("jjj", "kkk", "lll"))
+      ),
+      Seq(
+        (0, 1.0f, Seq("mmm", "nnn", "ooo")),
+        (1, 1.0f, Seq("ppp", "qqq", "rrr"))
+      )
+    )
+    val edges = new GraphEdges(links)
+    val graph = edges.toGraph(Array())
+
+    assert(3 === graph.nb_nodes)
+    assert(6 === graph.nb_links)
+    assert(2 === graph.nb_neighbors(0))
+    assert(2 === graph.nb_neighbors(1))
+    assert(2 === graph.nb_neighbors(2))
+    assert(Set((1, 1.0f), (2, 1.0f)) === graph.neighbors(0).toSet)
+    assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(1).toSet)
+    assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(2).toSet)
+  }
+
+  test("Test that graph weights are carried over when converting to a graph") {
+    val links = Array(
+      Seq(
+        (0, 0.5f, Seq("aaa", "bbb", "ccc")),
+        (1, 1.5f, Seq("ddd", "eee", "fff"))
+      ),
+      Seq(
+        (0, 1.4f, Seq("ggg", "hhh", "iii")),
+        (1, 0.3f, Seq("jjj", "kkk", "lll"))
+      )
+    )
+    val edges = new GraphEdges(links)
+    val graph = edges.toGraph(Array())
+
+    assert(2 === graph.nb_nodes)
+    assert(4 === graph.nb_links)
+    assert(2 === graph.nb_neighbors(0))
+    assert(2 === graph.nb_neighbors(1))
+    assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
+    assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
+  }
+
+  test("Test that node metadata is carried over when converting to a graph") {
+    val links = Array(
+      Seq(
+        (0, 0.5f, Seq("aaa", "bbb", "ccc")),
+        (1, 1.5f, Seq("ddd", "eee", "fff"))
+      ),
+      Seq(
+        (0, 1.4f, Seq("ggg", "hhh", "iii")),
+        (1, 0.3f, Seq("jjj", "kkk", "lll"))
+      )
+    )
+    val edges = new GraphEdges(links)
+    edges.metaData = Some(Array(
+      ("node A-F", Seq("a", "f")),
+      ("node G-L", Seq("gg", "ll")),
+      ("extra node", Seq("1", "6"))
+    ))
+    val graph = edges.toGraph(Array(TestAnalytic(0), TestAnalytic(1)))
+
+    // Make sure metadata and analytics haven't messed anything up
+    assert(2 === graph.nb_nodes)
+    assert(4 === graph.nb_links)
+    assert(2 === graph.nb_neighbors(0))
+    assert(2 === graph.nb_neighbors(1))
+    assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
+    assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
+    assert("node A-F" === graph.metaData(0))
+    assert("node G-L" === graph.metaData(1))
+    assert("a" === graph.nodeInfo(0).analyticData(0))
+    assert("f" === graph.nodeInfo(0).analyticData(1))
+    assert("gg" === graph.nodeInfo(1).analyticData(0))
+    assert("ll" === graph.nodeInfo(1).analyticData(1))
+  }
+}
+
+case class TestAnalytic (column: Int) extends CustomGraphAnalytic[String] {
+  override val name: String = s"Test-${column}"
+  override def max(left: String, right: String): String = left
+  override def initialize(configs: Config): CustomGraphAnalytic[String] = this
+  override def min(left: String, right: String): String = left
+  override val aggregator: Aggregator[String, String, String] = new Aggregator[String, String, String] {
+    override def default(): String = ""
+    override def finish(intermediate: String): String = intermediate
+    override def merge(left: String, right: String): String = left+right
+    override def add(current: String, next: Option[String]): String = current+next.getOrElse("")
   }
 }

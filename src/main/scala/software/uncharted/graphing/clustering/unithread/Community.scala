@@ -1,23 +1,23 @@
 /**
- * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
- *
- * Property of Uncharted(tm), formerly Oculus Info Inc.
- * http://uncharted.software/
- *
- * This software is the confidential and proprietary information of
- * Uncharted Software Inc. ("Confidential Information"). You shall not
- * disclose such Confidential Information and shall use it only in
- * accordance with the terms of the license agreement you entered into
- * with Uncharted Software Inc.
- */
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
+  *
+  * Property of Uncharted(tm), formerly Oculus Info Inc.
+  * http://uncharted.software/
+  *
+  * This software is the confidential and proprietary information of
+  * Uncharted Software Inc. ("Confidential Information"). You shall not
+  * disclose such Confidential Information and shall use it only in
+  * accordance with the terms of the license agreement you entered into
+  * with Uncharted Software Inc.
+  */
 package software.uncharted.graphing.clustering.unithread
 
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
-import java.util.Date
 
+import grizzled.slf4j.Logging
 import com.typesafe.config.{Config, ConfigFactory}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader, SimpleProfiling}
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader}
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
@@ -82,9 +82,6 @@ class Community (val g: Graph,
             algorithmMod: AlgorithmModification) =
     this(Graph(filename, filename_w, filename_m, customAnalytics), nbp, minm, algorithmMod)
 
-
-
-
   val size = g.nb_nodes
   val n2c = new Array[Int](size)
   val community_size = new Array[Int](size)
@@ -92,8 +89,9 @@ class Community (val g: Graph,
     n2c(i) = i
     community_size(i) = 1
   }
-  val tot = n2c.map(n => g.weightedDegree(n))
-  val in = n2c.map(n => g.nbSelfloops(n))
+
+  val tot: Array[Double] = n2c.map(n => g.weightedDegree(n))
+  val in: Array[Double] = n2c.map(n => g.nbSelfLoops(n))
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
@@ -108,7 +106,7 @@ class Community (val g: Graph,
     */
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
     tot(comm) -= g.weightedDegree(node)
-    in(comm) -= (2 * dnodecomm + g.nbSelfloops(node))
+    in(comm) -= (2 * dnodecomm + g.nbSelfLoops(node))
     community_size(comm) -= 1
     n2c(node) = -1
   }
@@ -121,7 +119,7 @@ class Community (val g: Graph,
     */
   def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
     tot(comm) += g.weightedDegree(node)
-    in(comm) += (2 * dnodecomm + g.nbSelfloops(node))
+    in(comm) += (2 * dnodecomm + g.nbSelfLoops(node))
     community_size(comm) += 1
     n2c(node) = comm
   }
@@ -242,7 +240,6 @@ class Community (val g: Graph,
 
       // for each node: remove the node from its community and insert it in the best community
       for (node_tmp <- 0 until size) {
-        if (0 == (node_tmp % 100000)) println(node_tmp + " ...")
         val node = random_order(node_tmp)
         val node_comm = n2c(node)
         val w_degree = g.weightedDegree(node)
@@ -250,6 +247,7 @@ class Community (val g: Graph,
         // computation of all neighboring communities of current node
         neighComm(node)
         // remove node from its current community
+
         remove(node, node_comm, neigh_weight(node_comm))
 
         // compute the nearest community for node
@@ -282,10 +280,7 @@ class Community (val g: Graph,
       }
 
       new_mod = modularity
-      if (nb_moves > 0) {
-        improvement = true
-      }
-
+      improvement = nb_moves > 0
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
     val (renumber, _) = getRenumbering
@@ -481,7 +476,7 @@ class Community (val g: Graph,
     * Create a new graph based on the current communities.
     * @return The new graph.
     */
-  def partition2graphBinary(): Graph = {
+  def partition2GraphBinary(): Graph = {
     val (renumber, _) = getRenumbering
 
     // Compute weighted graph
@@ -570,9 +565,6 @@ object Community extends ConfigReader {
     loader.config
   }
 
-  def displayTime (msg: String): Unit =
-    Console.err.println(msg + ": " + new Date(System.currentTimeMillis()))
-
   def main (args: Array[String]): Unit = {
     val argParser = new ArgumentParser(args)
 
@@ -603,92 +595,141 @@ object Community extends ConfigReader {
       }
     }
 
-    val time_begin = System.currentTimeMillis()
-    if (clusterConfig.verbose) displayTime("Begin")
     val curDir: Option[File] = if (-1 == clusterConfig.levelDisplay) Some(new File(clusterConfig.output)) else None
 
-    SimpleProfiling.register("init.community")
-    var c = new Community(clusterConfig.inputFilename, clusterConfig.weightFilename, clusterConfig.metadataFilename,
-      -1, clusterConfig.epsilon, clusterConfig.analytics.toArray, algorithmByLevel(0))
-    SimpleProfiling.finish("init.community")
+    // Perform our clustering
+    new CommunityClusterer(
+      {
+        val c = new Community(Graph(clusterConfig.inputFilename, clusterConfig.weightFilename,
+          clusterConfig.metadataFilename, clusterConfig.analytics), -1, clusterConfig.epsilon, algorithmByLevel(0))
+        clusterConfig.partitionFilename.foreach(part => c.initPartition(part))
+        c
+      },
+      clusterConfig.randomize,
+      clusterConfig.partitionFilename.isDefined,
+      clusterConfig.epsilon,
+      algorithmByLevel
+    ).doClustering[Int](
+      withLevel(clusterConfig.levelDisplay, curDir)
+    )
+  }
 
-    SimpleProfiling.register("init.partition")
-    clusterConfig.partitionFilename.foreach(part => c.initPartition(part))
-    SimpleProfiling.finish("init.partition")
+  // Write out input and output communities as needed
+  private def withLevel (display_level: Int, curDir: Option[File])
+                        (level: Int,
+                         initialGraph: Option[Graph],
+                         initialModularity: Double,
+                         community: Community): Int = {
+    initialGraph.foreach(g =>
+      if (level == display_level) {
+        g.displayNodes(Console.out)
+        g.displayLinks(Console.out)
+      }
+    )
+
+    curDir.foreach { pwd =>
+      val levelDir = new File(pwd, "level_" + (level-1))
+      levelDir.mkdir()
+      val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
+      val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
+      community.displayPartition(level, out, Some(stats))
+      out.flush()
+      out.close()
+      stats.flush()
+      stats.close()
+    }
+    level
+  }
+}
+
+/**
+  * We separate the actual clustering procedure out into its own class for the sole reason that this allows the
+  * initial input community to be garbage-collected during processing - having it as a member of the Community class
+  * would of course keep a pointer to the community, and we can't make functions with var arguments in the Community
+  * object.
+  *
+  * Needless to say, this class is one-use-only.
+  *
+  * @param c A community built off of the graph on which to perform clustering
+  * @param randomize Whether or not the order in which nodes are considered when checking for clusters should be
+  *                  randomized
+  * @param forceSecondIteration Whether or not the clustering should necessarily run for at least two iterations - even
+  *                             if the first iteration did nothing useful
+  * @param min_modularity The threshold determining whether another level will be generated.  A new level is computed
+  *                       if the last one has generated an increase greater than min_modularity.  If 0, even a minor
+  *                       increase is enough to go for one more pass
+  * @param algorithmByLevel A function that returns what modifications should be made to the clustering algorithm at
+  *                         a given level
+  */
+class CommunityClusterer (var c: Community,
+                          randomize: Boolean,
+                          forceSecondIteration: Boolean,
+                          min_modularity: Double,
+                          algorithmByLevel: Int => AlgorithmModification)  extends Logging {
+  private var used = false
+
+  /**
+    * Actually perform our clustering task, generating a hierarchy of communities that represent a sensible, geometry-
+    * based clustering of the initial graph
+    *
+    * @param withLevel A function to run on each level of the community hierarchy, to pull out what information is
+    *                  needed.  Parameters passed to this function are:
+    *                  <ol>
+    *                    <li>level - the level of clustering the current call describes</li>
+    *                    <li>initialGraph - the graph passed into this level of clustering - i.e., the start point
+    *                      from which the current level of clustering was performed.</li>
+    *                    <li>initialModularity - the modularity before this level of clustering</li>
+    *                    <li>community - the results of the current level of clustering.  This contains the modularity
+    *                      achieved as a result of this round of clustering</li>
+    *                  </ol>
+    * @tparam T The type of information retained and returned about the community hierarchy generated
+    */
+  def doClustering[T] (withLevel: (Int, Option[Graph], Double, Community) => T): Seq[T] = {
+    if (used) {
+      throw new IllegalStateException("Community clusterer may not be called more than once")
+    }
+    used = true
+
+    val time_begin = System.currentTimeMillis()
+    info("Begining hierarchical clustering")
+
+    // Track our results
+    val results = MutableBuffer[T]()
 
     var g: Option[Graph] = None
     var improvement: Boolean = true
-    SimpleProfiling.register("init.modularity")
     var mod: Double = c.modularity
-    SimpleProfiling.finish("init.modularity")
     var level: Int = 0
 
     do {
-      SimpleProfiling.register("iterative")
-      if (clusterConfig.verbose) {
-        Console.err.println("level " + level + ":")
-        displayTime("  start computation")
-        Console.err.println("  network size: " + c.g.nb_nodes + " nodes, " + c.g.nb_links + " links, " + c.g.total_weight + " weight.")
-      }
+      info(s"Starting computation on level $level.  Network size: ${c.g.nb_nodes} nodes, ${c.g.nb_links} links, ${c.g.total_weight} weight.")
 
-      SimpleProfiling.register("iterative.one_level")
-      improvement = c.oneLevel(clusterConfig.randomize)
-      SimpleProfiling.finish("iterative.one_level")
-      SimpleProfiling.register("iterative.modularity")
+      improvement = c.oneLevel(randomize)
       val new_mod = c.modularity
-      SimpleProfiling.finish("iterative.modularity")
 
       level = level + 1
-      if (level == clusterConfig.levelDisplay) {
-        g.foreach(gr => gr.displayNodes(Console.out))
-        g.foreach(gr => gr.displayLinks(Console.out))
-      }
+      results += withLevel(level, g, mod, c)
 
-      SimpleProfiling.register("iterative.write")
-      curDir.foreach { pwd =>
-        val levelDir = new File(pwd, "level_" + (level-1))
-        levelDir.mkdir()
-        val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
-        val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
-        c.displayPartition(level, out, Some(stats))
-        out.flush()
-        out.close()
-        stats.flush()
-        stats.close()
-      }
-      SimpleProfiling.finish("iterative.write")
-
-      SimpleProfiling.register("iterative.convert")
-      g = Some(c.partition2graphBinary())
-      SimpleProfiling.finish("iterative.convert")
+      g = Some(c.partition2GraphBinary())
 
       val levelAlgorithm = algorithmByLevel(level)
-      SimpleProfiling.register("iterative.communitize")
-      c = new Community(g.get, -1, clusterConfig.epsilon, levelAlgorithm)
-      SimpleProfiling.finish("iterative.communitize")
+      c = new Community(g.get, -1, min_modularity, levelAlgorithm)
 
-      if (clusterConfig.verbose) {
-        Console.err.println("  modularity increased from " + mod + " to " + new_mod)
-      }
+      info(s"  modularity increased from ${mod} to ${new_mod}")
 
       mod = new_mod
-      if (clusterConfig.verbose) {
-        displayTime("  end computation")
-      }
+      info(s"  Finished computation on level ${level - 1}")
 
       // do at least one more computation if partition is provided
-      clusterConfig.partitionFilename.foreach(part => if (1 == level) improvement = true)
-      println
-      println("After level " + level + ": ")
-      SimpleProfiling.report(System.out)
-      SimpleProfiling.finish("iterative")
+      if (forceSecondIteration && 1 == level) improvement = true
     } while (improvement)
+
+
     val time_end = System.currentTimeMillis()
-    if (clusterConfig.verbose) {
-      displayTime("End")
-      Console.err.println("Total duration: %.3f sec.".format((time_end-time_begin)/1000.0))
-    }
-    Console.err.println("Final modularity: " + mod)
+    info("Finished hierarchical clustering.  Total duration: %.3f sec.".format((time_end - time_begin) / 1000.0))
+    info(s"Final modularity: ${mod}")
+
+    results
   }
 }
 //scalastyle:on file.size.limit method.length cyclomatic.complexity multiple.string.literals

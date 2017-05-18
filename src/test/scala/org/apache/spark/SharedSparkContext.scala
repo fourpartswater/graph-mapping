@@ -24,6 +24,7 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
 
   @transient private var _sparkSession: SparkSession = _
 
+  def session: SparkSession = _sparkSession
   def sc: SparkContext = _sparkSession.sparkContext
   def sqlc: SQLContext = _sparkSession.sqlContext
 

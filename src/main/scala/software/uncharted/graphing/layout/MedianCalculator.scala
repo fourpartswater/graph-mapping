@@ -19,6 +19,7 @@ import org.apache.spark.rdd.RDD
   * An object that can calculate the median of a dataset
   */
 object MedianCalculator {
+  //scalastyle:off cyclomatic.complexity
   /**
     * Calculate the median in a dataset.
     * @param dataset Dataset from which to calculate the median
@@ -74,6 +75,7 @@ object MedianCalculator {
       sortedMids(0)._1
     }
   }
+  //scalastyle:on cyclomatic.complexity
 }
 private[layout] trait TreeNode {
   var size: Int

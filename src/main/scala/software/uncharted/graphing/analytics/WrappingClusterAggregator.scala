@@ -24,6 +24,8 @@ import software.uncharted.salt.core.analytic.Aggregator
 class WrappingClusterAggregator[-I, N, O] (base: Aggregator[I, N, O],
                                            inputConversion: String => I,
                                            outputConversion: O => String) extends Aggregator[String, N, String] {
+  assert(null != base) //scalastyle:ignore
+
   override def default(): N = base.default()
 
   override def finish(intermediate: N): String = outputConversion(base.finish(intermediate))

@@ -87,7 +87,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
  *
  * @param degrees A list of the cumulative degree of each node, in order:
  *                deg(0) = degrees[0]
- *                deg(k) = degrees[k]=degrees[k-1]
+ *                deg(k) = degrees[k]-degrees[k-1]
  * @param links A list of the links to other nodes
  * @param nodeInfos Extra information about each node
  * @param weightsOpt An optional list of the weight of each link; if existing, it must be the same size as links
@@ -131,7 +131,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     * @param node The node.
     * @return The sum of weights of all self loops on the node.
     */
-  def nbSelfloops (node: Int): Double =
+  def nbSelfLoops (node: Int): Double =
     neighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
 
   /**
@@ -344,7 +344,7 @@ object Graph {
     val weights:Option[Array[Float]] =
       weightDataStreamOpt.map { weightDataStream =>
         val weightsInner = new Array[Float](nb_links)
-        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat
+        for (i <- 0 until nb_links) weightsInner(i) = weightDataStream.readFloat()
         weightsInner
       }
 

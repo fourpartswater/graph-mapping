@@ -70,10 +70,8 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
     val fileStartTime = System.currentTimeMillis()
 
     // Hierarchical Force-Directed layout scheme
-    val layouter = new HierarchicFDLayout()
-
     info("\n\n\nStarting layout at " + new Date)
-    layouter.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
+    HierarchicFDLayout.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
     info("Layout complete at " + new Date + "\n\n\n")
 
     val fileEndTime = System.currentTimeMillis()

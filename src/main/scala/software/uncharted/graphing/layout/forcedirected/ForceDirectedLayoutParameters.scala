@@ -116,22 +116,40 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
     */
   def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
     Try {
-      val section = config.getConfig(SECTION_KEY)
+      val sectionOpt = getConfigOption(config, SECTION_KEY)
 
-      ForceDirectedLayoutParameters(
-        getDouble(section, OVERLAPPING_NODES_REPULSION_FACTOR_KEY, defaultOverlappingNodesRepulsionFactor),
-        getDouble(section, NODE_AREA_FACTOR_KEY, defaultNodeAreaFactor),
-        getDouble(section, STEP_LIMIT_FACTOR_KEY, defaultStepLimitFactor),
-        getDouble(section, BORDER_PERCENT_KEY, defaultBorderPercent),
-        getInt(section, ISOLATED_DEGREE_THRESHOLD_KEY, defaultIsolatedDegreeThreshold),
-        getInt(section, QUAD_TREE_NODE_THRESHOLD_KEY, defaultQuadTreeNodeThreshold),
-        getDouble(section, QUAD_TREE_TEHTA_KEY, defaultQuadTreeTheta),
-        getDouble(section, PROPORTIONAL_CONSTRAINT_KEY, defaultProportionalConstraint),
-        getInt(section, MAX_ITERATIONS_KEY, defaultMaxIterations),
-        getBoolean(section, USE_EDGE_WEIGHTS_KEY, defaultUseEdgeWeights),
-        getBoolean(section, USE_NODE_SIZES_KEY, defaultUseNodeSizes),
-        getDouble(section, RANDOM_HEATING_KEY, defaultRandomHeating),
-        getRandomSeed(section)
+      sectionOpt.map { section =>
+        ForceDirectedLayoutParameters(
+          getDouble(section, OVERLAPPING_NODES_REPULSION_FACTOR_KEY, defaultOverlappingNodesRepulsionFactor),
+          getDouble(section, NODE_AREA_FACTOR_KEY, defaultNodeAreaFactor),
+          getDouble(section, STEP_LIMIT_FACTOR_KEY, defaultStepLimitFactor),
+          getDouble(section, BORDER_PERCENT_KEY, defaultBorderPercent),
+          getInt(section, ISOLATED_DEGREE_THRESHOLD_KEY, defaultIsolatedDegreeThreshold),
+          getInt(section, QUAD_TREE_NODE_THRESHOLD_KEY, defaultQuadTreeNodeThreshold),
+          getDouble(section, QUAD_TREE_TEHTA_KEY, defaultQuadTreeTheta),
+          getDouble(section, PROPORTIONAL_CONSTRAINT_KEY, defaultProportionalConstraint),
+          getInt(section, MAX_ITERATIONS_KEY, defaultMaxIterations),
+          getBoolean(section, USE_EDGE_WEIGHTS_KEY, defaultUseEdgeWeights),
+          getBoolean(section, USE_NODE_SIZES_KEY, defaultUseNodeSizes),
+          getDouble(section, RANDOM_HEATING_KEY, defaultRandomHeating),
+          getRandomSeed(section)
+        )
+      }.getOrElse(
+        ForceDirectedLayoutParameters(
+          defaultOverlappingNodesRepulsionFactor,
+          defaultNodeAreaFactor,
+          defaultStepLimitFactor,
+          defaultBorderPercent,
+          defaultIsolatedDegreeThreshold,
+          defaultQuadTreeNodeThreshold,
+          defaultQuadTreeTheta,
+          defaultProportionalConstraint,
+          defaultMaxIterations,
+          defaultUseEdgeWeights,
+          defaultUseNodeSizes,
+          defaultRandomHeating,
+          Some(defaultRandomSeed)
+        )
       )
     }
   }

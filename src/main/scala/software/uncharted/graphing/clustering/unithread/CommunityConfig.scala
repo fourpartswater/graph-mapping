@@ -43,7 +43,7 @@ case class CommunityConfig (output: String,
                        k: Int,
                        verbose: Boolean,
                        randomize: Boolean,
-                       analytics: Seq[CustomGraphAnalytic[_]],
+                       analytics: Array[CustomGraphAnalytic[_]],
                        algorithm: AlgorithmModification)
 
 /**
@@ -110,7 +110,7 @@ object CommunityConfigParser extends ConfigParser {
         section.getInt(K),
         section.getBoolean(VERBOSE),
         !section.getBoolean(KEEP_ORDER),
-        analytics,
+        analytics.toArray,
         algorithm)
     }
   }

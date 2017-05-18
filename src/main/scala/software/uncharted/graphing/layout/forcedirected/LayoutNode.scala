@@ -24,9 +24,25 @@ import software.uncharted.graphing.layout.{Circle, V2, GraphNode, QuadTree}
 class LayoutNode (_id: Long, _parentId: Long, _internalNodes: Long, _degree: Int, _metaData: String,
                   val geometry: Circle, val parentGeometry: Option[Circle])
   extends GraphNode(_id, _parentId, _internalNodes, _degree, _metaData) {
-  def inParent (parentGeometry: Circle): LayoutNode = {
+  def inParent(parentGeometry: Circle): LayoutNode = {
     new LayoutNode(id, parentId, internalNodes, degree, metadata, geometry, Some(parentGeometry))
   }
+
+  override def replaceParent (newParentId: Long): LayoutNode = {
+    new LayoutNode(id, newParentId, internalNodes, degree, metadata, geometry, parentGeometry)
+  }
+
+  // Parent is a case class, so we have to override all these to make sure we don't get suckered in by parent
+  // equality, etc.
+  override def toString: String =
+    s"LayoutNode($id, $parentId, $internalNodes, $degree, $metadata, $geometry, $parentGeometry)"
+  override def equals(other: Any): Boolean = other match {
+    case that: LayoutNode =>
+      super.equals(that) && this.geometry == that.geometry && this.parentGeometry == that.parentGeometry
+    case _ => false
+  }
+  override def hashCode(): Int =
+    super.hashCode() + 7 * geometry.hashCode() + 11 * parentGeometry.hashCode()
 }
 object LayoutNode {
   // various alternative constructor formulations, all pretty self-explanatory
@@ -39,6 +55,7 @@ object LayoutNode {
 
   /**
     * Create a quad tree that contains the given set of nodes
+    *
     * @param nodes The nodes to insert into the quad tree
     * @return A static quad tree containing the input nodes
     */

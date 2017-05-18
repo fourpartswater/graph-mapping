@@ -120,12 +120,8 @@ class GraphCSVParser {
   * @param degree Number of edges of the node
   * @param metadata Metadata associated with the node
   */
-case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String)
-
-/**
-  * Wrapper class for a graph edge
-  * @param srcId Source node id
-  * @param dstId Destination node id
-  * @param weight Edge weight
-  */
+case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String) {
+  def replaceParent (newParentId: Long): GraphNode =
+    GraphNode(id, newParentId, internalNodes, degree, metadata)
+}
 case class GraphEdge (srcId: Long, dstId: Long, weight: Long)
