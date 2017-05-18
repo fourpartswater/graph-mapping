@@ -123,9 +123,9 @@ class ConvertTestSuite extends FunSuite {
 
     assert(3 === graph.nb_nodes)
     assert(6 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
-    assert(2 === graph.nb_neighbors(2))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
+    assert(2 === graph.nbNeighbors(2))
     assert(Set((1, 1.0f), (2, 1.0f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(1).toSet)
     assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(2).toSet)
@@ -147,8 +147,8 @@ class ConvertTestSuite extends FunSuite {
 
     assert(2 === graph.nb_nodes)
     assert(4 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
     assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
   }
@@ -175,8 +175,8 @@ class ConvertTestSuite extends FunSuite {
     // Make sure metadata and analytics haven't messed anything up
     assert(2 === graph.nb_nodes)
     assert(4 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
     assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
     assert("node A-F" === graph.metaData(0))

@@ -26,7 +26,7 @@ import scala.collection.Seq
 object ClusterToLayoutConverter {
   type T = org.apache.spark.graphx.Graph[GraphNode, Long]
 
-  def withLevel (sc: SparkContext)(level: Int, initialGraph: Graph, initialModularity: Double, community: Community): T = {
+  def withLevel (sc: SparkContext)(level: Int, initialGraph: Option[Graph], initialModularity: Double, community: Community): T = {
     val localVertices = (0 until community.g.nb_nodes).map { n =>
       val g = community.g
       val id = g.id(n)
