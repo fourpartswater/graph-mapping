@@ -28,7 +28,6 @@ import scala.util.Try
   * @param epsilon A given pass stops when the modularity is increased by less than epsilon.
   * @param levelDisplay Displays the graph of level k rather than the hierachical structure.
   * @param k if k=-1 then displays the hierarchical structure rather than the graph at a given level.
-  * @param verbose If true, will output additional information at every step.
   * @param randomize If true, will randomize processing order.
   * @param analytics Analytics aggregations to use when clustering nodes.
   * @param algorithm Algorithm modification to use when clustering.
@@ -41,7 +40,6 @@ case class CommunityConfig (output: String,
                        epsilon: Double,
                        levelDisplay: Int,
                        k: Int,
-                       verbose: Boolean,
                        randomize: Boolean,
                        analytics: Array[CustomGraphAnalytic[_]],
                        algorithm: AlgorithmModification)
@@ -60,7 +58,6 @@ object CommunityConfigParser extends ConfigParser {
   val EPSILON = "algorithm.epsilon"
   val LEVEL_DISPLAY = "level-display"
   val K = "k"
-  val VERBOSE = "verbose"
   val KEEP_ORDER = "keep-order"
   val ANALYTICS = "analytics"
   val NODE_DEGREE = "algorithm.node-degree"
@@ -108,7 +105,6 @@ object CommunityConfigParser extends ConfigParser {
         section.getDouble(EPSILON),
         section.getInt(LEVEL_DISPLAY),
         section.getInt(K),
-        section.getBoolean(VERBOSE),
         !section.getBoolean(KEEP_ORDER),
         analytics.toArray,
         algorithm)

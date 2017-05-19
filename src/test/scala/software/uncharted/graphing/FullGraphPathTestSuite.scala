@@ -135,7 +135,7 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
       val clusterLoc = new File(tmpLoc, "clusters")
       clusterLoc.mkdirs()
       Community.main(Array(
-        "-m", tmpNodesBin.getAbsolutePath, "-l", "-1", "-n", tmpEdgesBin.getAbsolutePath, "-ac", classOf[SumAnalytic2].getName, "", "-o", clusterLoc.getAbsolutePath
+        "-m", tmpNodesBin.getAbsolutePath, "-l", "-1", "-n", "true", "-i", tmpEdgesBin.getAbsolutePath, "-a", classOf[SumAnalytic2].getName, "-o", clusterLoc.getAbsolutePath
       ))
 
 

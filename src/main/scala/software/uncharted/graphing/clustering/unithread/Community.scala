@@ -280,7 +280,7 @@ class Community (val g: Graph,
       }
 
       new_mod = modularity
-      improvement = nb_moves > 0
+      if (nb_moves > 0) improvement = true
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
     val (renumber, _) = getRenumbering
@@ -546,8 +546,6 @@ object Community extends ConfigReader {
       s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
     loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)),
       s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.K}")
-    loader.putBooleanValue(argParser.getBooleanOption("v", "verbose mode: gives computation time, information about the hierarchy and modularity.", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.VERBOSE}")
     loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)),
       s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
     loader.putValue(argParser.getStringOption("a",

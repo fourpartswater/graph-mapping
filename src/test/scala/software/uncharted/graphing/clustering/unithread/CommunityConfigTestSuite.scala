@@ -21,7 +21,6 @@ class CommunityConfigTestSuite extends FunSuite {
     val configParsed = CommunityConfigParser.parse(config).get
     assert(configParsed.inputFilename == "edges.bin")
     assert(configParsed.metadataFilename.get == "metadata.bin")
-    assert(configParsed.verbose)
     assert(configParsed.levelDisplay == -1)
     assert(configParsed.analytics.length == 2)
     assert(configParsed.epsilon == 0.03)
