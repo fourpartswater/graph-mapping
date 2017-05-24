@@ -98,7 +98,6 @@ task assemblyJar(type: Jar) {
 
   from {
     (configurations.runtime - configurations.provided + configurations.forceInclude).collect {
-      println(it)
       it.isDirectory() ? it : zipTree(it)
     }
   }
