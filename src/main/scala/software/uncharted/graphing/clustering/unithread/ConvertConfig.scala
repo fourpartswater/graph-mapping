@@ -19,6 +19,8 @@ import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
+import scala.collection.JavaConversions._ //scalastyle:ignore
+
 /**
   * Wrapper for all the convert parameters needed.
   * @param edgeInputFilename Filename of the edge data.
@@ -59,70 +61,123 @@ case class ConvertConfig(edgeInputFilename: String,
 
 /**
   * Parser of the convert configuration.
+  *
+  * Valid properties are:
+  *
+  *   - `edge.input`  - Edge input file.
+  *   - `edge.output` - Edge output file.
+  *   - `edge.filter` - Filter used to keep only edge lines from the edge input.
+  *   - `edge.analytic` - Analytic to apply to edges.
+  *   - `edge.separator`  - Separator used in the edge input file.
+  *   - `edge.source-column`  - Column containing the source node in the edge input.
+  *   - `edge.destination-column` - Column containing the destination node in the edge input.
+  *   - `edge.weight-column`  - Column containing the edge weight in the edge input.
+  *   - `node.input`  - Node input file.
+  *   - `node.weight-output`  - Output file to use for the node weight data.
+  *   - `node.filter` - Filter used to keep only node lines from the node input.
+  *   - `node.separator`  - Separator used in the node input.
+  *   - `node.analytic` - Analytic to apply to nodes.
+  *   - `node.node-column`  - Node id column in the node input.
+  *   - `node.meta-column`  - Meta data column in the node input.
+  *   - `renumber`  - If true, will renumber nodes from 0 to n.
+  *   - `node.meta-output`  - Node metadata output file.
+  *
+  *   Example from config file (in [[https://github.com/typesafehub/config#using-hocon-the-json-superset HOCON]] notation):
+  *
+  *   convert {
+  *   edge {
+  *     input = "edges"
+  *     output = "edges.bin"
+  *     separator = "\t"
+  *     source-column = 0
+  *     destination-column = 1
+  *   }
+  *   node {
+  *     input = "nodes"
+  *     separator = "\t"
+  *     node-column = 1
+  *     meta-column = 0
+  *     meta-output = metadata.bin
+  *     analytic = "software.uncharted.graphing.analytics.BucketAnalytic:../config/grant-analytics.conf"
+  *   }
+  * }
   */
 object ConvertConfigParser extends ConfigParser {
 
-  val SECTION_KEY = "convert"
-  val EDGE_INPUT = "edge.input"
-  val EDGE_OUTPUT = "edge.output"
-  val EDGE_FILTER = "edge.filter"
-  val EDGE_ANALYTIC = "edge.analytic"
-  val EDGE_SEPARATOR = "edge.separator"
-  val SRC_NODE_COLUMN = "edge.source-column"
-  val DST_NODE_COLUMN = "edge.destination-column"
-  val WEIGHT_COLUMN = "edge.weight-column"
-  val NODE_INPUT = "node.input"
-  val WEIGHT_OUTPUT = "node.weight-output"
-  val NODE_FILTER = "node.filter"
-  val NODE_SEPARATOR = "node.separator"
-  val NODE_ANALYTIC = "node.analytic"
-  val NODE_COLUMN = "node.node-column"
-  val META_COLUMN = "node.meta-column"
-  val RENUMBER = "renumber"
-  val META_OUTPUT = "node.meta-output"
+  val SectionKey = "convert"
+  val EdgeInput = "edge.input"
+  val EdgeOutput = "edge.output"
+  val EdgeFilter = "edge.filter"
+  val EdgeAnalytic = "edge.analytic"
+  val EdgeSeparator = "edge.separator"
+  val SrcNodeColumn = "edge.source-column"
+  val DstNodeColumn = "edge.destination-column"
+  val WeightColumn = "edge.weight-column"
+  val NodeInput = "node.input"
+  val WeightOutput = "node.weight-output"
+  val NodeFilter = "node.filter"
+  val NodeSeparator = "node.separator"
+  val NodeAnalytic = "node.analytics-string"
+  val NodeAnalyticSection = "node.analytics"
+  val NodeColumn = "node.node-column"
+  val MetaColumn = "node.meta-column"
+  val Renumber = "renumber"
+  val MetaOutput = "node.meta-output"
+
+  private val AnalyticClass = "class"
+  private val AnalyticConfig = "config"
 
   /**
     * Parse the convert configuration into the wrapper class.
+ *
     * @param config Configuration values to use when converting.
     * @return The parsed configuration.
     */
   def parse(config: Config): Try[ConvertConfig] = {
     Try {
-      val section = config.getConfig(SECTION_KEY)
+      val section = config.getConfig(SectionKey)
 
       // Parse objects needed for configuration.
       // Analytics should probably be setup to have a subsection and should be iterated over.
       var edgeAnalytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
-      if (section.hasPath(EDGE_ANALYTIC)) {
-        section.getString(EDGE_ANALYTIC).split(",").foreach(ea => edgeAnalytics += CustomGraphAnalytic(ea, ""))
+      if (section.hasPath(EdgeAnalytic)) {
+        section.getString(EdgeAnalytic).split(",").foreach(ea => edgeAnalytics += CustomGraphAnalytic(ea, ""))
       }
 
       var nodeAnalytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
-      if (section.hasPath(NODE_ANALYTIC)) {
-        section.getString(NODE_ANALYTIC).split(",").foreach(na => {
+      if (section.hasPath(NodeAnalytic)) {
+        section.getString(NodeAnalytic).split(",").foreach(na => {
           val naSplit = na.split(":")
           nodeAnalytics += CustomGraphAnalytic(naSplit(0), if (naSplit.length > 1) naSplit(1) else "")
+        })
+      } else if (section.hasPath(NodeAnalyticSection)) {
+        val configs = section.getConfigList(NodeAnalyticSection)
+        nodeAnalytics = configs.map(c => {
+          CustomGraphAnalytic(
+            c.getString(AnalyticClass),
+            if  (c.hasPath(AnalyticClass)) Some(c.getConfig(AnalyticConfig)) else None
+          )
         })
       }
 
       ConvertConfig(
-        section.getString(EDGE_INPUT),
-        getStringOption(section, EDGE_FILTER),
-        section.getString(EDGE_SEPARATOR),
+        section.getString(EdgeInput),
+        getStringOption(section, EdgeFilter),
+        section.getString(EdgeSeparator),
         edgeAnalytics,
-        section.getInt(SRC_NODE_COLUMN),
-        section.getInt(DST_NODE_COLUMN),
-        getIntOption(section, WEIGHT_COLUMN),
-        section.getString(EDGE_OUTPUT),
-        getStringOption(section, NODE_INPUT),
-        getStringOption(section, NODE_FILTER),
-        section.getString(NODE_SEPARATOR),
+        section.getInt(SrcNodeColumn),
+        section.getInt(DstNodeColumn),
+        getIntOption(section, WeightColumn),
+        section.getString(EdgeOutput),
+        getStringOption(section, NodeInput),
+        getStringOption(section, NodeFilter),
+        section.getString(NodeSeparator),
         nodeAnalytics,
-        section.getInt(NODE_COLUMN),
-        section.getInt(META_COLUMN),
-        getBoolean(section, RENUMBER, false),
-        getStringOption(section, WEIGHT_OUTPUT),
-        getStringOption(section, META_OUTPUT)
+        section.getInt(NodeColumn),
+        section.getInt(MetaColumn),
+        getBoolean(section, Renumber, false),
+        getStringOption(section, WeightOutput),
+        getStringOption(section, MetaOutput)
       )
     }
   }

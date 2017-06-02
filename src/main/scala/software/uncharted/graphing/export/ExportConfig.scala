@@ -30,6 +30,22 @@ case class ExportConfig(source: String,
 
 /**
   * Parser of the export configuration.
+  *
+  * Valid properties are:
+  *
+  *   - `source`  - Source data, which should be output from the layout task.
+  *   - `output`  - Output to write to.
+  *   - `delimiter` - Delimiter used in the source data.
+  *   - `max-level` - Maximum level in the source data.
+  *
+  * Example from config file (in [[https://github.com/typesafehub/config#using-hocon-the-json-superset HOCON]] notation):
+  *
+  * export {
+  *     source = "source/layout"
+  *     output = "output/nodes"
+  *     delimiter = "\t"
+  *     max-level = 6
+  * }
   */
 object ExportConfigParser extends ConfigParser {
 

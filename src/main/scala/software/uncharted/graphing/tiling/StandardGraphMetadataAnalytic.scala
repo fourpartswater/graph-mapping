@@ -10,7 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.tiling
 
 
 
@@ -65,7 +65,7 @@ class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, Gra
 object GraphRecord {
   var maxCommunities = 25 //scalastyle:ignore
 
-  private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
+  private[tiling] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
 
   def fromString(string: String): GraphRecord = {
@@ -216,10 +216,10 @@ object GraphCommunity {
     shrinkBuffer(accumulatedEdges, maxEdges)
   }
 
-  private[salt] def minPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
+  private[tiling] def minPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
     (a._1 min b._1, a._2 min b._2)
 
-  private[salt] def maxPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
+  private[tiling] def maxPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
     (a._1 max b._1, a._2 max b._2)
 
   private def reduceOptionalBuffers[T](a: Option[Seq[T]],

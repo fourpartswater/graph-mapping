@@ -46,17 +46,43 @@ case class HierarchicalLayoutConfig(input: String,
 
 /**
   * Object to parse the layout configuration.
+  *
+  * Valid properties are:
+  *
+  *   - `input.location`  - Location of the input data, which should be an output of the clustering step.
+  *   - `input.parts` - The number of partitions into which to break up the input.
+  *   - `input.delimmiter`  - The delimiters of the input data.
+  *   - `output.location` - The location to which to output layout results.
+  *   - `output.parts`  - The number of partitions into which to break up the output.
+  *   - `range` - The desired height and width of the total node layout region.
+  *   - `max-level` - The maximum clustering level used when determining graph layout.
+  *   - `community-size-threshold`  - A threshold measuring the necessary number of internal nodes a community must have
+  *                                   to be laid out.
+  *
+  *  Example from config file (in [[https://github.com/typesafehub/config#using-hocon-the-json-superset HOCON]] notation):
+  *
+  *  layout {
+  *   input {
+  *     location = ${?BASE_LOCATION}/${?DATASET}/clusters
+  *     parts = ${?PARTS}
+  *   }
+  *   output {
+  *     location = ${?BASE_LOCATION}/${?DATASET}/layout
+  *     parts = ${?PARTS}
+  *   }
+  *   max-level = ${?MAX_LEVEL}
+  *  }
   */
 object HierarchicalLayoutConfigParser extends ConfigParser {
-  private val SECTION_KEY = "layout"
-  private val INPUT_LOCATION_KEY = "input.location"
-  private val INPUT_PARTS_KEY = "input.parts"
-  private val INPUT_DELIMITER_KEY = "input.delimiter"
-  private val OUTPUT_LOCATION_KEY = "output.location"
-  private val OUTPUT_PARTS_KEY = "output.parts"
-  private val LAYOUT_SIZE_KEY = "range"
-  private val MAX_HIERARCHY_LEVEL_KEY = "max-level"
-  private val COMMUNITY_SIZE_THRESHOLD_KEY = "community-size-threshold"
+  private val SectionKey = "layout"
+  private val InputLocationKey = "input.location"
+  private val InputPartsKey = "input.parts"
+  private val InputDelimiterKey = "input.delimiter"
+  private val OutputLocationKey = "output.location"
+  private val OutputPartsKey = "output.parts"
+  private val LayoutSizeKey = "range"
+  private val MaxHierarchyLevelKey = "max-level"
+  private val CommunitySizeThresholdKey = "community-size-threshold"
 
   private val defaultInputDelimiter = "\t"
   private val defaultLayoutSize = 256.0
@@ -69,17 +95,17 @@ object HierarchicalLayoutConfigParser extends ConfigParser {
     */
   def parse(config: Config): Try[HierarchicalLayoutConfig] = {
     Try {
-      val section = config.getConfig(SECTION_KEY)
+      val section = config.getConfig(SectionKey)
 
       HierarchicalLayoutConfig(
-        section.getString(INPUT_LOCATION_KEY),
-        getIntOption(section, INPUT_PARTS_KEY),
-        getString(section, INPUT_DELIMITER_KEY, defaultInputDelimiter),
-        section.getString(OUTPUT_LOCATION_KEY),
-        getIntOption(section, OUTPUT_PARTS_KEY),
-        getDouble(section, LAYOUT_SIZE_KEY, defaultLayoutSize),
-        section.getInt(MAX_HIERARCHY_LEVEL_KEY),
-        getInt(section, COMMUNITY_SIZE_THRESHOLD_KEY, defaultCommunitySizeThreshold)
+        section.getString(InputLocationKey),
+        getIntOption(section, InputPartsKey),
+        getString(section, InputDelimiterKey, defaultInputDelimiter),
+        section.getString(OutputLocationKey),
+        getIntOption(section, OutputPartsKey),
+        getDouble(section, LayoutSizeKey, defaultLayoutSize),
+        section.getInt(MaxHierarchyLevelKey),
+        getInt(section, CommunitySizeThresholdKey, defaultCommunitySizeThreshold)
       )
     }
   }

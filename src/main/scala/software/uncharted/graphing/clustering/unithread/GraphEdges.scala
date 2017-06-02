@@ -23,11 +23,6 @@ import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.reflect.ClassTag
 import scala.io.Source
 
-/**
-  * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
-  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
-  */
-
 
 //scalastyle:off multiple.string.literals
 

@@ -19,72 +19,115 @@ import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try
 
+import scala.collection.JavaConversions._ //scalastyle:ignore
+
 /**
   * Wrapper for all the clustering parameters needed.
   * @param inputFilename Name of the input file.
   * @param weightFilename Optional name of the weight file.
   * @param metadataFilename Optional name of the metadata file.
   * @param partitionFilename Optional name of the partition file.
-  * @param epsilon A given pass stops when the modularity is increased by less than epsilon.
+  * @param minimumModularityGain A given pass stops when the modularity is increased by less than minimumModularityGain.
   * @param levelDisplay Displays the graph of level k rather than the hierachical structure.
-  * @param k if k=-1 then displays the hierarchical structure rather than the graph at a given level.
   * @param randomize If true, will randomize processing order.
   * @param analytics Analytics aggregations to use when clustering nodes.
   * @param algorithm Algorithm modification to use when clustering.
   */
 case class CommunityConfig (output: String,
-                       inputFilename: String,
-                       weightFilename: Option[String],
-                       metadataFilename: Option[String],
-                       partitionFilename: Option[String],
-                       epsilon: Double,
-                       levelDisplay: Int,
-                       k: Int,
-                       randomize: Boolean,
-                       analytics: Array[CustomGraphAnalytic[_]],
-                       algorithm: AlgorithmModification)
+                            inputFilename: String,
+                            weightFilename: Option[String],
+                            metadataFilename: Option[String],
+                            partitionFilename: Option[String],
+                            minimumModularityGain: Double,
+                            levelDisplay: Int,
+                            randomize: Boolean,
+                            analytics: Array[CustomGraphAnalytic[_]],
+                            algorithm: AlgorithmModification)
 
 /**
   * Parser of the community clustering configuration.
+  *
+  * Valid properties are:
+  *
+  *   - `output`  - The file used as output.
+  *   - `files.input` - The edge data input file.
+  *   - `files.weight`  - The weight data input file.
+  *   - `files.metadata`  - The meta data input file.
+  *   - `files.partition` - The partition input file.
+  *   - `minimum-modularity-gain` - The minimum difference in modularity necessary to perform one more level of clustering.
+  *   - `level-display` - The level to output (-2 will output everything).
+  *   - `keep-order`  - Maintain node order when processing to get repeatable results.
+  *   - `analytics-string` - Aggregation analytics to run when clustering.
+  *   - `analytics` - Aggregation analytics to run when clustering.
+  *   - `algorithm.node-degree` - Limit clustering using a node degree approach.
+  *   - `algorithm.community-size`  - Limit clustering using a community size approach.
+  *
+  *   Example from config file (in [[https://github.com/typesafehub/config#using-hocon-the-json-superset HOCON]] notation):
+  *
+  *   community {
+  *   output = "."
+  *   files {
+  *     input = "edges.bin"
+  *     metadata = "metadata.bin"
+  *   }
+  *   algorithm {
+  *     node-degree = "10"
+  *   }
+  *   analytics = "software.uncharted.graphing.analytics.BucketAnalytic:config/grant-analytics.conf"
+  *   verbose = true
+  *   level-display = -1
+  * }
   */
 object CommunityConfigParser extends ConfigParser {
 
-  val SECTION_KEY = "community"
-  val OUTPUT = "output"
-  val INPUT_FILENAME = "files.input"
-  val WEIGHT_FILENAME = "files.weight"
-  val METADATA_FILENAME = "files.metadata"
-  val PARTITION_FILENAME = "files.partition"
-  val EPSILON = "algorithm.epsilon"
-  val LEVEL_DISPLAY = "level-display"
-  val K = "k"
-  val KEEP_ORDER = "keep-order"
-  val ANALYTICS = "analytics"
-  val NODE_DEGREE = "algorithm.node-degree"
-  val COMMUNITY_SIZE = "algorithm.community-size"
+  val SectionKey = "community"
+  val Output = "output"
+  val InputFilename = "files.input"
+  val WeightFilename = "files.weight"
+  val MetadataFilename = "files.metadata"
+  val PartitionFilename = "files.partition"
+  val MinimumModularityGain = "minimum-modularity-gain"
+  val LevelDisplay = "level-display"
+  val KeepOrder = "keep-order"
+  val Analytics = "analytics-string"
+  val AnalyticsSection = "analytics"
+  val NodeDegree = "algorithm.node-degree"
+  val CommunitySize = "algorithm.community-size"
+
+  private val AnalyticClass = "class"
+  private val AnalyticConfig = "config"
 
   /**
     * Parse the community clustering configuration into the wrapper class.
+ *
     * @param config Configuration values to use when clustering.
     * @return The parsed configuration.
     */
   def parse(config: Config): Try[CommunityConfig] = {
     Try {
-      val section = config.getConfig(SECTION_KEY)
+      val section = config.getConfig(SectionKey)
 
       // Parse objects needed for configuration.
       // Analytics should probably be setup to have a subsection and should be iterated over.
       var analytics: MutableBuffer[CustomGraphAnalytic[_]] = MutableBuffer()
-      if (section.hasPath(ANALYTICS)) {
-        section.getString(ANALYTICS).split(",").foreach(a => {
+      if (section.hasPath(Analytics)) {
+        section.getString(Analytics).split(",").foreach(a => {
           val aSplit = a.split(":")
           analytics += CustomGraphAnalytic(aSplit(0), if (aSplit.length > 1) aSplit(1) else "")
+        })
+      } else if (section.hasPath(AnalyticsSection)) {
+        val configs = section.getConfigList(AnalyticsSection)
+        analytics = configs.map(c => {
+          CustomGraphAnalytic(
+            c.getString(AnalyticClass),
+            if  (c.hasPath(AnalyticConfig)) Some(c.getConfig(AnalyticConfig)) else None
+          )
         })
       }
 
       var algorithm: AlgorithmModification = new BaselineAlgorithm
-      val nd = getStringOption(section, NODE_DEGREE)
-      val cs = getStringOption(section, COMMUNITY_SIZE)
+      val nd = getStringOption(section, NodeDegree)
+      val cs = getStringOption(section, CommunitySize)
       if (nd.isDefined) {
         val parameter = nd.get
         if (parameter.contains(",")) {
@@ -97,15 +140,14 @@ object CommunityConfigParser extends ConfigParser {
       }
 
       CommunityConfig(
-        section.getString(OUTPUT),
-        section.getString(INPUT_FILENAME),
-        getStringOption(section, WEIGHT_FILENAME),
-        getStringOption(section, METADATA_FILENAME),
-        getStringOption(section, PARTITION_FILENAME),
-        section.getDouble(EPSILON),
-        section.getInt(LEVEL_DISPLAY),
-        section.getInt(K),
-        !section.getBoolean(KEEP_ORDER),
+        section.getString(Output),
+        section.getString(InputFilename),
+        getStringOption(section, WeightFilename),
+        getStringOption(section, MetadataFilename),
+        getStringOption(section, PartitionFilename),
+        section.getDouble(MinimumModularityGain),
+        section.getInt(LevelDisplay),
+        !section.getBoolean(KeepOrder),
         analytics.toArray,
         algorithm)
     }

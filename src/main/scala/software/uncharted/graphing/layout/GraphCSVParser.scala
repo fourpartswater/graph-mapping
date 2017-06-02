@@ -113,7 +113,7 @@ class GraphCSVParser {
 }
 
 /**
-  * Wrapper class for a graph node
+  * Simple class for a graph node
   * @param id Node id
   * @param parentId Node's parent id
   * @param internalNodes Number of nodes within the community
@@ -124,4 +124,11 @@ case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int
   def replaceParent (newParentId: Long): GraphNode =
     GraphNode(id, newParentId, internalNodes, degree, metadata)
 }
+
+/**
+  * Simple class for a graph edge
+  * @param srcId Source id
+  * @param dstId Destination id
+  * @param weight Edge weight
+  */
 case class GraphEdge (srcId: Long, dstId: Long, weight: Long)

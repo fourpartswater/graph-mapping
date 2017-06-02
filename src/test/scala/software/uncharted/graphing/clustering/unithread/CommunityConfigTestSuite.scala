@@ -23,6 +23,6 @@ class CommunityConfigTestSuite extends FunSuite {
     assert(configParsed.metadataFilename.get == "metadata.bin")
     assert(configParsed.levelDisplay == -1)
     assert(configParsed.analytics.length == 2)
-    assert(configParsed.epsilon == 0.03)
+    assert(configParsed.minimumModularityGain == 0.03)
   }
 }

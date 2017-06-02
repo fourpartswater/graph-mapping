@@ -10,7 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.tiling
 
 
 import com.typesafe.config.Config

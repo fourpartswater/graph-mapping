@@ -66,6 +66,7 @@ object ESIngestExport extends ConfigReader {
       case Failure(f) =>
         println(s"Failed to load cluster configuration properly. ${f}")
         f.printStackTrace()
+        argParser.usage
         sys.exit(-1)
     }
 

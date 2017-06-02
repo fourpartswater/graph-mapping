@@ -13,6 +13,18 @@
 
 package software.uncharted.graphing.export
 
+/**
+  * Simple class for a clustered edge.
+  * @param srcId Source node id
+  * @param srcX Source node x coordinate
+  * @param srcY Source node y coordinate
+  * @param dstId Destination node id
+  * @param dstX Destination node x coordinate
+  * @param dstY Destination node y coordinate
+  * @param attr Edge attribute (weight)
+  * @param interCommunityEdge 1 if the edge is between two communities & 0 otherwise
+  * @param level Edge cluster level
+  */
 class ClusteredEdge (val srcId: String,
                      val srcX: String,
                      val srcY: String,

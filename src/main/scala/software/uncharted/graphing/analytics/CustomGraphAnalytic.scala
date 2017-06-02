@@ -117,6 +117,25 @@ object CustomGraphAnalytic {
   }
 
   /**
+    * Create a custom graph analytic.
+    * @param className The class name of the custom graph analytic to construct
+    * @param config Configuration to use for initialization
+    * @return An instance of the named analytic.
+    */
+  def apply (className: String, config: Option[Config]): CustomGraphAnalytic[_] = {
+    val rawClass = this.getClass.getClassLoader.loadClass(className)
+    if (!classOf[CustomGraphAnalytic[_]].isAssignableFrom(rawClass)) {
+      throw new IllegalArgumentException(s"$className is not a CustomGraphAnalytic")
+    }
+    val analyticClass = rawClass.asInstanceOf[Class[CustomGraphAnalytic[_]]]
+    var instance = analyticClass.getConstructor().newInstance()
+
+    config.foreach(c => instance = instance.initialize(c) )
+
+    instance
+  }
+
+  /**
     * Given a list of custom graph analytics, determine all columns needed by any of them
     */
   def determineColumns (analytics: Seq[CustomGraphAnalytic[_]]): Seq[Int] = {

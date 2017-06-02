@@ -22,11 +22,6 @@ import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.analytic.Aggregator
 
 /**
-  * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
-  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
-  */
-
-/**
   * Wrapper around a node (community) in the graph.
   * @param id Id of the node (community).
   * @param internalNodes Number of internal nodes for the community.

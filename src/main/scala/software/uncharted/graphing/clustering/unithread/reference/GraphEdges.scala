@@ -1,8 +1,4 @@
 //scalastyle:off
-/**
-  * Code is an adaptation of https://sites.google.com/site/findcommunities with the original done by
-  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre
-  */
 package software.uncharted.graphing.clustering.unithread.reference
 
 

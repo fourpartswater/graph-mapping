@@ -24,12 +24,6 @@ import scala.collection.Seq
 import scala.io.Source
 import scala.util.{Failure, Random, Success}
 
-
-/**
-  * Code is an adaptation of https://sites.google.com/site/findcommunities, with the original done by
-  * (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre.
-  */
-
 //scalastyle:off file.size.limit method.length cyclomatic.complexity multiple.string.literals
 
 /**
@@ -159,10 +153,10 @@ class Community (val g: Graph,
   }
 
   /**
-    * Join the node to neighbouring communities if allowed.
+    * Calculate information to determine the communities a node can potentially join.
     * @param node Node being processed.
     */
-  def neighComm(node: Int): Unit = {
+  private def neighComm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
     }
@@ -209,7 +203,7 @@ class Community (val g: Graph,
     * @param randomize Randomize the order of processing (defaults to true).
     * @return True if some changes were made to the communities.
     */
-  def oneLevel (randomize: Boolean = true): Boolean = {
+  private[unithread] def oneLevel (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -231,7 +225,7 @@ class Community (val g: Graph,
 
     // repeat while
     //   there is an improvement of modularity
-    //   or there is an improvement of modularity greater than a given epsilon
+    //   or there is an improvement of modularity greater than a given minimumModularityGain
     //   or a predefined number of pass have been done
     do {
       cur_mod = new_mod
@@ -531,34 +525,33 @@ object Community extends ConfigReader {
   def parseArguments(config: Config, argParser: ArgumentParser): Config = {
     val loader = new ConfigLoader(config)
     loader.putValue(argParser.getStringOption("o", "Output directory", Some(".")),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.OUTPUT}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.Output}")
     loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.INPUT_FILENAME}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.InputFilename}")
     loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.WEIGHT_FILENAME}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.WeightFilename}")
     loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.METADATA_FILENAME}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.MetadataFilename}")
     loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.PARTITION_FILENAME}")
-    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than epsilon.", Some(0.000001)),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.EPSILON}")
-    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure.", Some(-2)),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.LEVEL_DISPLAY}")
-    loader.putIntValue(argParser.getIntOption("k", "if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(16)),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.K}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.PartitionFilename}")
+    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than minimumModularityGain.", Some(0.000001)),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.MinimumModularityGain}")
+    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure. " +
+      " if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(-2)),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.LevelDisplay}")
     loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.KEEP_ORDER}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.KeepOrder}")
     loader.putValue(argParser.getStringOption("a",
       "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.ANALYTICS}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.Analytics}")
     loader.putIntValue(argParser.getIntOption("nd",
       "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the " +
         "first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.NODE_DEGREE}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.NodeDegree}")
     loader.putIntValue(argParser.getIntOption("cs",
       "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than " +
         "the specified size. Exclusive with -nd.", None),
-      s"${CommunityConfigParser.SECTION_KEY}.${CommunityConfigParser.COMMUNITY_SIZE}")
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.CommunitySize}")
 
     loader.config
   }
@@ -574,6 +567,7 @@ object Community extends ConfigReader {
       case Failure(f) =>
         println(s"Failed to load cluster configuration properly. ${f}")
         f.printStackTrace()
+        argParser.usage
         sys.exit(-1)
     }
 
@@ -599,13 +593,13 @@ object Community extends ConfigReader {
     new CommunityClusterer(
       {
         val c = new Community(Graph(clusterConfig.inputFilename, clusterConfig.weightFilename,
-          clusterConfig.metadataFilename, clusterConfig.analytics), -1, clusterConfig.epsilon, algorithmByLevel(0))
+          clusterConfig.metadataFilename, clusterConfig.analytics), -1, clusterConfig.minimumModularityGain, algorithmByLevel(0))
         clusterConfig.partitionFilename.foreach(part => c.initPartition(part))
         c
       },
       clusterConfig.randomize,
       clusterConfig.partitionFilename.isDefined,
-      clusterConfig.epsilon,
+      clusterConfig.minimumModularityGain,
       algorithmByLevel
     ).doClustering[Int](
       withLevel(clusterConfig.levelDisplay, curDir)

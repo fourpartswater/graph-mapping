@@ -14,7 +14,7 @@
 package software.uncharted.graphing.export
 
 /**
-  * Wrapper for a clustered node.
+  * Simple class for a clustered node.
   * @param nodeId Id of the node
   * @param xCoord X coordinate of the node in the layout
   * @param yCoord Y coordinate of the node in the layout

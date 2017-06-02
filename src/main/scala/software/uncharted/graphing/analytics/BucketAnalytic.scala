@@ -57,54 +57,53 @@ class BucketAnalytic (c: Int, bins: Array[Bucket]) extends CustomGraphAnalytic[A
       (output: Array[Int]) => output.mkString(",")
     )
 
-  //scalastyle:off method.length
+  //Buckets can be either user defined or equal size. Equal size buckets have their limits calculated.
+  //Expected formats:
+  //    analytic {
+  //      bucket {
+  //        type = "user-defined"
+  //        column = 2
+  //        bucket: [
+  //        {
+  //          index = 0
+  //          minValue = 0
+  //          maxValue = 24
+  //        },
+  //        {
+  //          index = 1
+  //          minValue = 25
+  //          maxValue = 49
+  //        },
+  //        {
+  //          index = 2
+  //          minValue = 50
+  //          maxValue = 74
+  //        },
+  //        {
+  //          index = 3
+  //          minValue = 75
+  //          maxValue = 99
+  //        }
+  //        ]
+  //      }
+  //    }
+  //
+  //    analytic {
+  //      bucket {
+  //        type = "equal-size"
+  //        column = 2
+  //        minValue = 0
+  //        maxValue = 100
+  //        bins = 4
+  //      }
+  //    }
+
   /**
     * Initialize a new instance of the aggregator using configuration parameters.
     * @param configs Configuration to use for initialization
     * @return Configured instance
     */
   override def initialize(configs: Config): CustomGraphAnalytic[Array[Int]] = {
-
-    //Buckets can be either user defined or equal size. Equal size buckets have their limits calculated.
-    //Expected formats:
-//    analytic {
-//      bucket {
-//        type = "user-defined"
-//        column = 2
-//        bucket: [
-//        {
-//          index = 0
-//          minValue = 0
-//          maxValue = 24
-//        },
-//        {
-//          index = 1
-//          minValue = 25
-//          maxValue = 49
-//        },
-//        {
-//          index = 2
-//          minValue = 50
-//          maxValue = 74
-//        },
-//        {
-//          index = 3
-//          minValue = 75
-//          maxValue = 99
-//        }
-//        ]
-//      }
-//    }
-//
-//    analytic {
-//      bucket {
-//        type = "equal-size"
-//        column = 2
-//        minValue = 0
-//        maxValue = 100
-//        bins = 4
-//      }
-//    }
 
     val analyticConfig = configs.getConfig(analyticKey)
     val bucketConfig = analyticConfig.getConfig(bucketKey)
@@ -136,7 +135,6 @@ class BucketAnalytic (c: Int, bins: Array[Bucket]) extends CustomGraphAnalytic[A
       case _ => this
     }
   }
-  //scalastyle:on method.length
 }
 
 class BucketAggregator (bins: Array[Bucket]) extends Aggregator[Double, Array[Int], Array[Int]] {
