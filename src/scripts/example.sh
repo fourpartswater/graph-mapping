@@ -139,7 +139,7 @@ echo Elapsed time for layout: $(( ${TIMEC} - ${TIMEB} )) seconds
 
 
 # Set up application-specific parameters
-MAIN_CLASS=software.uncharted.graphing.salt.NodeTilingPipeline
+MAIN_CLASS=software.uncharted.graphing.tiling.NodeTilingPipeline
 APPLICATION_NAME="Node tiling pipeline"
 
 echo
@@ -204,7 +204,7 @@ echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
-MAIN_CLASS=software.uncharted.graphing.salt.MetadataTilingPipeline
+MAIN_CLASS=software.uncharted.graphing.tiling.MetadataTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Graph metadata tiling pipeline"
 
@@ -258,7 +258,7 @@ echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
-MAIN_CLASS=software.uncharted.graphing.salt.EdgeTilingPipeline
+MAIN_CLASS=software.uncharted.graphing.tiling.EdgeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Inter-community edge tiling pipeline"
 
@@ -308,7 +308,7 @@ echo Elapsed time: $(( ${ENDTIME} - ${STARTTIME} )) seconds
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
-MAIN_CLASS=software.uncharted.graphing.salt.EdgeTilingPipeline
+MAIN_CLASS=software.uncharted.graphing.tiling.EdgeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Intra-community edge tiling pipeline"
 
