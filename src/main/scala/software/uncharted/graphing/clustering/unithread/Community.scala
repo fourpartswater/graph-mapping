@@ -153,7 +153,7 @@ class Community (val g: Graph,
   }
 
   /**
-    * Calculate information to determine the communities a node can potentially join.
+    * Calculate information used to determine which communities a node should join.
     * @param node Node being processed.
     */
   private def neighComm(node: Int): Unit = {
