@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -26,6 +26,7 @@ import scala.reflect.ClassTag
  */
 class ExtendedRDDOpertations[T: ClassTag] (rdd: RDD[T]) {
 
+  //scalastyle:off method.length cyclomatic.complexity
   /**
    * Repartition an RDD into roughly equal-sized partitions, without changing order
    * @param partitions The number of partitions into which to divide the RDD
@@ -100,6 +101,7 @@ class ExtendedRDDOpertations[T: ClassTag] (rdd: RDD[T]) {
 
     result
   }
+  //scalastyle:on method.length cyclomatic.complexity
 }
 
 object ExtendedRDDOpertations {

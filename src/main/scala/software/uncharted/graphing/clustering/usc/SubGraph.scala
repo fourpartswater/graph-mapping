@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -19,10 +19,10 @@ import software.uncharted.graphing.clustering.experiments.partitioning.labelprop
 import scala.collection.mutable.{Buffer, Map => MutableMap, Set => MutableSet}
 
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import org.apache.spark.rdd.RDD
 
-import software.uncharted.spark.ExtendedRDDOpertations._
+import software.uncharted.spark.ExtendedRDDOpertations._ //scalastyle:ignore
 import software.uncharted.graphing.clustering.unithread.reference.{Graph => BGLLGraph}
 
 
@@ -96,8 +96,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 
   def weightedSelfLoopDegree (node: Int): Double =
     internalNeighbors(node).foldLeft(0.0) { case (sum, addend) =>
-      if (node == addend._1) sum + addend._2.toDouble
-      else sum
+      if (node == addend._1) sum + addend._2.toDouble else sum
     }
 
 
@@ -151,7 +150,7 @@ class SubGraph[VD] (nodes: Array[(VertexId, VD)],
 }
 
 
-
+//scalastyle:off method.length
 object SubGraph {
   def partitionGraphToSubgraphs[VD, ED] (graph: Graph[VD, ED],
                                          getEdgeWeight: ED => Float,
@@ -290,6 +289,7 @@ object SubGraph {
     }
   }
 }
+//scalastyle:on method.length
 
 class SourcePartitioner (boundaries: Broadcast[Map[Int, (Long, Long)]]) extends PartitionStrategy {
   override def getPartition(src: VertexId, dst: VertexId, numParts: PartitionID): PartitionID = {

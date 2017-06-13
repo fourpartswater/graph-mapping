@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,12 +14,22 @@ package software.uncharted.graphing.export
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.SparkSession
 
+/**
+  * Export data for downstream processing using the layout data as source.
+  */
 class Exporter {
-  private var sc:SparkContext = null
-
-  def exportData(sc: SparkContext, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int) = {
-    this.sc = sc
+  /**
+    * Export the layout data for downstream processing.
+    * @param session Spark session to use for data processing
+    * @param sourceLayoutDir Source of the layout data
+    * @param outputDir Directory to use for the output
+    * @param dataDelimiter Delimiter of the source data
+    * @param maxLevel Maximum hierarchy level in the source data
+    */
+  def exportData(session: SparkSession, sourceLayoutDir:String, outputDir:String, dataDelimiter:String, maxLevel: Int): Unit = {
+    val sc = session.sparkContext
 
     var allNodes: RDD[ClusteredNode] = sc.emptyRDD[ClusteredNode]
     var allEdges: RDD[ClusteredEdge] = sc.emptyRDD[ClusteredEdge]
@@ -28,7 +38,7 @@ class Exporter {
     //Work from top to bottom to generate the data extract.
     for(level <- maxLevel to 0 by -1) {
       //Get the data for the level.
-      val (levelNode, levelEdge) = extractLevel(sourceLayoutDir, dataDelimiter, level)
+      val (levelNode, levelEdge) = extractLevel(sc, sourceLayoutDir, dataDelimiter, level)
 
       //Join the node data to the previous level's community subset.
       val levelDataCommunity = levelNode.map(node => (node.parentId, node))
@@ -66,7 +76,7 @@ class Exporter {
     allEdges.saveAsTextFile(outputDir + "/edges")
   }
 
-  private def extractLevel(sourceLayoutDir:String, delimiter:String, level:Int): (RDD[ClusteredNode], RDD[ClusteredEdge]) = {
+  private def extractLevel(sc: SparkContext, sourceLayoutDir:String, delimiter:String, level:Int): (RDD[ClusteredNode], RDD[ClusteredEdge]) = {
 
     val layoutData = sc.textFile(sourceLayoutDir + "/level_" + level)
 

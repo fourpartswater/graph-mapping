@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.experiments
 
 
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import software.uncharted.graphing.utilities.VertexCalculation
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -61,8 +61,7 @@ object ConnectivityChooser extends VertexCalculation[MutableMap[VertexId, Int]] 
 
       topSize.flatMap { n: Int =>
         val topCandidates = src.filter(_._2 >= n * n).map(_._1).toSet
-        if (topCandidates.contains(dst)) Some((n, topCandidates))
-        else None
+        if (topCandidates.contains(dst)) Some((n, topCandidates)) else None
       }
     }
 

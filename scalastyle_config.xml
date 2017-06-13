@@ -9,7 +9,7 @@
  <check level="warning" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true">
   <parameters>
    <parameter name="header"><![CDATA[/**
- * Copyright (c) 2014-2015 Uncharted Software Inc. All rights reserved.
+ * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
  *
  * Property of Uncharted(tm), formerly Oculus Info Inc.
  * http://uncharted.software/
@@ -59,7 +59,7 @@
  </check>
  <check level="warning" class="org.scalastyle.scalariform.MagicNumberChecker" enabled="true">
   <parameters>
-   <parameter name="ignore"><![CDATA[-180,-2,-1,0,1,2,3,4,5,6,7,8,9,10,16,180]]></parameter>
+   <parameter name="ignore"><![CDATA[-180,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,180]]></parameter>
   </parameters>
  </check>
  <check level="warning" class="org.scalastyle.scalariform.NoWhitespaceBeforeLeftBracketChecker" enabled="true"></check>
@@ -132,7 +132,7 @@
  <check level="warning" class="org.scalastyle.scalariform.MultipleStringLiteralsChecker" enabled="true">
   <parameters>
    <parameter name="allowed"><![CDATA[2]]></parameter>
-   <parameter name="ignoreRegex"><![CDATA[^""$]]></parameter>
+   <parameter name="ignoreRegex"><![CDATA[^"(,|-|\\t| )"$]]></parameter>
   </parameters>
  </check>
  <check level="warning" class="org.scalastyle.scalariform.ImportGroupingChecker" enabled="true"></check>

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -54,12 +54,12 @@ class SimpleProfiler (key: String) {
   private var order = MutableBuffer[String]()
 
   def register (key: String*): Unit = {
-    if (0 == key.length) throw new IllegalArgumentException("Attempt to register null key <>")
+    if (0 == key.length) { throw new IllegalArgumentException("Attempt to register null key <>") }
     else {
-      if (order.find(_ == key(0)).isEmpty) order += key(0)
+      if (order.find(_ == key(0)).isEmpty) { order += key(0) }
       if (1 == key.length) {
-        if (registrations.contains(key(0))) throw new IllegalArgumentException("Attempt to double-register key <>")
-        else registrations(key(0)) = System.nanoTime()
+        if (registrations.contains(key(0))) { throw new IllegalArgumentException("Attempt to double-register key <>") }
+        else { registrations(key(0)) = System.nanoTime() }
       } else {
         subProfilers.getOrElseUpdate(key(0), new SimpleProfiler(key(0))).register(key.drop(1): _*)
       }
@@ -69,7 +69,7 @@ class SimpleProfiler (key: String) {
   def finish (key: String*): Unit = {
     val endTime = System.nanoTime()
 
-    if (0 == key.length) throw new IllegalArgumentException("Attempt to finish null key")
+    if (0 == key.length) { throw new IllegalArgumentException("Attempt to finish null key") }
     else if (1 == key.length) {
       registrations.remove(key(0)) match {
         case Some(startTime) =>
@@ -90,7 +90,7 @@ class SimpleProfiler (key: String) {
         case None =>
           to.println("%s%s:".format(prefix, key))
       }
-      subProfilers.get(key).foreach(sub => sub.report(to, prefix+(" "*key.length)+"."))
+      subProfilers.get(key).foreach(sub => sub.report(to, prefix + (" " * key.length) + "."))
     }
   }
 }

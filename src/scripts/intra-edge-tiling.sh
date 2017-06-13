@@ -13,7 +13,7 @@ MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration
-MAIN_CLASS=software.uncharted.graphing.salt.EdgeTilingPipeline
+MAIN_CLASS=software.uncharted.graphing.tiling.EdgeTilingPipeline
 # MAIN_CLASS=software.uncharted.graphing.config.ConfigurationTester
 APPLICATION_NAME="Intra-community edge tiling pipeline"
 

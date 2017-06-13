@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -19,7 +19,7 @@ import scala.collection.mutable.{Map => MutableMap}
 import org.apache.spark.graphx.VertexId
 
 
-
+//scalastyle:off cyclomatic.complexity method.length
 /**
  * A class to take the results of clustering on several subgraphs and consolidate them
  * Created by nkronenfeld on 12/7/2015.
@@ -66,12 +66,12 @@ object GraphConsolidator {
                 consolidatedRemoteNodeLinks(newNodeIndex) = consolidatedRemoteNodeLinks.get(newNodeIndex).getOrElse(0.0f) + weight
               }
               case None => {
-                println("\nCouldn't translate "+origNodeId+", which has changed to "+newNodeId+": Not found in renumbering map")
+                println("\nCouldn't translate " + origNodeId + ", which has changed to " + newNodeId + ": Not found in renumbering map")
               }
             }
           }
           case None => {
-            println("\nCouldn't find "+origNodeId+" in link mapping")
+            println("\nCouldn't find " + origNodeId + " in link mapping")
           }
         }
       }
@@ -97,3 +97,4 @@ object GraphConsolidator {
     new SubGraph(nodes, links, remoteLinks)
   }
 }
+//scalastyle:on cyclomatic.complexity method.length

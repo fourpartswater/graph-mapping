@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -10,48 +10,43 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.tiling
 
 
 import com.typesafe.config.Config
-import grizzled.slf4j.Logging
-import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types._ //scalastyle:ignore
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
 import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.sparkpipe.config.{TilingConfig}
+import software.uncharted.xdata.sparkpipe.jobs.{AbstractJob, JobUtil}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
+import scala.util.{Failure, Success}
 
-object NodeTilingPipeline extends Logging {
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sparkSession = SparkConfig(config)
-    try {
-      execute(sparkSession, config)
-    } finally {
-      sparkSession.sparkContext.stop()
-    }
-  }
+//scalastyle:off null underscore.import import.grouping
+/**
+  * A job to produce a set of tiles showing the nodes in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set.
+  */
+object NodeTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
     val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
-    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
+
+    val graphConfig = GraphConfig.parse(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read graph configuration", f)
+        sys.exit(-1)
+    }
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
@@ -62,7 +57,8 @@ object NodeTilingPipeline extends Logging {
 
   def getSchema(analytics: Seq[CustomGraphAnalytic[_]]): StructType = {
     // This schema must match that written by HierarchicalFDLayout.saveLayoutResult (the resultNodes variable)
-    // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t" + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
+    // "node\t" + id + "\t" + x + "\t" + y + "\t" + radius + "\t" + parentID + "\t" + parentX + "\t" + parentY + "\t"
+    // + parentR + "\t" + numInternalNodes + "\t" + degree + "\t" + metaData
     StructType(
       Seq(
         StructField("fieldType", StringType),
@@ -117,3 +113,4 @@ object NodeTilingPipeline extends Logging {
     sys.exit(-1)
   }
 }
+//scalastyle:on null underscore.import import.grouping

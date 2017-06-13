@@ -1,10 +1,4 @@
-/**
-  * This code is copied and translated from https://sites.google.com/site/findcommunities
-  *
-  * This means it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
-  * we can't distribute it without permission - though as a translation, with some optimization for readability in
-  * scala, it may be a gray area.
-  */
+//scalastyle:off
 package software.uncharted.graphing.clustering.unithread.reference
 
 
@@ -47,9 +41,11 @@ class GraphEdges (links: Array[Buffer[(Int, Float)]]) {
     }
 
     for (i <- 0 until links.size) {
-      linked(i) = true
-      for (j <- 0 until links(i).size) {
-        linked(links(i)(j)._1) = true
+      if (!links(i).isEmpty) {
+        linked(i) = true
+        for (j <- 0 until links(i).size) {
+          linked(links(i)(j)._1) = true
+        }
       }
     }
 
@@ -166,3 +162,4 @@ object GraphEdges {
     new GraphEdges(links)
   }
 }
+//scalastyle:on

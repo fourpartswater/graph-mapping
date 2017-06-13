@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -24,7 +24,7 @@ import software.uncharted.salt.core.analytic.Aggregator
 class WrappingClusterAggregator[-I, N, O] (base: Aggregator[I, N, O],
                                            inputConversion: String => I,
                                            outputConversion: O => String) extends Aggregator[String, N, String] {
-  assert(null != base)
+  assert(null != base) //scalastyle:ignore
 
   override def default(): N = base.default()
 

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.unithread
 
 
 
-import java.io._
+import java.io._ //scalastyle:ignore
 import java.util.Date
 
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
@@ -23,6 +23,8 @@ import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.reflect.ClassTag
 import scala.io.Source
 
+
+//scalastyle:off multiple.string.literals
 
 /**
   * An edge-base representation of a graph
@@ -41,7 +43,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
   /**
     * Read the metadata from source.
     *
-    * @param metadataFile Reader for the metadata.
+    * @param metadataFile Metadata file.
     * @param md_filter Value compared to the start of the line to filter metadata.
     * @param separator Separator of the fields.
     * @param id_column 0 based index of the id column.
@@ -68,6 +70,17 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
       separator, id_column, md_column, maxNode + 1, analytics)
   }
 
+  /**
+    * Read the metadata from source.
+    *
+    * @param metadataInput Metadata input.
+    * @param md_filter Value compared to the start of the line to filter metadata.
+    * @param separator Separator of the fields.
+    * @param id_column 0 based index of the id column.
+    * @param md_column 0 based index of the metadata column.
+    * @param nodeCount Number of nodes in the metadata. Should be equal to the (highest id + 1).
+    * @param analytics Analytics to apply to the metadata.
+    */
   def readMetadata (metadataInput: Iterator[String], md_filter: Option[String], separator: String,
                     id_column: Int, md_column: Int, nodeCount: Int, analytics: Seq[CustomGraphAnalytic[_]]): Unit = {
     metaData = Some(new Array[(String, Seq[String])](nodeCount))
@@ -90,7 +103,12 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
-  def renumber (weighted: Boolean): GraphEdges = {
+  //scalastyle:off cyclomatic.complexity
+  /**
+    * Renumber ids to be sequential and start from 0.
+    * @return New graph with sequential ids starting from 0.
+    */
+  def renumber (): GraphEdges = {
     val linked = new Array[Boolean](links.length)
     val renum = new Array[Int](links.length)
     for (i <- links.indices) {
@@ -99,9 +117,11 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
 
     for (i <- links.indices) {
-      linked(i) = true
-      for (j <- links(i).indices) {
-        linked(links(i)(j)._1) = true
+      if (!links(i).isEmpty) {
+        linked(i) = true
+        for (j <- links(i).indices) {
+          linked(links(i)(j)._1) = true
+        }
       }
     }
 
@@ -130,13 +150,17 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     metaData.foreach{md =>
       val newMetaData = new Array[(String, Seq[String])](nb)
       for (i <- links.indices)
-        if (linked(i))
-          newMetaData(renum(i)) = md(i)
+        if (linked(i)) newMetaData(renum(i)) = md(i)
       newGE.metaData = Some(newMetaData)
     }
     newGE
   }
+  //scalastyle:on cyclomatic.complexity
 
+  /**
+    * Output the edge data using space as separator.
+    * @param weighted If true, output will contain the weight.
+    */
   def display (weighted: Boolean): Unit = {
     for (i <- links.indices; j <- links(i).indices) {
       val (dest, weight, analyticValues) = links(i)(j)
@@ -148,7 +172,13 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     }
   }
 
-  def display_binary (edgeStream: DataOutputStream,
+  /**
+    * Output data to streams.
+    * @param edgeStream Edge data stream
+    * @param weightStream Weight data stream
+    * @param metadataStream Metadata stream
+    */
+  def displayBinary (edgeStream: DataOutputStream,
                       weightStream: Option[DataOutputStream],
                       metadataStream: Option[DataOutputStream]): Unit = {
     // output number of nodes
@@ -181,7 +211,7 @@ class GraphEdges (val links: Array[_ <: Seq[(Int, Float, Seq[String])]]) {
     metadataStream.foreach{stream =>
       metaData.foreach { data =>
         for (i <- 0 until s) {
-          if (null == data(i)) {
+          if (null == data(i)) { //scalastyle:ignore
             stream.writeUTF("")
             stream.writeInt(0)
           } else {
@@ -277,13 +307,15 @@ object GraphEdges {
       }
 
       n += 1
-      if (0 == (n % 100000))
-        println("Counted " + n + " ("+new Date()+")")
+      if (0 == (n % 100000)) {
+        println("Counted " + n + " (" + new Date() + ")")
+      }
     }
-    println("Reading graph with "+(maxNode+1)+" nodes")
+
+    println("Reading graph with " + (maxNode + 1) + " nodes")
 
     // Now actually read the graph
-    val result = apply(Source.fromFile(edgeInputFile).getLines(), edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode+1))
+    val result = apply(Source.fromFile(edgeInputFile).getLines(), edge_filter, edge_separator, source_column, destination_column, weight_column, Some(maxNode + 1))
     result
   }
 
@@ -307,18 +339,27 @@ object GraphEdges {
         val analyticValues = analyticColumns.map(c => fields(c))
 
         edges(source).append((destination, weight.getOrElse(1.0f), analyticValues))
-        if (source != destination)
+        if (source != destination) {
           edges(destination).append((source, weight.getOrElse(1.0f), analyticValues))
+        }
       }
 
       n += 1
-      if (0 == (n % 100000))
-        println("Read " + n + " ("+new Date()+")")
+      if (0 == (n % 100000)) {
+        println("Read " + n + " (" + new Date() + ")")
+      }
     }
     new GraphEdges(edges.data)
   }
 }
 
+/**
+  * Array that can grow when needed.
+  * @param size Size of the collection
+  * @param initialize Function to initialize an array value
+  * @param ev$1
+  * @tparam T
+  */
 class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
   var data = {
     val initData = new Array[T](size)
@@ -327,7 +368,7 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
   }
   private def growTo (newSize: Int): Unit = {
     if (data.length < newSize) {
-      println("Growing from "+data.length+" to "+newSize)
+      println("Growing from " + data.length + " to " + newSize)
       val newData = new Array[T](newSize)
       for (i <- data.indices) newData(i) = data(i)
       for (i <- data.length until newSize) newData(i) = initialize()
@@ -336,10 +377,11 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
     }
   }
   def apply (n: Int): T = {
-    growTo(n+1)
+    growTo(n + 1)
     data(n)
   }
-  def update (n: Int, value: T) = {
+  def update (n: Int, value: T): Unit = {
     data(n) = value
   }
 }
+//scalastyle:on multiple.string.literals

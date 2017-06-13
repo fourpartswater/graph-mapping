@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -22,7 +22,7 @@ package software.uncharted.graphing.layout
   */
 class QuadNode(box: (Double, Double, Double, Double)) {
 
-  private var _boundingBox: (Double, Double, Double, Double) = box	// bounding box (x,y of lower left corner, width, height)
+  private var _boundingBox: (Double, Double, Double, Double) = box // bounding box (x,y of lower left corner, width, height)
   private var _NW: QuadNode = _
   private var _NE: QuadNode = _
   private var _SW: QuadNode = _
@@ -32,7 +32,7 @@ class QuadNode(box: (Double, Double, Double, Double)) {
   private var _centerOfMass: (Double, Double) = _
   private var _size: Double = _
 
-  private var _data: QuadNodeData = null
+  private var _data: QuadNodeData = null //scalastyle:ignore
 
 
   def getBounds: (Double, Double, Double, Double) = {
@@ -87,19 +87,19 @@ class QuadNode(box: (Double, Double, Double, Double)) {
     _SE = se
   }
 
-  def setData(data: QuadNodeData) = {
+  def setData(data: QuadNodeData): Unit = {
     _data = data
   }
 
-  def setNumChildren(n: Int) = {
+  def setNumChildren(n: Int): Unit = {
     _nChildren = n
   }
 
-  def setCenterOfMass(centre: (Double, Double)) = {
+  def setCenterOfMass(centre: (Double, Double)): Unit = {
     _centerOfMass = centre
   }
 
-  def setSize(size: Double) = {
+  def setSize(size: Double): Unit = {
     _size = size
   }
 
@@ -109,8 +109,8 @@ class QuadNode(box: (Double, Double, Double, Double)) {
 
   // Tests if a given point is inside the bounding rectangle of this quadnode
   def isPointInBounds(x: Double, y: Double): Boolean = {
-    x >= _boundingBox._1 && x <= _boundingBox._1+_boundingBox._3 &&
-      y >= _boundingBox._2 && y <= _boundingBox._2+_boundingBox._4
+    x >= _boundingBox._1 && x <= _boundingBox._1 + _boundingBox._3 &&
+      y >= _boundingBox._2 && y <= _boundingBox._2 + _boundingBox._4
   }
 
 }

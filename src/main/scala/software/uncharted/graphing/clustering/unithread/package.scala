@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -28,5 +28,4 @@ package software.uncharted.graphing.clustering
   *   <li> It can be used as part of a larger process, rather than only as a separate application </li>
   * </ul>
   */
-package object unithread {
-}
+package object unithread

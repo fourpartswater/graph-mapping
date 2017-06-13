@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -10,12 +10,10 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.tiling
 
 
 import com.typesafe.config.Config
-import grizzled.slf4j.Logging
-import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
@@ -26,39 +24,34 @@ import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.Pipe
 import software.uncharted.xdata.ops.salt.BasicSaltOperations
 import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
-import software.uncharted.xdata.sparkpipe.config.{SparkConfig, TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil
+import software.uncharted.xdata.sparkpipe.config.{TilingConfig}
+import software.uncharted.xdata.sparkpipe.jobs.{AbstractJob, JobUtil}
 import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 
-
-object MetadataTilingPipeline extends Logging {
-  def main(args: Array[String]): Unit = {
-    // Reduce log clutter
-    Logger.getRootLogger.setLevel(Level.WARN)
-
-    // load properties file from supplied URI
-    val config = GraphConfig.getFullConfiguration(args, this.logger)
-
-    execute(config)
-  }
-
-  def execute (config: Config): Unit = {
-    val sparkSession = SparkConfig(config)
-    try {
-      execute(sparkSession, config)
-    } finally {
-      sparkSession.sparkContext.stop()
-    }
-  }
+//scalastyle:off null underscore.import import.grouping
+/**
+  * A job to produce a set of tiles showing the node metadata in a hierarchically clustered graph.
+  *
+  * The input to this job should be the output of the ClusteredGraphLayoutApp.
+  *
+  * The output is a tile set.
+  */
+object MetadataTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
     val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
-    val graphConfig = GraphConfig(config).getOrElse(errorOut("No graph configuration given."))
+
+    val graphConfig = GraphConfig.parse(config) match {
+      case Success(s) => s
+      case Failure(f) =>
+        error("Couldn't read graph configuration", f)
+        sys.exit(-1)
+    }
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
@@ -66,6 +59,7 @@ object MetadataTilingPipeline extends Logging {
     }
   }
 
+  //scalastyle:off method.length
   def tileHierarchyLevel(sparkSession: SparkSession,
                          hierarchyLevel: Int,
                          zoomLevels: Seq[Int],
@@ -107,9 +101,6 @@ object MetadataTilingPipeline extends Logging {
       .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
-
-    //      .to(countRDDRowsOp("Graph nodes: "))
-
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
     val edgeData = rawData
@@ -145,6 +136,7 @@ object MetadataTilingPipeline extends Logging {
       .to(outputOperation)
       .run()
   }
+  //scalastyle:on method.length
 
   def parseNodes(hierarchyLevel: Int, analytics: Seq[CustomGraphAnalytic[_]])(rawData: DataFrame): RDD[(Long, GraphCommunity)] = {
     def getDefaultAnalyticValue[T](analytic: CustomGraphAnalytic[T]): String =
@@ -197,11 +189,9 @@ object MetadataTilingPipeline extends Logging {
     val dstXExtractor = new DoubleExtractor(rawData, "dstX", None)
     val dstYExtractor = new DoubleExtractor(rawData, "dstY", None)
     val weightExtractor =
-      if (weighted) Some(new LongExtractor(rawData, "weight", None))
-      else None
+      if (weighted) Some(new LongExtractor(rawData, "weight", None)) else None
     val externalExtractor =
-      if (specifiesExternal) Some(new IntExtractor(rawData, "isInterCommunity", None))
-      else None
+      if (specifiesExternal) Some(new IntExtractor(rawData, "isInterCommunity", None)) else None
 
     rawData.rdd.flatMap { row =>
       Try {
@@ -214,8 +204,9 @@ object MetadataTilingPipeline extends Logging {
         val weight = weightExtractor.map(_.getValue(row)).getOrElse(1L)
         val external = externalExtractor.map(_.getValue(row)).getOrElse(1) == 1
 
-        if (-1 == srcId || -1 == dstId || srcId == dstId)
+        if (-1 == srcId || -1 == dstId || srcId == dstId) {
           throw new Exception("Irrelevant edge")
+        }
 
         Iterator(
           (srcId, (new GraphEdge(dstId, (dstX, dstY), weight), external)),
@@ -307,3 +298,4 @@ class StringExtractor(data: DataFrame, columnName: String, defaultValue: Option[
   extends ValueExtractor[String](data, columnName, defaultValue) {
   override protected def getValueInternal(row: Row, index: Int): String = row.getString(index)
 }
+//scalastyle:on null underscore.import import.grouping

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -67,18 +67,18 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
         sys.exit(-1)
     }
 
-		val fileStartTime = System.currentTimeMillis()
+    val fileStartTime = System.currentTimeMillis()
 
-		// Hierarchical Force-Directed layout scheme
-    info("\n\n\nStarting layout at "+new Date)
-		HierarchicFDLayout.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
-    info("Layout complete at "+new Date+"\n\n\n")
+    // Hierarchical Force-Directed layout scheme
+    info("\n\n\nStarting layout at " + new Date)
+    HierarchicFDLayout.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
+    info("Layout complete at " + new Date + "\n\n\n")
 
-		val fileEndTime = System.currentTimeMillis()
-		info("Finished hierarchic graph layout job in "+((fileEndTime-fileStartTime)/60000.0)+" minutes")
+    val fileEndTime = System.currentTimeMillis()
+    info("Finished hierarchic graph layout job in " + ((fileEndTime - fileStartTime) / 60000.0) + " minutes")
 
-		info("DONE!!")
-	}
+    info("DONE!!")
+  }
 
 
 }

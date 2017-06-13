@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -30,7 +30,7 @@ class RandomGraph (sc: SparkContext) {
    * @param partitions The number of partitions into which to split these records
    * @return An RDD of the numbers (0 until records)
    */
-  def NxM(records: Long, partitions: Int): RDD[Long] = {
+  def nXm(records: Long, partitions: Int): RDD[Long] = {
     val roughPN = (records / partitions).toDouble.round.toLong
     sc.parallelize(1 to partitions, partitions).mapPartitionsWithIndex { case (p, i) =>
       val start = p * roughPN
@@ -42,8 +42,8 @@ class RandomGraph (sc: SparkContext) {
   def makeRandomGraph[T: ClassTag] (nodes: Long, nodePartitions: Int,
                                     edges: Long, edgePartitions: Int,
                                     weightFcn: Random => T): Graph[Long, T] = {
-    val nodeData: VertexRDD[Long] = VertexRDD(NxM(nodes, nodePartitions).map(n => (n, n)))
-    val edgeData: EdgeRDD[T] = EdgeRDD.fromEdges(NxM(edges, edgePartitions).mapPartitions{i =>
+    val nodeData: VertexRDD[Long] = VertexRDD(nXm(nodes, nodePartitions).map(n => (n, n)))
+    val edgeData: EdgeRDD[T] = EdgeRDD.fromEdges(nXm(edges, edgePartitions).mapPartitions{i =>
       val R = new Random(System.currentTimeMillis)
       def nextLong (max: Long) = R.nextLong().abs % max
       i.map{n =>

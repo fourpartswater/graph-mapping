@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -15,7 +15,7 @@ package software.uncharted.graphing.layout.forcedirected
 import com.typesafe.config.Config
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
 
-import scala.util.{Try, Random}
+import scala.util.{Try}
 
 
 
@@ -74,25 +74,56 @@ case class ForceDirectedLayoutParameters (
   private def capToBounds (value: Double, minValue: Double, maxValue: Double): Double =
     ((value min maxValue) max minValue)
 }
+
 /**
   * A parser for reading force-directed layout parameters
+  *
+  * Valid properties are:
+  *
+  *   - `overlapping-nodes-repulsion-factor`  - A factor affecting how much overlapping nodes push each other away.
+  *   - `node-area-factor`  - The proportion of a node that children should expect to cover.
+  *   - `step-limit-factor` - A factor affecting how fast the layout is allowed to converge.
+  *   - `border-percent`  - Percent of parent bounding box to leave as whitespace between neighbouring communities
+  *                         during initial layout.
+  *   - `isolated-degree-threshold` - Nodes with external degree <= this number will be considered "isolated", and will
+  *                                   not be laid out in the central area.
+  *   - `quad-tree-node-threshold`  - If there are more nodes than this threshold, use a quad tree when calculating
+  *                                   repulsion forces
+  *   - `quad-tree-theta`  -  hen a quad tree cell is smaller than this proportion times the distance to the node in
+  *                           question, treat the whole cell as a point source with respect to repulsion forces.
+  *   - `proportional-constraint`  -  A constant governing how strong a proportional constraint towards the center is.
+  *   - `max-iterations`  - The maximum number of iterations to take to achieve layout convergence.
+  *   - `use-edge-weights`  - True to use edge weights when determining layout.
+  *   - `use-node-sizes`  - True to use node sizes when determining layout.
+  *   - `random-heating-deceleration`  -  A parameter that determines how quickly the insertion random intermittent heating
+  *                                       events (so as to prevent getting trapped in local minima) decelerates.
+  *   - `random-seed`  -  A potential random seed to allow consistency when repeating layouts.
+  *
+  *   Example from config file (in [[https://github.com/typesafehub/config#using-hocon-the-json-superset HOCON]] notation):
+  *
+  *   force-directed {
+  *     node-area-factor = 0.6
+  *     border-percent = 0.5
+  *     use-node-sizes = true
+  *     use-edge-weights = true
+  *   }
   */
 object ForceDirectedLayoutParametersParser extends ConfigParser {
 
-  private val SECTION_KEY = "layout.force-directed"
-  private val OVERLAPPING_NODES_REPULSION_FACTOR_KEY = "overlapping-nodes-repulsion-factor"
-  private val NODE_AREA_FACTOR_KEY = "node-area-factor"
-  private val STEP_LIMIT_FACTOR_KEY = "step-limit-factor"
-  private val BORDER_PERCENT_KEY = "border-percent"
-  private val ISOLATED_DEGREE_THRESHOLD_KEY = "isolated-degree-threshold"
-  private val QUAD_TREE_NODE_THRESHOLD_KEY = "quad-tree-node-threshold"
-  private val QUAD_TREE_TEHTA_KEY = "quad-tree-theta"
-  private val PROPORTIONAL_CONSTRAINT_KEY = "proportional-constraint"
-  private val MAX_ITERATIONS_KEY = "max-iterations"
-  private val USE_EDGE_WEIGHTS_KEY = "use-edge-weights"
-  private val USE_NODE_SIZES_KEY = "use-node-sizes"
-  private val RANDOM_HEATING_KEY = "random-heating-deceleration"
-  private val RANDOM_SEED_KEY = "random-seed"
+  private val SectionKey = "layout.force-directed"
+  private val OverlappingNodesRepulsionFactorKey = "overlapping-nodes-repulsion-factor"
+  private val NodeAreaFactorKey = "node-area-factor"
+  private val StepLimitFactorKey = "step-limit-factor"
+  private val BorderPercentKey = "border-percent"
+  private val IsolatedDegreeThresholdKey = "isolated-degree-threshold"
+  private val QuadTreeNodeThresholdKey = "quad-tree-node-threshold"
+  private val QuadTreeThetaKey = "quad-tree-theta"
+  private val ProportionalConstraintKey = "proportional-constraint"
+  private val MaxIterationsKey = "max-iterations"
+  private val UseEdgeWeightsKey = "use-edge-weights"
+  private val UseNodeSizesKey = "use-node-sizes"
+  private val RandomHeatingKey = "random-heating-deceleration"
+  private val RandomSeedKey = "random-seed"
 
   private[forcedirected] val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
   private[forcedirected] val defaultNodeAreaFactor = 0.3
@@ -116,22 +147,22 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
     */
   def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
     Try {
-      val sectionOpt = getConfigOption(config, SECTION_KEY)
+      val sectionOpt = getConfigOption(config, SectionKey)
 
       sectionOpt.map { section =>
         ForceDirectedLayoutParameters(
-          getDouble(section, OVERLAPPING_NODES_REPULSION_FACTOR_KEY, defaultOverlappingNodesRepulsionFactor),
-          getDouble(section, NODE_AREA_FACTOR_KEY, defaultNodeAreaFactor),
-          getDouble(section, STEP_LIMIT_FACTOR_KEY, defaultStepLimitFactor),
-          getDouble(section, BORDER_PERCENT_KEY, defaultBorderPercent),
-          getInt(section, ISOLATED_DEGREE_THRESHOLD_KEY, defaultIsolatedDegreeThreshold),
-          getInt(section, QUAD_TREE_NODE_THRESHOLD_KEY, defaultQuadTreeNodeThreshold),
-          getDouble(section, QUAD_TREE_TEHTA_KEY, defaultQuadTreeTheta),
-          getDouble(section, PROPORTIONAL_CONSTRAINT_KEY, defaultProportionalConstraint),
-          getInt(section, MAX_ITERATIONS_KEY, defaultMaxIterations),
-          getBoolean(section, USE_EDGE_WEIGHTS_KEY, defaultUseEdgeWeights),
-          getBoolean(section, USE_NODE_SIZES_KEY, defaultUseNodeSizes),
-          getDouble(section, RANDOM_HEATING_KEY, defaultRandomHeating),
+          getDouble(section, OverlappingNodesRepulsionFactorKey, defaultOverlappingNodesRepulsionFactor),
+          getDouble(section, NodeAreaFactorKey, defaultNodeAreaFactor),
+          getDouble(section, StepLimitFactorKey, defaultStepLimitFactor),
+          getDouble(section, BorderPercentKey, defaultBorderPercent),
+          getInt(section, IsolatedDegreeThresholdKey, defaultIsolatedDegreeThreshold),
+          getInt(section, QuadTreeNodeThresholdKey, defaultQuadTreeNodeThreshold),
+          getDouble(section, QuadTreeThetaKey, defaultQuadTreeTheta),
+          getDouble(section, ProportionalConstraintKey, defaultProportionalConstraint),
+          getInt(section, MaxIterationsKey, defaultMaxIterations),
+          getBoolean(section, UseEdgeWeightsKey, defaultUseEdgeWeights),
+          getBoolean(section, UseNodeSizesKey, defaultUseNodeSizes),
+          getDouble(section, RandomHeatingKey, defaultRandomHeating),
           getRandomSeed(section)
         )
       }.getOrElse(
@@ -155,13 +186,13 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   }
 
   private def getRandomSeed(config: Config): Option[Long] = {
-    if (!config.hasPath(RANDOM_SEED_KEY)) {
+    if (!config.hasPath(RandomSeedKey)) {
       Some(defaultRandomSeed)
     } else {
-      config.getString(RANDOM_SEED_KEY).toLowerCase.trim match {
+      config.getString(RandomSeedKey).toLowerCase.trim match {
         case "time" => Some(System.currentTimeMillis())
         case "none" => None
-        case _ => Some(config.getLong(RANDOM_SEED_KEY))
+        case _ => Some(config.getLong(RandomSeedKey))
       }
     }
   }

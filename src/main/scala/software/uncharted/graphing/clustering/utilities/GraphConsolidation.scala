@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -30,7 +30,7 @@ object GraphConsolidation {
   def consolidateEdges[I, N: Numeric, T] (edges: RDD[(I, I, N, T)],
                                           aggregateMetadata: (T, T) => T): RDD[(I, I, N, T)] = {
     val num = implicitly[Numeric[N]]
-    import num.mkNumericOps
+    import num.mkNumericOps //scalastyle:ignore
 
     edges.map { case (src, dst, weight, metadata) =>
       ((src, dst), (weight, metadata))

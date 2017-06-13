@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -23,6 +23,7 @@ import scala.collection.mutable.{ListBuffer => MutableBuffer}
 /**
   * A class to make parsing strings into objects simple.  Handles tokenization, escaping, and type conversion
   */
+//scalastyle:off null multiple.string.literals cyclomatic.complexity
 class StringParser (raw: String) {
   val length = raw.length
   var position = 0
@@ -45,8 +46,8 @@ class StringParser (raw: String) {
 
   private def advance(): Char = {
     position = position + 1
-    if (position < length) raw.charAt(position)
-    else 0
+    if (position < length) { raw.charAt(position) }
+    else { 0 }
   }
 
   private def nextNonDigit(): Char = {
@@ -55,7 +56,9 @@ class StringParser (raw: String) {
       // If past end, c will be 0 (not '0'), which isn't in our bounds, so no separate length check is necessary
       while ('0' <= c && c <= '9') c = advance()
       c
-    } else 0
+    } else {
+      0
+    }
   }
 
   /**
@@ -66,9 +69,9 @@ class StringParser (raw: String) {
     * @param eatInitialWhitespace If true, skip any whitespace found before looking for the text
     */
   def eat (text: String, eatInitialWhitespace: Boolean = true): Unit = {
-    if (eatInitialWhitespace) eatWhitespace()
-    if (raw.startsWith(text, position)) position += text.length
-    else throw new ParseException(s"""Didn't find "$text" at position $position""", position)
+    if (eatInitialWhitespace) { eatWhitespace() }
+    if (raw.startsWith(text, position)) { position += text.length }
+    else { throw new ParseException(s"""Didn't find "$text" at position $position""", position) }
   }
 
   /**
@@ -104,7 +107,7 @@ class StringParser (raw: String) {
     * @return The next boolean found
     */
   def nextBoolean (eatInitialWhitespace: Boolean = true): Boolean = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
 
     def test (offset: Int, lc: Char): Boolean = {
       val c = raw.charAt(position + offset)
@@ -128,12 +131,12 @@ class StringParser (raw: String) {
     if (position < length) {
       var c = raw.charAt(position)
       // Sign
-      if (c == '-') c = advance()
+      if (c == '-') { c = advance() }
       // Absolute value
       c = nextNonDigit()
     }
 
-    if (startPosition == position) throw new ParseException(s"No integer at position $position", position)
+    if (startPosition == position) { throw new ParseException(s"No integer at position $position", position) }
     toIntegral(raw.substring(startPosition, position))
   }
 
@@ -144,7 +147,7 @@ class StringParser (raw: String) {
     * @return The next number, as an integer
     */
   def nextInt (eatInitialWhitespace: Boolean = true): Int = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
     nextIntegral(_.toInt)
   }
 
@@ -155,7 +158,7 @@ class StringParser (raw: String) {
     * @return the next number, as a long
     */
   def nextLong (eatInitialWhitespace: Boolean = true): Long = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
     nextIntegral(_.toLong)
   }
 
@@ -164,7 +167,7 @@ class StringParser (raw: String) {
     if (position < length) {
       var c = raw.charAt(position)
       // Sign
-      if (c == '-') c = advance()
+      if (c == '-') { c = advance() }
       // Mantissa
       // Integer portion
       c = nextNonDigit()
@@ -203,7 +206,7 @@ class StringParser (raw: String) {
     * @return the next number, as a float
     */
   def nextFloat (eatInitialWhitespace: Boolean = true): Float = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
     nextFractional(_.toFloat)
   }
 
@@ -214,7 +217,7 @@ class StringParser (raw: String) {
     * @return the next number, as a double
     */
   def nextDouble (eatInitialWhitespace: Boolean = true): Double = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
     nextFractional(_.toDouble)
   }
 
@@ -225,9 +228,9 @@ class StringParser (raw: String) {
     * @return The string found, unquoted and unescaped.
     */
   def nextString (eatInitialWhitespace: Boolean = true): String = {
-    if (eatInitialWhitespace) eatWhitespace()
+    if (eatInitialWhitespace) { eatWhitespace() }
 
-    if (position >= length) null
+    if (position >= length) { null }
     else if (raw.startsWith("null", position)) {
       position += 4
       null
@@ -277,12 +280,12 @@ class StringParser (raw: String) {
     start.map(s => eat(s))
 
     def atEnd: Boolean = {
-      if (position == length) true
+      if (position == length) { true }
       else if (eatAllWhitespace) {
         var tempPosition = position
         while (tempPosition < length && isWhitespace(raw.charAt(tempPosition))) tempPosition += 1
         tempPosition == length
-      } else false
+      } else { false }
     }
 
     val results = MutableBuffer[T]()
@@ -291,8 +294,8 @@ class StringParser (raw: String) {
     while (!done && !end.map(e => startsWith(e, eatAllWhitespace)).getOrElse(false) && !atEnd) {
       results += parseT()
       separator.map(s =>
-        if (startsWith(s, eatAllWhitespace)) eat(s, eatAllWhitespace)
-        else done = true
+        if (startsWith(s, eatAllWhitespace)) { eat(s, eatAllWhitespace) }
+        else { done = true }
       )
     }
     end.map(e => eat(e, eatAllWhitespace))
@@ -308,7 +311,8 @@ object StringParser {
     * @return
     */
   def escapeString (string: String): String = {
-    if (null == string) "null"
-    else "\"" + string.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    if (null == string) { "null" }
+    else { "\"" + string.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
   }
 }
+//scalastyle:on null multiple.string.literals cyclomatic.complexity

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -13,6 +13,18 @@
 
 package software.uncharted.graphing.export
 
+/**
+  * Simple class for a clustered edge.
+  * @param srcId Source node id
+  * @param srcX Source node x coordinate
+  * @param srcY Source node y coordinate
+  * @param dstId Destination node id
+  * @param dstX Destination node x coordinate
+  * @param dstY Destination node y coordinate
+  * @param attr Edge attribute (weight)
+  * @param interCommunityEdge 1 if the edge is between two communities & 0 otherwise
+  * @param level Edge cluster level
+  */
 class ClusteredEdge (val srcId: String,
                      val srcX: String,
                      val srcY: String,
@@ -26,7 +38,8 @@ class ClusteredEdge (val srcId: String,
   override def toString() : String = {
     val srcIdLevel = ClusteredObject.levelId(srcId, level - 1)
     val dstIdLevel = ClusteredObject.levelId(dstId, level - 1)
-    "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" + attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
+    "edge\t" + srcIdLevel + "\t" + srcX + "\t" + srcY + "\t" + dstIdLevel + "\t" + dstX + "\t" + dstY + "\t" +
+      attr + "\t" + interCommunityEdge + "\t" + level + "\t" + edgeId(srcIdLevel, dstIdLevel)
   }
 
   private def edgeId(srcId : String, dstId : String) : String = {

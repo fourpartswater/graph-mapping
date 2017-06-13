@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -49,7 +49,7 @@ class CommunityModificationsTestSuite extends FunSuite {
       (0 to 12).map(n => new NodeInfo(n.toLong, 1, None, Array(), Array())).toArray
     )
     val c = new Community(g, -1, 0.15, new NodeDegreeAlgorithm(5))
-    c.one_level(false)
+    c.oneLevel(false)
     assert(3 === c.n2c(0))
     assert(3 === c.n2c(1))
     assert(3 === c.n2c(2))
@@ -122,7 +122,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     val edgeOStreamPair = openWriteStream
     val weightOStreamPair = openWriteStream
     val metadataOStreamPair = openWriteStream
-    ge.display_binary(edgeOStreamPair._2, Some(weightOStreamPair._2), Some(metadataOStreamPair._2))
+    ge.displayBinary(edgeOStreamPair._2, Some(weightOStreamPair._2), Some(metadataOStreamPair._2))
 
     val edgeIStreamPair = openReadStream(closeWriteStream(edgeOStreamPair))
     val weightIStreamPair = openReadStream(closeWriteStream(weightOStreamPair))
@@ -145,8 +145,8 @@ class CommunityModificationsTestSuite extends FunSuite {
 
     // Cluster that graph
     val c= new Community(g, -1, 0.15)
-    val improvement = c.one_level()
-    val g1 = c.partition2graph_binary()
+    val improvement = c.oneLevel()
+    val g1 = c.partition2GraphBinary()
 
     // Since the graph was fully connected, it should reduce to a single node.
     // Check that it did so, and that analytics aggregated correctly.
@@ -160,7 +160,7 @@ class CommunityModificationsTestSuite extends FunSuite {
     def getNodes (c: Community): Seq[String] = {
       val baos = new ByteArrayOutputStream()
       val outStream = new PrintStream(baos)
-      c.display_partition(0, outStream, None)
+      c.displayPartition(0, outStream, None)
       outStream.flush()
       outStream.close()
       baos.flush()
@@ -188,7 +188,7 @@ class CommunityModificationsTestSuite extends FunSuite {
 
     // next level
     val c1 = new Community(g1, -1, 0.15)
-    c1.one_level()
+    c1.oneLevel()
     val clusterOutput1 = getNodes(c1)
     assert(1 === clusterOutput1.length)
     checkOutput(

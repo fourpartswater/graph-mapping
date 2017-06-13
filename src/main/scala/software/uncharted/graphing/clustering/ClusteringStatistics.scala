@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -25,7 +25,7 @@ case class ClusteringStatistics (level: Int,
                                  endNodes: Int,
                                  endLinks: Long,
                                  timeToCluster: Long) {
-  def addLevelAndPartition (newLevel: Int, newPartition: Int) =
+  def addLevelAndPartition (newLevel: Int, newPartition: Int): ClusteringStatistics =
     ClusteringStatistics(
       newLevel, newPartition, iterations,
       startModularity, startNodes, startLinks,

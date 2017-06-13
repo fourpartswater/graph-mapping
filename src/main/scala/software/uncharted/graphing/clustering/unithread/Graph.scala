@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -21,15 +21,25 @@ import org.apache.spark.graphx.{Edge, Graph => SparkGraph, VertexId}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.salt.core.analytic.Aggregator
 
-
-
+/**
+  * Wrapper around a node (community) in the graph.
+  * @param id Id of the node (community).
+  * @param internalNodes Number of internal nodes for the community.
+  * @param metaData Metadata associated with the node.
+  * @param analyticData Analytic data associated with the node.
+  * @param analytics Analytics to run when generating communities.
+  */
 case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
                      analyticData: Array[Any], analytics: Array[CustomGraphAnalytic[_]]) {
-  var communityNode: NodeInfo = null
+  var communityNode: Option[NodeInfo] = None
 
   private def finishValue[AIT] (rawValue: Any, analytic: CustomGraphAnalytic[AIT]) =
     analytic.aggregator.finish(rawValue.asInstanceOf[AIT])
 
+  /**
+    * Finalize the analytics values into a collection of strings.
+    * @return The finalized analytics values.
+    */
   def finishedAnalyticValues: Array[String] = {
     (analyticData zip analytics).map{case (data, analytic) =>
         finishValue(data, analytic)
@@ -43,11 +53,17 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
     analytic.aggregator.merge(typedLeft, typedRight)
   }
 
+  //scalastyle:off method.name
+  /**
+    * Combine two nodes together.
+    * @param that The other node.
+    * @return The new combined node.
+    */
   def +(that: NodeInfo): NodeInfo = {
     val aggregatedAnalyticData = for (i <- analytics.indices) yield {
       val a = analytics(i)
-      val left = if (i < this.analyticData.length) this.analyticData(i) else null
-      val right = if (i < that.analyticData.length) that.analyticData(i) else null
+      val left = if (i < this.analyticData.length) this.analyticData(i) else null //scalastyle:ignore
+      val right = if (i < that.analyticData.length) that.analyticData(i) else null //scalastyle:ignore
       mergeCurrentValues(left, right, a)
     }
     NodeInfo(
@@ -58,6 +74,7 @@ case class NodeInfo (id: Long, internalNodes: Int, metaData: Option[String],
       analytics
     )
   }
+  //scalastyle:on method.name
 }
 
 /**
@@ -76,7 +93,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   // A place to cache node weights, so it doesn't have to be calculated multiple times.
   private val weights = new Array[Option[Double]](nb_nodes)
   val total_weight =
-    (for (i <- 0 until nb_nodes) yield weighted_degree(i)).fold(0.0)(_ + _)
+    (for (i <- 0 until nb_nodes) yield weightedDegree(i)).fold(0.0)(_ + _)
 
 
   def id (node: Int): Long = nodeInfos(node).id
@@ -84,43 +101,76 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   def metaData (node: Int): String = nodeInfos(node).metaData.getOrElse("")
   def nodeInfo (node: Int): NodeInfo = nodeInfos(node)
 
-  def nb_neighbors (node: Int): Int =
+  /**
+    * The number of neighbors.
+    * @param node The node.
+    * @return The number of neighbors for the node.
+    */
+  def nbNeighbors (node: Int): Int =
     if (0 == node) {
       degrees(0)
     } else {
       degrees(node) - degrees(node - 1)
     }
 
+  /**
+    * Iterator for the node's neighbors.
+    * @param node The node.
+    * @return The new iterator.
+    */
   def neighbors (node: Int): Iterator[(Int, Float)] =
     new NeighborIterator(node)
 
-  def nb_selfloops (node: Int): Double =
+  /**
+    * Get the weighted number of self loops.
+    * @param node The node.
+    * @return The sum of weights of all self loops on the node.
+    */
+  def nbSelfLoops (node: Int): Double =
     neighbors(node).filter(_._1 == node).map(_._2).fold(0.0f)(_ + _)
 
-  def weighted_degree (node: Int): Double = {
+  /**
+    * Get the weighted degree. Note that these values are cached internally.
+    * @param node The node.
+    * @return The weighted degree of the node.
+    */
+  def weightedDegree (node: Int): Double = {
     // Only calculated the degree of a node once
-    if (null == weights(node) || weights(node).isEmpty) {
+    if (null == weights(node) || weights(node).isEmpty) { //scalastyle:ignore
       weights(node) = Some(weightsOpt.map(weights =>
         neighbors(node).map(_._2.toDouble).fold(0.0)(_ + _)
-      ).getOrElse(nb_neighbors(node))
+      ).getOrElse(nbNeighbors(node))
       )
     }
     weights(node).get
   }
 
-  def display_nodes (out: PrintStream): Unit = {
+  /**
+    * Output the graph's nodes.
+    * @param out Output stream to output to.
+    */
+  def displayNodes (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
-      out.println("node\t"+id(node)+"\t"+internalSize(node)+"\t"+weighted_degree(node)+"\t"+metaData(node))
+      out.println("node\t" + id(node) + "\t" + internalSize(node) + "\t" + weightedDegree(node) + "\t" + metaData(node))
     }
   }
-  def display_links (out: PrintStream): Unit = {
+
+  /**
+    * Output the graph's links.
+    * @param out Output stream to output to.
+    */
+  def displayLinks (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
       neighbors(node).foreach { case (dst, weight) =>
-        out.println("edge\t"+id(node)+"\t"+id(dst)+"\t"+weight.round)
+        out.println("edge\t" + id(node) + "\t" + id(dst) + "\t" + weight.round)
       }
     }
   }
 
+  /**
+    * Iterator for a node's neighbors.
+    * @param node The node.
+    */
   class NeighborIterator (node: Int) extends Iterator[(Int, Float)] {
     var index= if (0 == node) 0 else degrees(node-1)
     val end = degrees(node)
@@ -135,6 +185,11 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     }
   }
 
+  /**
+    * Transform the graph into a parallelized spark graph.
+    * @param sc Spark context to use.
+    * @return The parallelized spark graph.
+    */
   def toSpark(sc: SparkContext): SparkGraph[Int, Float] = {
     val nodes = (0 until nb_nodes).map(n => (n.toLong, n))
     var i = 0
@@ -149,6 +204,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   }
 }
 
+//scalastyle:off method.length
 object Graph {
   def apply[VD, ED] (source: org.apache.spark.graphx.Graph[VD, ED],
                      getEdgeWeight: Option[ED => Float] = None,
@@ -203,8 +259,7 @@ object Graph {
       val node = minNode + i
       val relevantEdges = edges.filter(edge => node == edge._1 || node == edge._2)
       val directedEdges = relevantEdges.map{edge =>
-        if (node == edge._1) (edge._2 - minNode).toInt
-        else (edge._1 - minNode).toInt
+        if (node == edge._1) (edge._2 - minNode).toInt else (edge._1 - minNode).toInt
       }
       directedEdges.foreach { destination =>
         links(linkNum) = destination
@@ -232,6 +287,14 @@ object Graph {
   }
 
 
+  /**
+    * Create a graph instance from source files.
+    * @param filename Edge data source file.
+    * @param filename_w_opt Weight data source file.
+    * @param filename_m_opt Metadata source file.
+    * @param customAnalytics Analytics to run on the graph nodes.
+    * @return Graph instance of the source file data.
+    */
   def apply (filename: String, filename_w_opt: Option[String], filename_m_opt: Option[String],
              customAnalytics: Array[CustomGraphAnalytic[_]]): Graph = {
     val finput = new DataInputStream(new FileInputStream(filename))
@@ -247,6 +310,14 @@ object Graph {
     result
   }
 
+  /**
+    * Create a graph from source streams.
+    * @param edgeDataStream Edge data source stream.
+    * @param weightDataStreamOpt Weight data source stream.
+    * @param metadataInputStreamOpt Metadata source stream.
+    * @param customAnalytics Analytics to run on the graph nodes.
+    * @return Graph instance of the source streams.
+    */
   def apply (edgeDataStream: DataInputStream,
              weightDataStreamOpt: Option[DataInputStream],
              metadataInputStreamOpt: Option[DataInputStream],
@@ -295,3 +366,4 @@ object Graph {
     new Graph(degrees, links, nodeInfos, weights)
   }
 }
+//scalastyle:on method.length

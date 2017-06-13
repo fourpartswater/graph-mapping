@@ -1,11 +1,4 @@
-/**
-  * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
-  *
-  * It is therefor Copyright 2013 University of California, licensed under the Apache License, version 2.0,
-  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0
-  *
-  * There are some minor fixes, which I have attempted to resubmit back to the baseline version.
-  */
+//scalastyle:off
 package software.uncharted.graphing.clustering.usc.reference
 
 
@@ -17,7 +10,7 @@ import scala.util.Random
 
 
 /**
- * Copied and translated to scala from
+ * Adapted from
  * https://github.com/usc-cloud/hadoop-louvain-community/blob/master/src/main/java/edu/usc/pgroup/louvain/hadoop/Community.java
  *
  * Some small changes:
@@ -262,3 +255,4 @@ class Community (g: Graph, nb_pass: Int, min_modularity: Double) {
 case class NodeInfo (var community: Int,
                      var internalWeight: Double,
                      var totalWeight: Double)
+//scalastyle:on

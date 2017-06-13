@@ -1,3 +1,4 @@
+//scalastyle:off
 package software.uncharted.graphing.clustering
 
 /**
@@ -6,3 +7,4 @@ package software.uncharted.graphing.clustering
  */
 package object reference {
 }
+//scalastyle:on

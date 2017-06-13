@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -15,12 +15,16 @@ package software.uncharted.graphing.clustering.unithread
 import java.io.{BufferedReader, File, FileInputStream, FileOutputStream, InputStreamReader, PrintStream}
 
 import grizzled.slf4j.Logging
+import com.typesafe.config.{Config, ConfigFactory}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
+import software.uncharted.graphing.utilities.{ArgumentParser, ConfigLoader, ConfigReader}
 
 import scala.collection.mutable.{Buffer => MutableBuffer, Map => MutableMap}
 import scala.collection.Seq
-import scala.util.Random
+import scala.io.Source
+import scala.util.{Failure, Random, Success}
 
+//scalastyle:off file.size.limit method.length cyclomatic.complexity multiple.string.literals
 
 /**
   * Trait to specify what modification to apply to the baseline algorithm, along with the parameters needed
@@ -79,29 +83,49 @@ class Community (val g: Graph,
     n2c(i) = i
     community_size(i) = 1
   }
-  val tot: Array[Double] = n2c.map(n => g.weighted_degree(n))
-  val in: Array[Double] = n2c.map(n => g.nb_selfloops(n))
+
+  val tot: Array[Double] = n2c.map(n => g.weightedDegree(n))
+  val in: Array[Double] = n2c.map(n => g.nbSelfLoops(n))
   val neigh_weight = n2c.map(n => -1.0)
   val neigh_pos = n2c.map(n => 0)
   var neigh_last: Int = 0
-  var comm_nodes: Seq[Seq[Int]] = null
+  var comm_nodes: Seq[Seq[Int]] = Seq()
 
 
+  /**
+    * Remove a node from a community.
+    * @param node Node to remove from the community.
+    * @param comm Community from which the node is removed.
+    * @param dnodecomm Node community weight.
+    */
   def remove(node: Int, comm: Int, dnodecomm: Double): Unit = {
-    tot(comm) -= g.weighted_degree(node)
-    in(comm) -= (2 * dnodecomm + g.nb_selfloops(node))
+    tot(comm) -= g.weightedDegree(node)
+    in(comm) -= (2 * dnodecomm + g.nbSelfLoops(node))
     community_size(comm) -= 1
     n2c(node) = -1
   }
 
+  /**
+    * Insert a node in a community.
+    * @param node The node being added.
+    * @param comm The community to which the node is being added.
+    * @param dnodecomm Node community weight.
+    */
   def insert(node: Int, comm: Int, dnodecomm: Double): Unit = {
-    tot(comm) += g.weighted_degree(node)
-    in(comm) += (2 * dnodecomm + g.nb_selfloops(node))
+    tot(comm) += g.weightedDegree(node)
+    in(comm) += (2 * dnodecomm + g.nbSelfLoops(node))
     community_size(comm) += 1
     n2c(node) = comm
   }
 
-  def modularity_gain(node: Int, comm: Int, dnodecomm: Double, w_degree: Double): Double = {
+  /**
+    * Calculate the modularity gain from a change in communities.
+    * @param comm Community on which to calculate the modularity gain.
+    * @param dnodecomm Node community weight.
+    * @param w_degree Weighted degree.
+    * @return The modularity gain.
+    */
+  def modularityGain(comm: Int, dnodecomm: Double, w_degree: Double): Double = {
     val totc = tot(comm)
     val degc = w_degree
     val m2 = g.total_weight
@@ -110,6 +134,10 @@ class Community (val g: Graph,
     dnc - totc * degc / m2
   }
 
+  /**
+    * Calculate the modularity of the current set of communities.
+    * @return The calculated modularity.
+    */
   def modularity: Double = {
     var q = 0.0
     val m2 = g.total_weight
@@ -124,11 +152,15 @@ class Community (val g: Graph,
     q
   }
 
-  def neigh_comm(node: Int): Unit = {
+  /**
+    * Calculate information used to determine which communities a node should join.
+    * @param node Node being processed.
+    */
+  private def neighComm(node: Int): Unit = {
     for (i <- 0 until neigh_last) {
       neigh_weight(neigh_pos(i)) = -1
     }
-    val degree = g.nb_neighbors(node)
+    val degree = g.nbNeighbors(node)
     neigh_pos(0) = n2c(node)
     neigh_weight(neigh_pos(0)) = 0
     neigh_last = 1
@@ -136,7 +168,7 @@ class Community (val g: Graph,
     val allowed: Int => Boolean = algorithmMod match {
       case nd: NodeDegreeAlgorithm =>
         // Only allow joining with this neighbor if its degree is less than our limit.
-        nn => g.nb_neighbors(nn) < nd.degreeLimit
+        nn => g.nbNeighbors(nn) < nd.degreeLimit
       case cs: CommunitySizeAlgorithm =>
         // Only allow joining with this neighbor if its internal size is less than our limit
         nn => {
@@ -166,7 +198,12 @@ class Community (val g: Graph,
     }
   }
 
-  def one_level (randomize: Boolean = true): Boolean = {
+  /**
+    * Perform the clustering for one level. Clustering keeps going until the changes in modularity fall below the threshold.
+    * @param randomize Randomize the order of processing (defaults to true).
+    * @return True if some changes were made to the communities.
+    */
+  private[unithread] def oneLevel (randomize: Boolean = true): Boolean = {
     var improvement = false
     var nb_moves: Int = 0
     var nb_pass_done: Int = 0
@@ -188,7 +225,7 @@ class Community (val g: Graph,
 
     // repeat while
     //   there is an improvement of modularity
-    //   or there is an improvement of modularity greater than a given epsilon
+    //   or there is an improvement of modularity greater than a given minimumModularityGain
     //   or a predefined number of pass have been done
     do {
       cur_mod = new_mod
@@ -199,10 +236,10 @@ class Community (val g: Graph,
       for (node_tmp <- 0 until size) {
         val node = random_order(node_tmp)
         val node_comm = n2c(node)
-        val w_degree = g.weighted_degree(node)
+        val w_degree = g.weightedDegree(node)
 
         // computation of all neighboring communities of current node
-        neigh_comm(node)
+        neighComm(node)
         // remove node from its current community
 
         remove(node, node_comm, neigh_weight(node_comm))
@@ -213,7 +250,7 @@ class Community (val g: Graph,
         var best_nblinks = 0.0
         var best_increase = 0.0
         for (i <- 0 until neigh_last) {
-          val increase = modularity_gain(node, neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
+          val increase = modularityGain(neigh_pos(i), neigh_weight(neigh_pos(i)), w_degree)
           if (increase > best_increase) {
             best_comm = neigh_pos(i)
             best_nblinks = neigh_weight(neigh_pos(i))
@@ -237,8 +274,7 @@ class Community (val g: Graph,
       }
 
       new_mod = modularity
-      if (nb_moves > 0)
-        improvement = true
+      if (nb_moves > 0) improvement = true
     } while (nb_moves > 0 && new_mod - cur_mod > min_modularity)
 
     val (renumber, _) = getRenumbering
@@ -247,7 +283,7 @@ class Community (val g: Graph,
     var comm_nodes_tmp = MutableBuffer[MutableBuffer[Int]]()
     for (node <- 0 until size) {
       val n = renumber(n2c(node))
-      while (comm_nodes_tmp.size < n+1) comm_nodes_tmp += MutableBuffer[Int]()
+      while (comm_nodes_tmp.size < n + 1) comm_nodes_tmp += MutableBuffer[Int]()
       comm_nodes_tmp(n) += node
     }
     comm_nodes = comm_nodes_tmp
@@ -257,13 +293,13 @@ class Community (val g: Graph,
 
       //Get the community representative node. Every node in the community has the same one.
       //Select the node with the highest degree as representative of the community.
-      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weighted_degree(node), node)).reduce{(a, b) =>
+      val (commNodeInfo, maxWeight, commNodeNum) = comm_nodes(comm).map(node => (g.nodeInfo(node), g.weightedDegree(node), node)).reduce{(a, b) =>
         if (a._2 > b._2) (a._1 + b._1, a._2, a._3) else (b._1 + a._1, b._2, b._3)
       }
 
       //Update all nodes in the community to store the new community id.
       for (node <- comm_nodes(comm)){
-        g.nodeInfo(node).communityNode = commNodeInfo
+        g.nodeInfo(node).communityNode = Some(commNodeInfo)
       }
     }
 
@@ -289,17 +325,21 @@ class Community (val g: Graph,
     (renumber, last)
   }
 
-  def init_partition (filename: String): Unit = {
+  /**
+    * Initialize a community with data read from a partition file.
+    * @param filename Partition file to be read.
+    */
+  def initPartition (filename: String): Unit = {
     val finput = new BufferedReader(new InputStreamReader(new FileInputStream(filename)))
 
     var line = finput.readLine()
-    while (null != line) {
-      val fields = line.split("[ \t]+")
+    while (null != line) { //scalastyle:ignore
+      val fields = line.split("[ \t] + ")
       val node = fields(0).toInt
       val comm = fields(1).toInt
 
       val old_comm = n2c(node)
-      neigh_comm(node)
+      neighComm(node)
       remove(node, old_comm, neigh_weight(old_comm))
 
       var i = 0
@@ -315,15 +355,22 @@ class Community (val g: Graph,
         }
       }
 
-      if (!done)
+      if (!done) {
         insert(node, comm, 0)
+      }
 
       line = finput.readLine()
     }
     finput.close()
   }
 
-  def display_partition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
+  /**
+    * Output the clustered graph content.
+    * @param level Level being output, only used in stats output.
+    * @param out Output stream for graph content.
+    * @param stats Output stream for stats content.
+    */
+  def displayPartition (level: Int, out: PrintStream, stats: Option[PrintStream]) : Unit = {
     val (renumber, last) = getRenumbering
 
     // write nodes to output file
@@ -336,18 +383,17 @@ class Community (val g: Graph,
           .replaceAllLiterally("\"", "\\\"")
 
       val id = g.id(i)
-      val newCommunityId = g.nodeInfo(i).communityNode.id
+      val newCommunityId = g.nodeInfo(i).communityNode.get.id
       val size = g.internalSize(i)
-      val weight = g.weighted_degree(i).round.toInt
+      val weight = g.weightedDegree(i).round.toInt
       val metadata = g.metaData(i)
       val analyticData = g.nodeInfo(i).finishedAnalyticValues
       val analytics =
-        if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "")
-        else ""
-      out.println("node\t"+id+"\t"+newCommunityId+"\t"+size+"\t"+weight+"\t"+metadata + analytics)
+        if (analyticData.length > 0) analyticData.map(escapeString).mkString("\t", "\t", "") else ""
+      out.println("node\t" + id + "\t" + newCommunityId + "\t" + size + "\t" + weight + "\t" + metadata + analytics)
     }
     // write links to output file
-    g.display_links(out)
+    g.displayLinks(out)
 
     // write stats to stats file
     stats.foreach{statsStream =>
@@ -386,7 +432,7 @@ class Community (val g: Graph,
           bigL0 += 1
           bigL1 += d
           bigL2 += d*d
-	      }
+        }
       }
       val meanAll = allL1 / allL0
       val stdDevAll = allL2 / allL0 - meanAll * meanAll
@@ -395,10 +441,10 @@ class Community (val g: Graph,
       val stdDevBig = bigL2 / bigL0 - meanBig * meanBig
 
       statsStream.println()
-      statsStream.println("Level "+level+" stats:")
-      statsStream.println("\tTotal nodes: "+nodes)
-      statsStream.println("\tMinimum(community size): "+minCS)
-      statsStream.println("\tMaximum(community size): "+maxCS)
+      statsStream.println("Level " + level + " stats:")
+      statsStream.println("\tTotal nodes: " + nodes)
+      statsStream.println("\tMinimum(community size): " + minCS)
+      statsStream.println("\tMaximum(community size): " + maxCS)
       statsStream.println("\tAll communities:")
       statsStream.println("\t\tN: " + allL0)
       statsStream.println("\t\tSum(community size): " + allL1)
@@ -406,21 +452,25 @@ class Community (val g: Graph,
       statsStream.println("\t\tMean(community size): " + meanAll)
       statsStream.println("\t\tSigma(community size): " + stdDevAll)
       statsStream.println("\tCommunities larger than 1 node:")
-      statsStream.println("\t\tN: "+bigL0)
+      statsStream.println("\t\tN: " + bigL0)
       statsStream.println("\t\tSum(community size): " + bigL1)
       statsStream.println("\t\tSum(community size ^ 2): " + bigL2)
       statsStream.println("\t\tMean(community size): " + meanBig)
-      statsStream.println("\t\tsigma(communities size): "+stdDevBig)
+      statsStream.println("\t\tsigma(communities size): " + stdDevBig)
       statsStream.println()
       statsStream.println()
       statsStream.println()
-      statsStream.println("Ideal calculations (N="+N+", C="+C+", L="+L+")")
-      statsStream.println("Unweighted diff from ideal: "+diffFromIdeal)
-      statsStream.println("Weighted diff from ideal: "+(diffFromIdeal * math.pow(C/N, level/L)))
+      statsStream.println("Ideal calculations (N=" + N + ", C=" + C + ", L=" + L + ")")
+      statsStream.println("Unweighted diff from ideal: " + diffFromIdeal)
+      statsStream.println("Weighted diff from ideal: " + (diffFromIdeal * math.pow(C / N, level / L)))
     }
   }
 
-  def partition2graph_binary(): Graph = {
+  /**
+    * Create a new graph based on the current communities.
+    * @return The new graph.
+    */
+  def partition2GraphBinary(): Graph = {
     val (renumber, _) = getRenumbering
 
     // Compute weighted graph
@@ -437,7 +487,7 @@ class Community (val g: Graph,
       val comm_size = comm_nodes(comm).size
       for (node <- 0 until comm_size) {
         val neighbors = g.neighbors(comm_nodes(comm)(node))
-        val deg = g.nb_neighbors(comm_nodes(comm)(node))
+        val deg = g.nbNeighbors(comm_nodes(comm)(node))
         for (i <- 0 until deg) {
           val (neigh, neigh_weight) = neighbors.next
           val neigh_comm = renumber(n2c(neigh))
@@ -451,7 +501,7 @@ class Community (val g: Graph,
       }
 
       //Every node in the community has a reference to the same head community node.
-      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode
+      nodeInfos(comm) = g.nodeInfo(comm_nodes(comm)(0)).communityNode.get
     }
 
     new Graph(degrees, links.toArray, nodeInfos, Some(weights.toArray))
@@ -459,123 +509,74 @@ class Community (val g: Graph,
 }
 
 
-
-object Community {
+/**
+  * Object to run the community clustering algorithm.
+  */
+object Community extends ConfigReader {
   var nb_pass = 0
-  var precision = 0.000001
-  var display_level = -2
-  var k1 = 16
-  var filename: Option[String] = None
-  var filename_w: Option[String] = None
-  var filename_m: Option[String] = None
-  var filename_part: Option[String] = None
-  var filename_output: Option[String] = None
-  var randomize = true
-  var analytics: Array[CustomGraphAnalytic[_]] = Array()
   var algorithm: AlgorithmModification = new BaselineAlgorithm
 
-  def usage (prog_name: String, more: String) = {
-    println(more)
-    println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q epsilon] [-l display_level] [-v] [-h]")
-    println
-    println("input_file: file containing the graph to decompose in communities.")
-    println("-w file\tread the graph as a weighted one (weights are set to 1 otherwise).")
-    println("-m file\tread metadata for nodes (set to none otherwise).")
-    println("-p file\tstart the computation with a given partition instead of the trivial partition.")
-    println("\tfile must contain lines \"node community\".")
-    println("-q eps\ta given pass stops when the modularity is increased by less than epsilon.")
-    println("-l k\tdisplays the graph of level k rather than the hierachical structure.")
-    println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
-    println("-h\tshow this usage message.")
-    println("-n\tDon't randomize the node order when converting, for repeatability in testing.")
-    println("-a customAnalytic\tThe fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.")
-    println("-nd <base>\tUse the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.")
-    println("-cs <size>\tUse the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than the specified size. Exclusive with -nd")
-    println("-o <directory>\tThe directory into which to put output communities")
-    System.exit(0)
-  }
+  /**
+    * Parse CLI parameters into a new configuration.
+    * @param config Base configuration to use.
+    * @param argParser Argument parser to use to parse CLI parameters.
+    * @return The configuration containing the base values & the parsed CLI parameters.
+    */
+  def parseArguments(config: Config, argParser: ArgumentParser): Config = {
+    val loader = new ConfigLoader(config)
+    loader.putValue(argParser.getStringOption("o", "Output directory", Some(".")),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.Output}")
+    loader.putValue(argParser.getStringOption("i", "File containing the graph to decompose in communities", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.InputFilename}")
+    loader.putValue(argParser.getStringOption("w", "Read the graph as a weighted one (weights are set to 1 otherwise).", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.WeightFilename}")
+    loader.putValue(argParser.getStringOption("m", "Read metadata for nodes (set to none otherwise).", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.MetadataFilename}")
+    loader.putValue(argParser.getStringOption("p", "Start the computation with a given partition instead of the trivial partition.", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.PartitionFilename}")
+    loader.putDoubleValue(argParser.getDoubleOption("q", "A given pass stops when the modularity is increased by less than minimumModularityGain.", Some(0.000001)),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.MinimumModularityGain}")
+    loader.putIntValue(argParser.getIntOption("l", "Displays the graph of level k rather than the hierachical structure. " +
+      " if k=-1 then displays the hierarchical structure rather than the graph at a given level.", Some(-2)),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.LevelDisplay}")
+    loader.putBooleanValue(argParser.getBooleanOption("n", "Don't randomize the node order when converting, for repeatability in testing.", Some(false)),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.KeepOrder}")
+    loader.putValue(argParser.getStringOption("a",
+      "The fully qualified name of a class describing a custom analytic to run on the node data.  Multiple instances allowed, and performed in order.", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.Analytics}")
+    loader.putIntValue(argParser.getIntOption("nd",
+      "Use the node degree algorithm modification with the specified base.  This will only join nodes with other nodes of at most degree <base> on the " +
+        "first clustering level, base^2 on the second, base^3 on the third, etc.  Exclusive with -cs.", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.NodeDegree}")
+    loader.putIntValue(argParser.getIntOption("cs",
+      "Use the cluster size algorithm modification with the specified size.  Nodes will only be merged into a community if that community is smaller than " +
+        "the specified size. Exclusive with -nd.", None),
+      s"${CommunityConfigParser.SectionKey}.${CommunityConfigParser.CommunitySize}")
 
-  def parse_args (args: Array[String]) = {
-    if (args.length < 1) usage("community", "Bad arguments number")
-
-    val tempAnalytics = MutableBuffer[CustomGraphAnalytic[_]]()
-    var i = 0
-    while (i < args.length) {
-      if (args(i).startsWith("-")) {
-        args(i).substring(1).toLowerCase match {
-          case "w" =>
-            i = i + 1
-            filename_w = Some(args(i))
-
-          case "m" =>
-            i = i + 1
-            filename_m = Some(args(i))
-
-          case "p" =>
-            i = i + 1
-            filename_part = Some(args(i))
-
-          case "q" =>
-            i = i + 1
-            precision = args(i).toDouble
-
-          case "l" =>
-            i = i + 1
-            display_level = args(i).toInt
-
-          case "k" =>
-            i = i + 1
-            k1 = args(i).toInt
-
-          case "o" =>
-            i = i + 1
-            filename_output = Some(args(i))
-
-          case "a" =>
-            i = i + 1
-            tempAnalytics += CustomGraphAnalytic(args(i), "")
-
-          case "ac" =>
-            i = i + 1
-            val analytic = args(i)
-            i = i + 1
-            tempAnalytics += CustomGraphAnalytic(analytic, args(i))
-
-          case "n" => randomize = false
-
-          case "nd" =>
-            i = i + 1
-            val parameters = args(i)
-            if (parameters.contains(",")) {
-              algorithm = new UnlinkedNodeDegreeAlgorithm(parameters.split(",").map(_.toLong): _*)
-            } else {
-              algorithm = new NodeDegreeAlgorithm(args(i).toInt)
-            }
-
-          case "cs" =>
-            i = i + 1
-            algorithm = new CommunitySizeAlgorithm(args(i).toInt)
-
-          case _ => usage("community", "Unknown option: "+args(i))
-        }
-      } else if (filename.isDefined) {
-        usage("community", "More than one filename")
-      } else {
-        filename = Some(args(i))
-      }
-      i = i + 1
-    }
-
-    analytics = tempAnalytics.toArray
+    loader.config
   }
 
   def main (args: Array[String]): Unit = {
-    parse_args(args)
+    val argParser = new ArgumentParser(args)
+
+    // Parse config files first.
+    val configFile = argParser.getStringOption("config", "File containing configuration information.", None)
+    val configComplete = readConfigArguments(configFile, c => parseArguments(c, argParser))
+    val clusterConfig = CommunityConfigParser.parse(configComplete) match {
+      case Success(s) => s
+      case Failure(f) =>
+        println(s"Failed to load cluster configuration properly. ${f}")
+        f.printStackTrace()
+        argParser.usage
+        sys.exit(-1)
+    }
 
     def algorithmByLevel (level: Int) = {
-      algorithm match {
+      clusterConfig.algorithm match {
         case und: UnlinkedNodeDegreeAlgorithm =>
-          if ((level + 1) > und.degreeLimits.length) new BaselineAlgorithm
+          if ((level + 1) > und.degreeLimits.length) {
+            new BaselineAlgorithm
+          }
           else {
             val maxDegree = und.degreeLimits.take(level + 1).product
             new NodeDegreeAlgorithm(maxDegree)
@@ -586,44 +587,44 @@ object Community {
       }
     }
 
-    val curDir: Option[File] = if (-1 == display_level)
-      Some(new File(filename_output.getOrElse(".")))
-    else
-      None
+    val curDir: Option[File] = if (-1 == clusterConfig.levelDisplay) Some(new File(clusterConfig.output)) else None
 
     // Perform our clustering
     new CommunityClusterer(
       {
-        val c = new Community(Graph(filename.get, filename_w, filename_m, analytics), -1, precision, algorithmByLevel(0))
-        filename_part.foreach(part => c.init_partition(part))
+        val c = new Community(Graph(clusterConfig.inputFilename, clusterConfig.weightFilename,
+          clusterConfig.metadataFilename, clusterConfig.analytics), -1, clusterConfig.minimumModularityGain, algorithmByLevel(0))
+        clusterConfig.partitionFilename.foreach(part => c.initPartition(part))
         c
       },
-      randomize,
-      filename_part.isDefined,
-        precision,
+      clusterConfig.randomize,
+      clusterConfig.partitionFilename.isDefined,
+      clusterConfig.minimumModularityGain,
       algorithmByLevel
     ).doClustering[Int](
-      withLevel(display_level, curDir)
+      withLevel(clusterConfig.levelDisplay, curDir)
     )
   }
 
   // Write out input and output communities as needed
   private def withLevel (display_level: Int, curDir: Option[File])
                         (level: Int,
-                         initialGraph: Graph,
+                         initialGraph: Option[Graph],
                          initialModularity: Double,
                          community: Community): Int = {
-    if (level == display_level && null != initialGraph) {
-      initialGraph.display_nodes(Console.out)
-      initialGraph.display_links(Console.out)
-    }
+    initialGraph.foreach(g =>
+      if (level == display_level) {
+        g.displayNodes(Console.out)
+        g.displayLinks(Console.out)
+      }
+    )
 
     curDir.foreach { pwd =>
       val levelDir = new File(pwd, "level_" + (level-1))
       levelDir.mkdir()
       val out = new PrintStream(new FileOutputStream(new File(levelDir, "part_00000")))
       val stats = new PrintStream(new FileOutputStream(new File(levelDir, "stats")))
-      community.display_partition(level, out, Some(stats))
+      community.displayPartition(level, out, Some(stats))
       out.flush()
       out.close()
       stats.flush()
@@ -675,7 +676,7 @@ class CommunityClusterer (var c: Community,
     *                  </ol>
     * @tparam T The type of information retained and returned about the community hierarchy generated
     */
-  def doClustering[T] (withLevel: (Int, Graph, Double, Community) => T): Seq[T] = {
+  def doClustering[T] (withLevel: (Int, Option[Graph], Double, Community) => T): Seq[T] = {
     if (used) {
       throw new IllegalStateException("Community clusterer may not be called more than once")
     }
@@ -687,7 +688,7 @@ class CommunityClusterer (var c: Community,
     // Track our results
     val results = MutableBuffer[T]()
 
-    var g: Graph = null
+    var g: Option[Graph] = None
     var improvement: Boolean = true
     var mod: Double = c.modularity
     var level: Int = 0
@@ -695,16 +696,16 @@ class CommunityClusterer (var c: Community,
     do {
       info(s"Starting computation on level $level.  Network size: ${c.g.nb_nodes} nodes, ${c.g.nb_links} links, ${c.g.total_weight} weight.")
 
-      improvement = c.one_level(randomize)
+      improvement = c.oneLevel(randomize)
       val new_mod = c.modularity
 
       level = level + 1
-      results += withLevel (level, g, mod, c)
+      results += withLevel(level, g, mod, c)
 
-      g = c.partition2graph_binary()
+      g = Some(c.partition2GraphBinary())
 
       val levelAlgorithm = algorithmByLevel(level)
-      c = new Community(g, -1, min_modularity, levelAlgorithm)
+      c = new Community(g.get, -1, min_modularity, levelAlgorithm)
 
       info(s"  modularity increased from ${mod} to ${new_mod}")
 
@@ -723,3 +724,4 @@ class CommunityClusterer (var c: Community,
     results
   }
 }
+//scalastyle:on file.size.limit method.length cyclomatic.complexity multiple.string.literals

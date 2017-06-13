@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,7 +14,7 @@ package software.uncharted.graphing.utilities
 
 
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 
 import scala.reflect.ClassTag
 

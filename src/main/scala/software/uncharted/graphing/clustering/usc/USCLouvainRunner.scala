@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -23,9 +23,9 @@ import org.apache.spark.util.CollectionAccumulator
 import org.apache.spark.{SparkConf, SparkContext}
 import software.uncharted.graphing.clustering.ClusteringStatistics
 import software.uncharted.graphing.utilities.ArgumentParser
-import software.uncharted.graphing.utilities.GraphOperations._
+import software.uncharted.graphing.utilities.GraphOperations._ //scalastyle:ignore
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters._ //scalastyle:ignore
 import scala.reflect.ClassTag
 import scala.util.Try
 
@@ -33,6 +33,7 @@ import scala.util.Try
 /**
  * A class to run my version of the USC Louvain Clustering algorithm on a spark graph
  */
+//scalastyle:off multiple.string.literals cyclomatic.complexity method.length
 object USCLouvainRunner {
   def usage(): Unit = {
     println("Usage: LouvainSpark <node file> <node prefix> <edge file> <edge prefix> <partitions>")
@@ -88,7 +89,7 @@ object USCLouvainRunner {
       } catch {
         case e: Exception =>
           argParser.usage
-          return
+          return //scalastyle:ignore
       }
 
     val sc = new SparkContext((new SparkConf).setAppName("USC Louvain Clustering"))
@@ -122,7 +123,7 @@ object USCLouvainRunner {
     List(0.0, 0.25, 0.5, 0.75, 1.0).foreach { r =>
       val subGraphs = SubGraph.partitionGraphToSubgraphs(sparkGraph, (f: Float) => f, partitions, randomness = r)
 
-      println("Randomness: "+r)
+      println("Randomness: " + r)
       subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
         graphs.map(graph => (partition, graph))
       }.foreach { case (partition, graph) =>
@@ -142,7 +143,7 @@ object USCLouvainRunner {
     // Set up a clustering statistics accumulator
     val stats = sc.collectionAccumulator[ClusteringStatistics]("stats")
 
-    println("Randomness: "+r)
+    println("Randomness: " + r)
     subGraphs.mapPartitionsWithIndex { case (partition, graphs) =>
       graphs.map(graph => (partition, graph))
     }.foreach { case (partition, graph) =>
@@ -159,7 +160,7 @@ object USCLouvainRunner {
     println("\tnodes: " + resultGraph.numNodes)
     println("\tinternal links: " + resultGraph.numInternalLinks)
     println("\texternal links: " + resultGraph.numExternalLinks)
-    println("\tTimestamp: "+new Date())
+    println("\tTimestamp: " + new Date())
 
     stats.value.asScala.foreach(println)
   }
@@ -170,11 +171,11 @@ object USCLouvainRunner {
    */
   def doClustering (numPasses: Int, minModularityIncrease: Double, randomize: Boolean)
                    (input: RDD[SubGraph[Long]],
-                    stats: CollectionAccumulator[ClusteringStatistics]) = {
-    println("Starting first pass on "+input.partitions.length+" partitions")
+                    stats: CollectionAccumulator[ClusteringStatistics]): SubGraph[Long] = {
+    println("Starting first pass on " + input.partitions.length + " partitions")
     val firstPass = input.mapPartitionsWithIndex { case (partition, index) =>
       def logStat (stat: String, value: String) =
-        println("\tpartition "+partition+": "+stat+": "+value+"\t\t"+new Date())
+        println("\tpartition " + partition + ": " + stat + ": " + value + "\t\t" + new Date())
 
       logStat("first pass", "start")
       val g1 = index.next()
@@ -184,7 +185,7 @@ object USCLouvainRunner {
       logStat("internal links 1", g1.numInternalLinks.toString)
       logStat("external links 1", g1.numExternalLinks.toString)
       logStat("modularity 1", c1.modularity.toString)
-      c1.one_level(randomize)
+      c1.oneLevel(randomize)
       val result = c1.getReducedSubgraphWithVertexMap(getVertexMap = true)
       c1.clusteringStatistics.foreach(cs =>
         stats.add(cs.addLevelAndPartition(1, partition))
@@ -200,7 +201,7 @@ object USCLouvainRunner {
 
     val graph = firstPass.repartition(1).mapPartitions{i =>
       def logStat (stat: String, value: String, level: Int) =
-        println("\tlevel "+level+": "+stat+": "+value+"\t\t"+new Date())
+        println("\tlevel " + level + ": " + stat + ": " + value + "\t\t" + new Date())
 
       val precision = 0.000001
       logStat("consolidation", "start", 0)
@@ -222,7 +223,7 @@ object USCLouvainRunner {
 
       do {
         logStat("consolidation", "start", level)
-        improvement = c.one_level()
+        improvement = c.oneLevel()
         new_modularity = c.modularity
         level = level + 1
         logStat("consolidation", "clustered", level)
@@ -230,7 +231,7 @@ object USCLouvainRunner {
         logStat("consolidation", "consolidated", level)
         c.clusteringStatistics.foreach { cs =>
           val levelStats = cs.addLevelAndPartition(level, -1)
-          println("\tLevel stats: "+levelStats)
+          println("\tLevel stats: " + levelStats)
           stats.add(levelStats)
         }
 
@@ -250,3 +251,4 @@ object USCLouvainRunner {
     graph
   }
 }
+//scalastyle:on  multiple.string.literals cyclomatic.complexity method.length

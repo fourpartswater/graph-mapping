@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -10,7 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.salt
+package software.uncharted.graphing.tiling
 
 
 
@@ -25,6 +25,7 @@ import software.uncharted.salt.core.analytic.Aggregator
   * Constructs a standard graph metadata analytic that can read data from the given dataframe schema, and extract and
   * aggregate information from a dataframe with that schema.
   */
+//scalastyle:off null multiple.string.literals cyclomatic.complexity underscore.import import.grouping
 class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, GraphRecord, GraphRecord, Nothing, Nothing] {
   override def getValueExtractor(inputData: DataFrame): (Row) => Option[GraphCommunity] = {
     row => None
@@ -47,9 +48,9 @@ class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, Gra
 
       override def merge(left: GraphRecord, right: GraphRecord): GraphRecord = {
         val combinedCommunities =
-          if (left.communities.isEmpty) right.communities
-          else if (right.communities.isEmpty) left.communities
-          else Some(GraphRecord.mergeCommunities(left.communities.get, right.communities.get))
+          if (left.communities.isEmpty) { right.communities }
+          else if (right.communities.isEmpty) { left.communities }
+          else { Some(GraphRecord.mergeCommunities(left.communities.get, right.communities.get)) }
         new GraphRecord(combinedCommunities, left.numCommunities + right.numCommunities)
       }
 
@@ -62,9 +63,9 @@ class StandardGraphMetadataAnalytic extends MetadataAnalytic[GraphCommunity, Gra
 
 
 object GraphRecord {
-  var maxCommunities = 25
+  var maxCommunities = 25 //scalastyle:ignore
 
-  private[salt] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
+  private[tiling] def shrinkBuffer[T](buffer: MutableBuffer[T], maxSize: Int): Unit =
     while (buffer.length > maxSize) buffer.remove(maxSize)
 
   def fromString(string: String): GraphRecord = {
@@ -85,14 +86,16 @@ object GraphRecord {
     newCommunity.hierarchyLevel match {
       case 0 =>
         communities.indexWhere{ oldCommunity =>
-          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel)
-            throw new IllegalArgumentException("Cannot aggregate communities from different hierarch levels")
+          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel) {
+            throw new IllegalArgumentException("Cannot aggregate communities from different hierarchy levels")
+          }
           oldCommunity.degree < newCommunity.degree
         }
       case _ =>
         communities.indexWhere{ oldCommunity =>
-          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel)
+          if (oldCommunity.hierarchyLevel != newCommunity.hierarchyLevel) {
             throw new IllegalArgumentException("Cannot aggregate communities from different hierarch levels")
+          }
           oldCommunity.numNodes < newCommunity.numNodes
         }
     }
@@ -101,8 +104,8 @@ object GraphRecord {
     val lenA = a.length
     val lenB = b.length
 
-    if (0 == lenA) b
-    else if (0 == lenB) a
+    if (0 == lenA) { b }
+    else if (0 == lenB) { a }
     else {
       val hierarchyLevel = a(0).hierarchyLevel
 
@@ -118,9 +121,9 @@ object GraphRecord {
       val result = MutableBuffer[GraphCommunity]()
       while (n < maxCommunities && (nA < lenA || nB < lenB)) {
         val useA =
-          if (nA == lenA) false
-          else if (nB == lenB) true
-          else comparison(a(nA), b(nB))
+          if (nA == lenA) { false }
+          else if (nB == lenB) { true }
+          else { comparison(a(nA), b(nB)) }
 
         if (useA) {
           result += a(nA)
@@ -139,8 +142,8 @@ object GraphRecord {
     val insertionIndex = getCommunityInsertionPoint(communities, newCommunity)
 
     if (-1 == insertionIndex) {
-      if (maxCommunities == communities.length) communities
-      else communities :+ newCommunity
+      if (maxCommunities == communities.length) { communities }
+      else { communities :+ newCommunity }
     } else {
       val result = MutableBuffer[GraphCommunity]()
       for (i <- 0 until insertionIndex)
@@ -161,8 +164,9 @@ object GraphRecord {
     // Insert it there
     if (-1 == insertionIndex) {
       // Add to end, if there is room
-      if (communities.length < maxCommunities)
+      if (communities.length < maxCommunities) {
         communities += newCommunity
+      }
     } else {
       communities.insert(insertionIndex, newCommunity)
     }
@@ -196,25 +200,26 @@ case class GraphRecord (communities: Option[Seq[GraphCommunity]], numCommunities
 object GraphCommunity {
   import GraphRecord._
 
-  var maxStats = 32
+  var maxStats = 32 //scalastyle:ignore
   var maxEdges = 10
 
   def addEdgeInPlace(accumulatedEdges: MutableBuffer[GraphEdge], newEdge: GraphEdge): Unit = {
     val insertionIndex = accumulatedEdges.indexWhere(_.weight < newEdge.weight)
     if (-1 == insertionIndex) {
       // Add to end, if there is room
-      if (accumulatedEdges.length < maxEdges)
+      if (accumulatedEdges.length < maxEdges) {
         accumulatedEdges += newEdge
+      }
     } else {
       accumulatedEdges.insert(insertionIndex, newEdge)
     }
     shrinkBuffer(accumulatedEdges, maxEdges)
   }
 
-  private[salt] def minPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
+  private[tiling] def minPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
     (a._1 min b._1, a._2 min b._2)
 
-  private[salt] def maxPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
+  private[tiling] def maxPair(a: (Double, Double), b: (Double, Double)): (Double, Double) =
     (a._1 max b._1, a._2 max b._2)
 
   private def reduceOptionalBuffers[T](a: Option[Seq[T]],
@@ -240,7 +245,7 @@ object GraphCommunity {
 
   def fromJSON (json: Map[String, Any]): GraphCommunity = {
     import JSONParserUtils._
-    def tupleFromSeq[T] (s: Seq[T], offset: Int = 0): (T, T) = (s(offset), s(offset+1))
+    def tupleFromSeq[T] (s: Seq[T], offset: Int = 0): (T, T) = (s(offset), s(offset + 1))
 
     val hierarchyLevel = getInt(json, "hierLevel").get
     val id = getLong(json, "id").get
@@ -346,7 +351,7 @@ case class GraphCommunity (
 object GraphEdge {
   def fromJSON (json: Map[String, Any]): GraphEdge = {
     import JSONParserUtils._
-    def tupleFromSeq[T] (s: Seq[T], offset: Int = 0): (T, T) = (s(offset), s(offset+1))
+    def tupleFromSeq[T] (s: Seq[T], offset: Int = 0): (T, T) = (s(offset), s(offset + 1))
 
     val dstId = getLong(json, "dstId").get
     val dstCoordinates = tupleFromSeq(getSeq(json, "dstCoords", toDouble).get)
@@ -381,8 +386,8 @@ class GraphMetadataAggregator extends Aggregator[GraphCommunity, GraphRecord, Gr
   override def finish(intermediate: GraphRecord): GraphRecord = intermediate
 
   override def merge(left: GraphRecord, right: GraphRecord): GraphRecord = {
-    if (null == left) right
-    else if (null == right) left
+    if (null == left) { right }
+    else if (null == right) { left }
     else {
       new GraphRecord(
         (left.communities ++ right.communities).reduceOption(_ ++ _),
@@ -398,5 +403,5 @@ class GraphMetadataAggregator extends Aggregator[GraphCommunity, GraphRecord, Gr
     )
   }
 }
-
+//scalastyle:on null multiple.string.literals cyclomatic.complexity underscore.import import.grouping
 

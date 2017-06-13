@@ -1,10 +1,4 @@
-/**
- * This code is copied and translated from https://sites.google.com/site/findcommunities
- *
- * This means it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
- * we can't distribute it without permission - though as a translation, with some optimization for readability in
- * scala, it may be a gray area.
- */
+//scalastyle:off
 package software.uncharted.graphing.clustering.unithread.reference
 
 
@@ -119,7 +113,7 @@ class Community (val g: Graph, nb_pass: Int, min_modularity: Double) {
 
     // repeat while
     //   there is an improvement of modularity
-    //   or there is an improvement of modularity greater than a given epsilon
+    //   or there is an improvement of modularity greater than a given minimumModularityGain
     //   or a predefined number of pass have been done
     do {
       cur_mod = new_mod
@@ -340,13 +334,13 @@ object Community {
 
   def usage (prog_name: String, more: String) = {
     println(more)
-    println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q epsilon] [-l display_level] [-v] [-h]")
+    println("usage: " + prog_name + " input_file [-w weight_file] [-p part_file] [-q minimumModularityGain] [-l display_level] [-v] [-h]")
     println
     println("input_file: file containing the graph to decompose in communities.")
     println("-w file\tread the graph as a weighted one (weights are set to 1 otherwise).")
     println("-p file\tstart the computation with a given partition instead of the trivial partition.")
     println("\tfile must contain lines \"node community\".")
-    println("-q eps\ta given pass stops when the modularity is increased by less than epsilon.")
+    println("-q eps\ta given pass stops when the modularity is increased by less than minimumModularityGain.")
     println("-l k\tdisplays the graph of level k rather than the hierachical structure.")
     println("\tif k=-1 then displays the hierarchical structure rather than the graph at a given level.")
     println("-v\tverbose mode: gives computation time, information about the hierarchy and modularity.")
@@ -454,3 +448,4 @@ object Community {
     Console.err.println("Final modularity: "+mod)
   }
 }
+//scalastyle:on

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,14 +14,14 @@ package software.uncharted.graphing.layout
 
 
 
-import java.awt.event.{ActionEvent, ActionListener}
-import java.awt.{Color, Graphics, GridBagConstraints, GridBagLayout, Insets}
-import javax.swing._
+import java.awt.event.{ActionEvent, ActionListener} //scalastyle:ignore
+import java.awt.{Color, Graphics, GridBagConstraints, GridBagLayout, Insets} //scalastyle:ignore
+import javax.swing._ //scalastyle:ignore
 
 import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.spark.sql.SparkSession
-import software.uncharted.graphing.layout.forcedirected._
+import software.uncharted.graphing.layout.forcedirected._ //scalastyle:ignore
 import software.uncharted.xdata.sparkpipe.config.ConfigParser
 import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
 
@@ -215,10 +215,11 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
       pauseControl.release()
     }
   })
-  var speed = 600
+  var speed = 600 //scalastyle:ignore
   var timer: Option[Timer] = None
   val speedField = new JTextField(s"$speed")
   private val MILLI_PER_MINUTE = 60000
+  private val DEFAULT_SPEED = 30
   val playPause: JButton = new JButton(new AbstractAction("Step forward continuously") {
     override def actionPerformed(actionEvent: ActionEvent): Unit = {
       if (timer.isDefined) {
@@ -229,7 +230,7 @@ class LayoutVisualizer (pauseControl: PauseControl) extends JFrame {
       } else {
         playPause.setText("Pause continuous stepping")
         step.setEnabled(false)
-        speed = Try(speedField.getText.trim.toInt).getOrElse(30)
+        speed = Try(speedField.getText.trim.toInt).getOrElse(DEFAULT_SPEED)
         timer = Some(new Timer(MILLI_PER_MINUTE/speed, new ActionListener {
           override def actionPerformed(actionEvent: ActionEvent): Unit = {
             pauseControl.release()

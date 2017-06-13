@@ -1,10 +1,4 @@
-/**
- * This code is copied and translated from https://sites.google.com/site/findcommunities
- *
- * This means it is probably (c) 2008 V. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, and that
- * we can't distribute it without permission - though as a translation, with some optimization for readability in
- * scala, it may be a gray area.
- */
+//scalastyle:off
 package software.uncharted.graphing.clustering.unithread.reference
 
 
@@ -178,3 +172,4 @@ object Graph {
     new Graph(degrees, links, weights)
   }
 }
+//scalastyle:on

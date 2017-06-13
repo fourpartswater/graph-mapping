@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -67,7 +67,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
       (0 to 15).map(n => Array[(VertexId, Float)]()).toArray
     )
     val subClusterer = new SubGraphCommunity[Int](subGraph, 1, 0.15)
-    subClusterer.one_level(false)
+    subClusterer.oneLevel(false)
     val subResult = subClusterer.getReducedSubgraphWithVertexMap(false)._1
 
     assert(refResult.nb_nodes === subResult.numNodes)
@@ -92,7 +92,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
       (0 to 5).map(n => Array(((n+6).toLong, 1.0f))).toArray
     )
     val c1 = new SubGraphCommunity(part1, -1, 0.15)
-    c1.one_level(false)
+    c1.oneLevel(false)
     val result1 = unOptionB(c1.getReducedSubgraphWithVertexMap(true))
 
     val part2 = new SubGraph[Int](
@@ -104,7 +104,7 @@ class SubGraphCommunityTestSuite extends FunSuite {
       (0 to 5).map(n => Array((n.toLong, 1.0f))).toArray
     )
     val c2 = new SubGraphCommunity(part2, -1, 0.15)
-    c2.one_level(false)
+    c2.oneLevel(false)
     val result2 = unOptionB(c2.getReducedSubgraphWithVertexMap(true))
 
     val combined = GraphConsolidator(result1._1.numNodes + result2._1.numNodes)(Iterator(result1, result2))

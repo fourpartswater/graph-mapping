@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -84,6 +84,24 @@ class ConvertTestSuite extends FunSuite {
     assert(("four", List()) === edges.metaData.get.apply(4))
   }
 
+  test("Test renumbering of edge files (no weights)") {
+    val rawData = Array(
+      "edge primary 1 5",
+      "edge secondary 1 12",
+      "edge primary 5 12",
+      "edge secondary 5 23",
+      "edge primary 12 12",
+      "edge secondary 12 23"
+    )
+    val edges = GraphEdges(rawData.toIterator, Some("edge"), "[ \t]+", 2, 3, None)
+    val newEdges = edges.renumber()
+    assert(newEdges.links.length === 4)
+    assert(newEdges.links(0).length === 2)
+    assert(newEdges.links(0)(0)._1 === 1)
+    assert(newEdges.links(2).length === 4)
+    assert(newEdges.links(2)(0)._1 === 0)
+  }
+
   test("Test raw reading and conversion to a graph") {
     // The third value in each link is a sequence of link analytics.  Link analytics are currently ignored.
     val links = Array(
@@ -105,9 +123,9 @@ class ConvertTestSuite extends FunSuite {
 
     assert(3 === graph.nb_nodes)
     assert(6 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
-    assert(2 === graph.nb_neighbors(2))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
+    assert(2 === graph.nbNeighbors(2))
     assert(Set((1, 1.0f), (2, 1.0f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(1).toSet)
     assert(Set((0, 1.0f), (1, 1.0f)) === graph.neighbors(2).toSet)
@@ -129,8 +147,8 @@ class ConvertTestSuite extends FunSuite {
 
     assert(2 === graph.nb_nodes)
     assert(4 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
     assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
   }
@@ -157,8 +175,8 @@ class ConvertTestSuite extends FunSuite {
     // Make sure metadata and analytics haven't messed anything up
     assert(2 === graph.nb_nodes)
     assert(4 === graph.nb_links)
-    assert(2 === graph.nb_neighbors(0))
-    assert(2 === graph.nb_neighbors(1))
+    assert(2 === graph.nbNeighbors(0))
+    assert(2 === graph.nbNeighbors(1))
     assert(Set((0, 0.5f), (1, 1.5f)) === graph.neighbors(0).toSet)
     assert(Set((0, 1.4f), (1, 0.3f)) === graph.neighbors(1).toSet)
     assert("node A-F" === graph.metaData(0))

@@ -1,11 +1,4 @@
-/**
-  * This code is copied and translated to Scala from https://github.com/usc-cloud/hadoop-louvain-community
-  *
-  * It is therefor Copyright 2013 University of California, licensed under the Apache License, version 2.0,
-  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0
-  *
-  * There are some minor fixes, which I have attempted to resubmit back to the baseline version.
-  */
+//scalastyle:off
 package software.uncharted.graphing.clustering.usc.reference
 
 
@@ -374,3 +367,4 @@ class SourcePartitioner (boundaries: Broadcast[Map[Int, (Long, Long)]]) extends 
     }.head._1
   }
 }
+//scalastyle:on

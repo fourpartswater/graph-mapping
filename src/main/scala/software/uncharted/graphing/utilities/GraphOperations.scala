@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,7 +14,7 @@ package software.uncharted.graphing.utilities
 
 
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -149,13 +149,13 @@ class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends 
       val seen = MutableMap[(VertexId, VertexId, ED), Int]()
       edges.filter{edge =>
         // Don't add self-links - they should never be duplicated - duplicates, so checking them is redundant
-        if (edge.srcId == edge.dstId) true
+        if (edge.srcId == edge.dstId) { true }
         else {
           val reverse = (edge.dstId, edge.srcId, edge.attr)
 
           seen.get(reverse).map{numSeen =>
-            if (1 == numSeen) seen.remove(reverse)
-            else seen(reverse) = numSeen-1
+            if (1 == numSeen) { seen.remove(reverse) }
+            else { seen(reverse) = numSeen-1 }
             false
           }.getOrElse{
             val forward = (edge.srcId, edge.dstId, edge.attr)
@@ -164,8 +164,8 @@ class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends 
           }
         }
       }.map{edge =>
-        if (edge.srcId == edge.dstId) new Edge(edge.srcId, edge.dstId, selfEdgeWeight(edge.attr))
-        else edge
+        if (edge.srcId == edge.dstId) { new Edge(edge.srcId, edge.dstId, selfEdgeWeight(edge.attr)) }
+        else { edge }
       }
     }
     Graph(graph.vertices, combinedEdges)
@@ -173,7 +173,7 @@ class GraphOperations[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]) extends 
 }
 
 object GraphOperations {
-  implicit def GraphToOps[VD: ClassTag, ED: ClassTag] (graph: Graph[VD, ED]): GraphOperations[VD, ED] =
+  implicit def graphToOps[VD: ClassTag, ED: ClassTag] (graph: Graph[VD, ED]): GraphOperations[VD, ED] =
     new GraphOperations(graph)
 }
 
@@ -190,7 +190,7 @@ object DegreeCalculation extends EdgeCalculation[Double] {
   val defaultData = 0.0
   override val fields = TripletFields.EdgeOnly
 
-  def getEdgeInfo(context: EdgeContext[Long, Double, Data]) = {
+  def getEdgeInfo(context: EdgeContext[Long, Double, Data]): Option[(Option[Double], Option[Double])] = {
     val weight = context.attr
     // Because we assume graphs are undirected, we send the weight to both source and destination
     // This should include self-links (I think)
@@ -212,7 +212,7 @@ object DegreeAndSelfDegreeCalculation extends EdgeCalculation[Double] {
   val defaultData = (0.0, 0.0)
   override val fields = TripletFields.EdgeOnly
 
-  def getEdgeInfo(context: EdgeContext[Long, Double, Data]) = {
+  def getEdgeInfo(context: EdgeContext[Long, Double, Data]): Option[(Option[(Double, Double)], Option[(Double, Double)])] = {
     val weight = context.attr
     val selfWeight = if (context.srcId == context.dstId) weight else 0.0
     // Because we assume graphs are undirected, we send the weight to both source and destination
@@ -234,7 +234,7 @@ object DegreeAndIntraCommunityDegreeCalculation extends EdgeCalculation[Double] 
   val dct = implicitly[ClassTag[Data]]
   val defaultData = (0.0, 0.0)
 
-  def getEdgeInfo(context: EdgeContext[Long, Double, Data]) = {
+  def getEdgeInfo(context: EdgeContext[Long, Double, Data]): Option[(Option[(Double, Double)], Option[(Double, Double)])] = {
     val weight = context.attr
     // Our canonical
     val communityWeight = if (context.srcAttr == context.dstAttr) weight else 0.0

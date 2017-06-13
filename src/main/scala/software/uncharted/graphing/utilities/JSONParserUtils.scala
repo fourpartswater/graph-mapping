@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -62,7 +62,7 @@ object JSONParserUtils {
       case s: String => s
     })
 
-  def getSeq[T](json: Map[String, Any], key: String, extractor: Any => T) =
+  def getSeq[T](json: Map[String, Any], key: String, extractor: Any => T): Option[Seq[T]] =
     json.get(key).map(_ match {
       case a: Array[Any] => a.map(contents => extractor(contents)).toSeq
       case l: List[Any] => l.map(contents => extractor(contents))

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -26,14 +26,15 @@ import scala.collection.Seq
 object ClusterToLayoutConverter {
   type T = org.apache.spark.graphx.Graph[GraphNode, Long]
 
-  def withLevel (sc: SparkContext)(level: Int, initialGraph: Graph, initialModularity: Double, community: Community): T = {
+  def withLevel (sc: SparkContext)(level: Int, initialGraph: Option[Graph], initialModularity: Double, community: Community): T = {
     val localVertices = (0 until community.g.nb_nodes).map { n =>
-      val id = community.g.id(n)
-      val parentId = community.g.nodeInfo(n).communityNode.id
-      val size = community.g.internalSize(n)
-      val weight = community.g.weighted_degree(n).round.toInt
-      val simpleMetadata = community.g.metaData(n)
-      val analyticData = community.g.nodeInfo(n).finishedAnalyticValues
+      val g = community.g
+      val id = g.id(n)
+      val parentId = g.nodeInfo(n).communityNode.get.id
+      val size = g.internalSize(n)
+      val weight = g.weightedDegree(n).round.toInt
+      val simpleMetadata = g.metaData(n)
+      val analyticData = g.nodeInfo(n).finishedAnalyticValues
       val metadataWithAnalytics =
         if (analyticData.length > 0) {
           simpleMetadata + analyticData.mkString("\t", "\t", "")

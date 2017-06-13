@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -23,6 +23,4 @@ package software.uncharted.graphing.clustering.experiments
  * Another parallel community detection algorithm (SCD - Scalable Community Detection):
  *  https://www.dama.upc.edu/publications/fp546prat.pdf
  */
-class ParrallelLouvainClustering {
-
-}
+class ParrallelLouvainClustering

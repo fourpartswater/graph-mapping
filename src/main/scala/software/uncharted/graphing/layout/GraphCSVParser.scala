@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -14,9 +14,8 @@ package software.uncharted.graphing.layout
 
 
 
-import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.graphx._
+import org.apache.spark.graphx._ //scalastyle:ignore
 
 
 /**
@@ -87,7 +86,7 @@ class GraphCSVParser {
                     degreeX: Int=4,
                     bKeepExtraAttributes: Boolean=true): RDD[GraphNode] = {
 
-    val nAttrX = Math.max(Math.max(Math.max(nodeIDindex, parentIDindex), internalNodesX), degreeX)+1
+    val nAttrX = Math.max(Math.max(Math.max(nodeIDindex, parentIDindex), internalNodesX), degreeX) + 1
 
     rawData.flatMap(row =>
       {
@@ -113,8 +112,23 @@ class GraphCSVParser {
   }
 }
 
+/**
+  * Simple class for a graph node
+  * @param id Node id
+  * @param parentId Node's parent id
+  * @param internalNodes Number of nodes within the community
+  * @param degree Number of edges of the node
+  * @param metadata Metadata associated with the node
+  */
 case class GraphNode (id: Long, parentId: Long, internalNodes: Long, degree: Int, metadata: String) {
   def replaceParent (newParentId: Long): GraphNode =
     GraphNode(id, newParentId, internalNodes, degree, metadata)
 }
+
+/**
+  * Simple class for a graph edge
+  * @param srcId Source id
+  * @param dstId Destination id
+  * @param weight Edge weight
+  */
 case class GraphEdge (srcId: Long, dstId: Long, weight: Long)

@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2014-2016 Uncharted Software Inc. All rights reserved.
+  * Copyright (c) 2014-2017 Uncharted Software Inc. All rights reserved.
   *
   * Property of Uncharted(tm), formerly Oculus Info Inc.
   * http://uncharted.software/
@@ -98,7 +98,7 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
                                   geometry: Circle,
                                   qn: QuadNode,
                                   terms: ForceDirectedLayoutTerms): V2 = {
-    assert(qn != null)
+    assert(qn != null) //scalastyle:ignore
 
     qn.getNumChildren match {
       case 0 =>
