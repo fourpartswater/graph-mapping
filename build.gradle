@@ -105,6 +105,30 @@ task assemblyJar(type: Jar) {
 assemblyJar.mustRunAfter "jar"
 assemble.dependsOn "assemblyJar"
 
+// generate javadocs
+task docs(type: ScalaDoc) {
+  source = sourceSets.main.allScala
+}
+
+// creates a jar containing the scaladoc output
+task docsJar(type: Jar, dependsOn: docs) {
+  classifier = 'javadoc'
+  from docs.destinationDir
+}
+docsJar.dependsOn docs
+
+// creates a jar containing the source code
+task sourcesJar(type: Jar) {
+  classifier = 'sources'
+  from sourceSets.main.allSource
+}
+
+// creates a jar containing the test source code
+task testJar(type: Jar) {
+  classifier = 'tests'
+  from sourceSets.test.output
+}
+
 // extra configurations
 configurations {
   provided
