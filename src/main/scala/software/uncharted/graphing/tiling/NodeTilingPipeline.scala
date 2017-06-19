@@ -19,11 +19,11 @@ import org.apache.spark.sql.types._ //scalastyle:ignore
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
-import software.uncharted.xdata.sparkpipe.config.{TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.{AbstractJob, JobUtil}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
+import software.uncharted.sparkpipe.ops.xdata.salt.BasicSaltOperations
+import software.uncharted.sparkpipe.ops.xdata.util.{DataFrameOperations}
+import software.uncharted.xdata.tiling.config.TilingConfig
+import software.uncharted.xdata.tiling.jobs.{AbstractJob, JobUtil}
+import software.uncharted.xdata.tiling.jobs.JobUtil.OutputOperation
 
 import scala.util.{Failure, Success}
 
@@ -38,7 +38,7 @@ import scala.util.{Failure, Success}
 object NodeTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
-    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
+    val tilingConfig = parseTilingParameters(config)
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
 
     val graphConfig = GraphConfig.parse(config) match {
@@ -87,22 +87,17 @@ object NodeTilingPipeline extends AbstractJob {
     import BasicOperations._
     import BasicSaltOperations._
     import DataFrameOperations._
-    import DebugOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.xdata.ops.{io => XDataIO, numeric => XDataNum}
+    import software.uncharted.sparkpipe.ops.xdata.{io => XDataIO}
 
     val schema = getSchema(graphConfig.analytics)
 
     val tiles = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
-      .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^node.*"))
-      .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), schema))
-      .to(countDFRowsOp("Parsed data: "))
-      .to(XDataNum.addConstantColumn("count", 1))
+      .to(addConstantColumn("count", 1))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
-      .to(countRDDRowsOp("Tiles: "))
       .to(XDataIO.serializeBinArray)
       .to(outputOperation)
       .run()

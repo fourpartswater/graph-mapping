@@ -13,12 +13,12 @@
 package software.uncharted.graphing.config
 
 
-import software.uncharted.xdata.ops.salt.ArcTypes
+import software.uncharted.sparkpipe.ops.xdata.salt.ArcTypes
 
 import scala.collection.JavaConverters._ //scalastyle:ignore
 import com.typesafe.config.{Config}
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.xdata.sparkpipe.config.ConfigParser
+import software.uncharted.xdata.tiling.config.ConfigParser
 
 import scala.util.Try
 
