@@ -255,7 +255,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
         (!overlappingNodes && (iterations >= parameters.maxIterations))) ||
         (terms.temperature <= 0.0) ||
         (largestSquaredStep <= terms.squaredStepLimit) ) {
-        println("Finished layout algorithm in " + iterations + " iterations.")
+        println("Finished layout algorithm in " + iterations + " iterations.") //scalastyle:ignore
         done = true
       }
 

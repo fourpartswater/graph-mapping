@@ -131,10 +131,10 @@ class ArgumentParser(args: Array[String]) {
     * Output the usage message detailing all the parameters.
     */
   def usage: Unit = {
-    println("Allowed Parameters:")
+    println("Allowed Parameters:") //scalastyle:ignore
     argumentDescriptions.keySet.toList.sorted.foreach{key =>
       val (description, defaultValue) = argumentDescriptions(key)
-      println(s"${key}\t${defaultValue}\t${description}")
+      println(s"${key}\t${defaultValue}\t${description}") //scalastyle:ignore
     }
   }
 }

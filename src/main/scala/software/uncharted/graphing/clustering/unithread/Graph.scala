@@ -151,7 +151,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
     */
   def displayNodes (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
-      out.println("node\t" + id(node) + "\t" + internalSize(node) + "\t" + weightedDegree(node) + "\t" + metaData(node))
+      out.println("node\t" + id(node) + "\t" + internalSize(node) + "\t" + weightedDegree(node) + "\t" + metaData(node)) //scalastyle:ignore
     }
   }
 
@@ -162,7 +162,7 @@ class Graph (degrees: Array[Int], links: Array[Int], nodeInfos: Array[NodeInfo],
   def displayLinks (out: PrintStream): Unit = {
     (0 until nb_nodes).foreach { node =>
       neighbors(node).foreach { case (dst, weight) =>
-        out.println("edge\t" + id(node) + "\t" + id(dst) + "\t" + weight.round)
+        out.println("edge\t" + id(node) + "\t" + id(dst) + "\t" + weight.round) //scalastyle:ignore
       }
     }
   }

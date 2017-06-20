@@ -50,7 +50,7 @@ object NodeTilingPipeline extends AbstractJob {
 
     // calculate and save our tiles
     graphConfig.graphLevelsByHierarchyLevel.foreach { case ((minT, maxT), g) =>
-      println(s"Tiling hierarchy level $g at tile levels $minT to $maxT")
+      println(s"Tiling hierarchy level $g at tile levels $minT to $maxT") //scalastyle:ignore
       tileHierarchyLevel(sparkSession, g, minT to maxT, tilingConfig, graphConfig, outputConfig)
     }
   }

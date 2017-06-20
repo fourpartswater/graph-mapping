@@ -64,7 +64,7 @@ object ESIngestExport extends ConfigReader {
     val exportConfig = ExportConfigParser.parse(configComplete) match {
       case Success(s) => s
       case Failure(f) =>
-        println(s"Failed to load cluster configuration properly. ${f}")
+        println(s"Failed to load cluster configuration properly. ${f}") //scalastyle:ignore
         f.printStackTrace()
         argParser.usage
         sys.exit(-1)
@@ -83,9 +83,9 @@ object ESIngestExport extends ConfigReader {
       exportConfig.maxLevel)
 
     val fileEndTime = System.currentTimeMillis()
-    println("Finished extracting data for downstream ingestion in " + ((fileEndTime - fileStartTime) / 60000.0) + " minutes")
+    println("Finished extracting data for downstream ingestion in " + ((fileEndTime - fileStartTime) / 60000.0) + " minutes") //scalastyle:ignore
 
-    println(s"Data extracted and available at ${exportConfig.output}")
+    println(s"Data extracted and available at ${exportConfig.output}") //scalastyle:ignore
   }
 }
 //scalastyle:on multiple.string.literals

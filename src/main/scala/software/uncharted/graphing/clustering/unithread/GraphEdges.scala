@@ -24,7 +24,7 @@ import scala.reflect.ClassTag
 import scala.io.Source
 
 
-//scalastyle:off multiple.string.literals
+//scalastyle:off multiple.string.literals regex
 
 /**
   * An edge-base representation of a graph
@@ -384,4 +384,4 @@ class GrowableArray[T: ClassTag](var size: Int = 0, initialize: () => T) {
     data(n) = value
   }
 }
-//scalastyle:on multiple.string.literals
+//scalastyle:on multiple.string.literals regex
