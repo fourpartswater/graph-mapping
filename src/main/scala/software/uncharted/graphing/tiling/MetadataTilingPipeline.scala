@@ -22,11 +22,11 @@ import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.{BasicOperations, DataFrameOperations, DebugOperations}
-import software.uncharted.xdata.sparkpipe.config.{TilingConfig}
-import software.uncharted.xdata.sparkpipe.jobs.{AbstractJob, JobUtil}
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
+import software.uncharted.sparkpipe.ops.contrib.salt.BasicSaltOperations
+import software.uncharted.sparkpipe.ops.contrib.util.DataFrameOperations
+import software.uncharted.contrib.tiling.config.TilingConfig
+import software.uncharted.contrib.tiling.jobs.{AbstractJob, JobUtil}
+import software.uncharted.contrib.tiling.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.{Failure, Success, Try}
@@ -43,7 +43,7 @@ import scala.util.{Failure, Success, Try}
 object MetadataTilingPipeline extends AbstractJob {
 
   def execute (sparkSession: SparkSession, config: Config): Unit = {
-    val tilingConfig = TilingConfig(config).getOrElse(errorOut("No tiling configuration given."))
+    val tilingConfig = parseTilingParameters(config)
     val outputConfig = JobUtil.createTileOutputOperation(config).getOrElse(errorOut("No output configuration given."))
 
     val graphConfig = GraphConfig.parse(config) match {
@@ -68,14 +68,12 @@ object MetadataTilingPipeline extends AbstractJob {
                          outputOperation: OutputOperation): Unit = {
     import BasicOperations._
     import BasicSaltOperations._
-    import DebugOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.xdata.ops.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
 
     val rawData = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))
-      .to(countRDDRowsOp(s"Input data for hierarchy level $hierarchyLevel: "))
 
     //                      RT = row type                       DC = data c.      TC - tile c.     BC = Bin c.
     val series = new Series[((Double, Double), GraphCommunity), (Double, Double), (Int, Int, Int), (Int, Int),
@@ -96,25 +94,19 @@ object MetadataTilingPipeline extends AbstractJob {
     val nodeSchema = NodeTilingPipeline.getSchema(graphConfig.analytics)
     val nodeData = rawData
       .to(regexFilter("^node.*"))
-      .to(countRDDRowsOp("Node data: "))
       .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), nodeSchema))
-      .to(countDFRowsOp("Parsed node data: "))
       .to(parseNodes(hierarchyLevel, graphConfig.analytics))
 
     // Get our EdgeRDD
     val edgeSchema = EdgeTilingPipeline.getSchema
     val edgeData = rawData
       .to(regexFilter("^edge.*"))
-      .to(countRDDRowsOp("Edge data: "))
       .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), edgeSchema))
-      .to(countDFRowsOp("Parsed edge data: "))
       .to(parseEdges(hierarchyLevel, weighted = true, specifiesExternal = true))
-      .to(countRDDRowsOp("Graph edges: "))
 
     // Combine them into communities
     val communityData = Pipe(nodeData, edgeData)
       .to(consolidateCommunities(graphConfig.analytics))
-      .to(countRDDRowsOp("Communities: "))
 
     // Tile the communities
     val getZoomLevel: ((Int, Int, Int)) => Int = _._1
@@ -131,7 +123,6 @@ object MetadataTilingPipeline extends AbstractJob {
 
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
-      .to(countRDDRowsOp("Tiles: "))
       .to(XDataIO.serializeTiles(encodeTile))
       .to(outputOperation)
       .run()

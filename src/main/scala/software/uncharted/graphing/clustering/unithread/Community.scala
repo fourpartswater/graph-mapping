@@ -24,7 +24,7 @@ import scala.collection.Seq
 import scala.io.Source
 import scala.util.{Failure, Random, Success}
 
-//scalastyle:off file.size.limit method.length cyclomatic.complexity multiple.string.literals
+//scalastyle:off file.size.limit method.length cyclomatic.complexity multiple.string.literals regex
 
 /**
   * Trait to specify what modification to apply to the baseline algorithm, along with the parameters needed
@@ -724,4 +724,4 @@ class CommunityClusterer (var c: Community,
     results
   }
 }
-//scalastyle:on file.size.limit method.length cyclomatic.complexity multiple.string.literals
+//scalastyle:on file.size.limit method.length cyclomatic.complexity multiple.string.literals regex

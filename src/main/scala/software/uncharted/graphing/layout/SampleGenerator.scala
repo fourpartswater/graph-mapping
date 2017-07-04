@@ -46,7 +46,7 @@ object SampleGenerator {
     } match {
       case Success(n) => n
       case Failure(e) =>
-        println("Required argument: number of levels")
+        println("Required argument: number of levels") //scalastyle:ignore
         System.exit(0)
         throw e
     }
@@ -58,7 +58,7 @@ object SampleGenerator {
       }
     } match {
       case Success(n) => n
-      case Failure(e) => println("Required ")
+      case Failure(e) => println("Required ") //scalastyle:ignore
     }
 
     val data = sampleType match {

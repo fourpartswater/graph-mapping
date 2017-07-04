@@ -156,7 +156,7 @@ trait VertexCalculation[CV] extends TripletCalculation[CV, Double] {
 }
 
 
-
+//scalastyle:off class.type.parameter.name
 class IndirectEdgeContext[VD, CV, ED, CE, Data] (vertexConversion: (VertexId, VD) => CV,
                                                  edgeConversion: ED => CE,
                                                  sourceContext: EdgeContext[VD, ED, Data]) extends EdgeContext[CV, CE, Data] {
@@ -170,3 +170,4 @@ class IndirectEdgeContext[VD, CV, ED, CE, Data] (vertexConversion: (VertexId, VD
 
   override def attr: CE = edgeConversion(sourceContext.attr)
 }
+//scalastyle:on class.type.parameter.name

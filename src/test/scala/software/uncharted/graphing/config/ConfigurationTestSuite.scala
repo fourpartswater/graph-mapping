@@ -15,7 +15,7 @@ package software.uncharted.graphing.config
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
-import software.uncharted.xdata.ops.salt.ArcTypes
+import software.uncharted.sparkpipe.ops.contrib.salt.ArcTypes
 
 import scala.util.{Failure, Success}
 

@@ -24,7 +24,7 @@ import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayout, Fo
 
 
 
-//scalastyle:off  multiple.string.literals
+//scalastyle:off  multiple.string.literals regex
 /**
   * Hierarchical algorithm that runs force-Directed layout on each community, starting at the most inclusive level,
   * laying out each community within the area of its parent.
@@ -365,5 +365,4 @@ object HierarchicFDLayout {
     sc.parallelize(statsStrings, 1).saveAsTextFile(outputDir + "/stats")
   }
 }
-//case class ParentedLayoutNode (node: GraphNode, geometry: LayoutGeometry, parentGeometry: LayoutGeometry)
-//scalastyle:on  multiple.string.literals
+//scalastyle:on  multiple.string.literals regex

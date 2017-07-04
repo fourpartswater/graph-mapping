@@ -30,45 +30,7 @@ pushd ${DATASET}
 
 case ${DATASET} in
 
-	affinity*)
-		echo Converting affinity graph
-		CONVERT_ARGS="-ie graph.txt -fe edge -ce \\t -s 1 -d 2"
-		CONVERT_ARGS="${CONVERT_ARGS} -in graph.txt -fn node -cn \\t -m 5 -n 1"
-		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
-		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
-		;;
-
-	wdc-pld)
-		echo Converting WDC pay-level domain graph
-		CONVERT_ARGS="-ie edges.txt -ce \\t -s 0 -d 1"
-		CONVERT_ARGS="${CONVERT_ARGS} -in nodes.txt -ce \\t -m 0 -n 1"
-		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
-		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
-		;;
-
-	barabasi-*)
-		echo Converting random graph ${DATASET}
-		CONVERT_ARGS="-ie edges.txt -s 0 -d 1"
-		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
-		;;
-
-	watts-strogatz-*)
-		echo Converting random graph ${DATASET}
-		CONVERT_ARGS="-ie edges.txt -s 0 -d 1"
-		CONVERT_ARGS="${CONVERT_ARGS} -oe edges.bin"
-		;;
-
-	analytics)
-		echo Converting artificial analytics graph ${DATASET}
-		CONVERT_ARGS="-ie raw-data.tsv -fe edge -ce \\t -s 1 -d 2 -oe edges.bin"
-		CONVERT_ARGS="${CONVERT_ARGS} -in raw-data.tsv -fn node -cn \\t -n 1 -m 2"
-		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.SumAnalytic3"
-		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.MeanAnalytic4"
-		CONVERT_ARGS="${CONVERT_ARGS} -an software.uncharted.graphing.analytics.MinAnalytic5"
-		CONVERT_ARGS="${CONVERT_ARGS} -om metadata.bin"
-		;;
-
-    grant-graph)
+    example)
         echo Converting ${DATASET}
         CONVERT_ARGS="-ie edges -ce \\t -s 0 -d 1 -oe edges.bin"
         CONVERT_ARGS="${CONVERT_ARGS} -in nodes -cn \\t -n 1 -m 0 -om metadata.bin"

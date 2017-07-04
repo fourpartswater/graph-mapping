@@ -20,7 +20,7 @@ import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.spark.sql.SparkSession
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayoutParametersParser}
-import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
+import software.uncharted.contrib.tiling.jobs.AbstractJob
 
 
 /**

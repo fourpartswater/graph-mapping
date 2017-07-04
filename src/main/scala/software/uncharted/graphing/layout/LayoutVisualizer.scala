@@ -22,8 +22,8 @@ import com.typesafe.config.Config
 import grizzled.slf4j.Logging
 import org.apache.spark.sql.SparkSession
 import software.uncharted.graphing.layout.forcedirected._ //scalastyle:ignore
-import software.uncharted.xdata.sparkpipe.config.ConfigParser
-import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
+import software.uncharted.contrib.tiling.config.ConfigParser
+import software.uncharted.contrib.tiling.jobs.AbstractJob
 
 import scala.io.Source
 import scala.util.{Failure, Success, Try}

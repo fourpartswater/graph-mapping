@@ -20,7 +20,6 @@ import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.Matchers._
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
-import software.uncharted.graphing.clustering.unithread.reference.{Community, Graph => ReferenceGraph}
 import software.uncharted.spark.ExtendedRDDOperationsTestSuite
 
 
@@ -107,18 +106,6 @@ class GraphOperationsTestSuite extends FunSuite with SharedSparkContext with Bef
     val modularity = canonicalGraph.calculateIndividualModularity(d => d)
     val targetModularity = -1.0 / 14.0 + 2.0 * (1.0 - 15 / 56.0) / 56.0
     modularity should be (targetModularity +- epsilon)
-  }
-
-  test("Test modularity vs. baseline calculation") {
-    val canonicalGraph = standardBGLLGraph(sc, d => d)
-
-    // Convert to reference form
-    val refGraph = ReferenceGraph(canonicalGraph)
-    val refCom = new Community(refGraph, -1, 0.0001)
-    val referenceModularity = refCom.modularity
-
-    val modularity = canonicalGraph.calculateIndividualModularity(d => 1.0)
-    assert(referenceModularity === modularity)
   }
 
   test("Test explicit bidirectionality") {

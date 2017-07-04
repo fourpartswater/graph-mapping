@@ -12,7 +12,7 @@
   */
 package software.uncharted.graphing.geometry
 
-import software.uncharted.xdata.geometry.Line
+import software.uncharted.salt.contrib.projection.geometry.Line
 
 //scalastyle:off cyclomatic.complexity import.grouping
 object ArcToPoints {

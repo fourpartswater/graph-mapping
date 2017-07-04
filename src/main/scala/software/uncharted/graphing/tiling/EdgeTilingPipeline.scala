@@ -18,13 +18,11 @@ import org.apache.spark.sql.types._ //scalastyle:ignore
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.xdata.ops.salt.BasicSaltOperations
-import software.uncharted.xdata.ops.util.BasicOperations
-import software.uncharted.xdata.ops.util.DebugOperations
-import software.uncharted.xdata.ops.util.DataFrameOperations
-import software.uncharted.xdata.sparkpipe.config.TilingConfig
-import software.uncharted.xdata.sparkpipe.jobs.AbstractJob
-import software.uncharted.xdata.sparkpipe.jobs.JobUtil.OutputOperation
+import software.uncharted.sparkpipe.ops.contrib.salt.BasicSaltOperations
+import software.uncharted.sparkpipe.ops.contrib.util.DataFrameOperations
+import software.uncharted.contrib.tiling.config.TilingConfig
+import software.uncharted.contrib.tiling.jobs.AbstractJob
+import software.uncharted.contrib.tiling.jobs.JobUtil.OutputOperation
 
 import scala.util.{Failure, Success}
 
@@ -75,13 +73,11 @@ object EdgeTilingPipeline extends AbstractJob {
                           tileConfig: TilingConfig,
                           graphConfig: GraphConfig,
                           outputOperation: OutputOperation): Unit = {
-    import DataFrameOperations._
     import BasicOperations._
     import BasicSaltOperations._
     import DataFrameOperations._
-    import DebugOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.xdata.ops.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
 
     val edgeFcn: Option[DataFrame => DataFrame] = graphConfig.edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
@@ -89,15 +85,10 @@ object EdgeTilingPipeline extends AbstractJob {
 
     Pipe(session.sparkContext)
       .to(RDDIO.read(tileConfig.source + "/level_" + hierarchyLevel))
-      .to(countRDDRowsOp(s"Level $hierarchyLevel raw data: "))
       .to(regexFilter("^edge.*"))
-      .to(countRDDRowsOp("Edge data: "))
       .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
-      .to(countDFRowsOp("Parsed data: "))
       .to(optional(edgeFcn))
-      .to(countDFRowsOp("Required edges: " ))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, graphConfig.formatType, graphConfig.minSegLength, graphConfig.maxSegLength, Some((0.0, 0.0, 256.0, 256.0))))
-      .to(countRDDRowsOp("Tiles: "))
       .to(XDataIO.serializeBinArray)
       .to(outputOperation)
       .run()

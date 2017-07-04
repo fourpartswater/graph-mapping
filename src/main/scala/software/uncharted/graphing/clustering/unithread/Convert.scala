@@ -66,7 +66,7 @@ object Convert extends ConfigReader {
     val convertConfig = ConvertConfigParser.parse(configComplete) match {
       case Success(s) => s
       case Failure(f) =>
-        println(s"Failed to load convert configuration properly. ${f}")
+        println(s"Failed to load convert configuration properly. ${f}") //scalastyle:ignore
         argParser.usage
         sys.exit(-1)
     }

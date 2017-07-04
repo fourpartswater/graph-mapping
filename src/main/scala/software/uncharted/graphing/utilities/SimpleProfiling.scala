@@ -86,9 +86,9 @@ class SimpleProfiler (key: String) {
     order.foreach{key =>
       stats.get(key) match {
         case Some(value) =>
-          to.println("%s%s: %.3fms".format(prefix, key, (value/1000000.0)))
+          to.println("%s%s: %.3fms".format(prefix, key, (value/1000000.0))) //scalastyle:ignore
         case None =>
-          to.println("%s%s:".format(prefix, key))
+          to.println("%s%s:".format(prefix, key)) //scalastyle:ignore
       }
       subProfilers.get(key).foreach(sub => sub.report(to, prefix + (" " * key.length) + "."))
     }

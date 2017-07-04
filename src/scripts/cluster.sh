@@ -42,21 +42,7 @@ fi
 
 case ${DATASET} in
 
-	affinity-nd)
-		ARGS="${ARGS} -nd 10"
-		;;
-
-	affinity-cs)
-		ARGS="${ARGS} -cs 20"
-		;;
-
-	analytics)
-		ARGS="${ARGS} -a software.uncharted.graphing.analytics.SumAnalytic3"
-		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MeanAnalytic4"
-		ARGS="${ARGS} -a software.uncharted.graphing.analytics.MinAnalytic5"
-		;;
-
-    grant-graph)
+    example)
             ARGS="${ARGS} -nd 10"
             ARGS="${ARGS} -a software.uncharted.graphing.analytics.BucketAnalytic config/grant-analytics.conf"
             ;;
