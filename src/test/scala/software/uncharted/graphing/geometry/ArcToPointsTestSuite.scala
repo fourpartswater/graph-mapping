@@ -17,7 +17,7 @@ package software.uncharted.graphing.geometry
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.matchers.{MatchResult, BeMatcher}
-import software.uncharted.salt.xdata.projection.geometry.Line
+import software.uncharted.salt.contrib.projection.geometry.Line
 
 
 class ArcToPointsTestSuite extends FunSuite {
