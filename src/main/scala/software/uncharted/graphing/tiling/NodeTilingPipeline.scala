@@ -19,11 +19,11 @@ import org.apache.spark.sql.types._ //scalastyle:ignore
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
 import software.uncharted.graphing.config.GraphConfig
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.sparkpipe.ops.xdata.salt.BasicSaltOperations
-import software.uncharted.sparkpipe.ops.xdata.util.{DataFrameOperations}
-import software.uncharted.xdata.tiling.config.TilingConfig
-import software.uncharted.xdata.tiling.jobs.{AbstractJob, JobUtil}
-import software.uncharted.xdata.tiling.jobs.JobUtil.OutputOperation
+import software.uncharted.sparkpipe.ops.contrib.salt.BasicSaltOperations
+import software.uncharted.sparkpipe.ops.contrib.util.{DataFrameOperations}
+import software.uncharted.contrib.tiling.config.TilingConfig
+import software.uncharted.contrib.tiling.jobs.{AbstractJob, JobUtil}
+import software.uncharted.contrib.tiling.jobs.JobUtil.OutputOperation
 
 import scala.util.{Failure, Success}
 
@@ -88,7 +88,7 @@ object NodeTilingPipeline extends AbstractJob {
     import BasicSaltOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.sparkpipe.ops.xdata.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
 
     val schema = getSchema(graphConfig.analytics)
 

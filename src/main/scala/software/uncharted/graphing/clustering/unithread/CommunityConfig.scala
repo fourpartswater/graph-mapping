@@ -14,7 +14,7 @@ package software.uncharted.graphing.clustering.unithread
 
 import com.typesafe.config.Config
 import software.uncharted.graphing.analytics.CustomGraphAnalytic
-import software.uncharted.xdata.tiling.config.ConfigParser
+import software.uncharted.contrib.tiling.config.ConfigParser
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.Try

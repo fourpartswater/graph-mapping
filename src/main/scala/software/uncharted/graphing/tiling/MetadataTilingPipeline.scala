@@ -22,11 +22,11 @@ import software.uncharted.salt.core.generation.Series
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.util.SparseArray
 import software.uncharted.sparkpipe.Pipe
-import software.uncharted.sparkpipe.ops.xdata.salt.BasicSaltOperations
-import software.uncharted.sparkpipe.ops.xdata.util.DataFrameOperations
-import software.uncharted.xdata.tiling.config.TilingConfig
-import software.uncharted.xdata.tiling.jobs.{AbstractJob, JobUtil}
-import software.uncharted.xdata.tiling.jobs.JobUtil.OutputOperation
+import software.uncharted.sparkpipe.ops.contrib.salt.BasicSaltOperations
+import software.uncharted.sparkpipe.ops.contrib.util.DataFrameOperations
+import software.uncharted.contrib.tiling.config.TilingConfig
+import software.uncharted.contrib.tiling.jobs.{AbstractJob, JobUtil}
+import software.uncharted.contrib.tiling.jobs.JobUtil.OutputOperation
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import scala.util.{Failure, Success, Try}
@@ -70,7 +70,7 @@ object MetadataTilingPipeline extends AbstractJob {
     import BasicSaltOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.sparkpipe.ops.xdata.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
 
     val rawData = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))

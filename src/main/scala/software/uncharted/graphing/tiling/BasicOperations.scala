@@ -17,14 +17,14 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 import scala.reflect.ClassTag
 
-import software.uncharted.sparkpipe.ops.xdata.salt.{CartesianSegmentOp}
+import software.uncharted.sparkpipe.ops.contrib.salt.{CartesianSegmentOp}
 import software.uncharted.salt.core.generation.output.SeriesData
-import software.uncharted.sparkpipe.ops.xdata.salt.BasicSaltOperations.getBounds
+import software.uncharted.sparkpipe.ops.contrib.salt.BasicSaltOperations.getBounds
 import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
 import software.uncharted.salt.core.analytic.numeric.CountAggregator
 import software.uncharted.salt.core.generation.request.{TileLevelRequest, TileRequest}
-import software.uncharted.sparkpipe.ops.xdata.salt.ArcTypes
+import software.uncharted.sparkpipe.ops.contrib.salt.ArcTypes
 import org.apache.spark.sql.catalyst.expressions.Literal
 
 

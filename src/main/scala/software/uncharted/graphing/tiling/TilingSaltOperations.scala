@@ -18,7 +18,7 @@ import software.uncharted.salt.core.analytic.Aggregator
 import software.uncharted.salt.core.generation.output.SeriesData
 import software.uncharted.salt.core.generation.request.TileRequest
 import software.uncharted.salt.core.projection.numeric.CartesianProjection
-import software.uncharted.sparkpipe.ops.xdata.salt.{ZXYOp}
+import software.uncharted.sparkpipe.ops.contrib.salt.{ZXYOp}
 
 /**
   * An operation for generating a cartesian-projected

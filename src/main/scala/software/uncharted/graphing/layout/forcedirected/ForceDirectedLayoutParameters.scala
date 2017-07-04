@@ -13,7 +13,7 @@
 package software.uncharted.graphing.layout.forcedirected
 
 import com.typesafe.config.Config
-import software.uncharted.xdata.tiling.config.ConfigParser
+import software.uncharted.contrib.tiling.config.ConfigParser
 
 import scala.util.{Try}
 

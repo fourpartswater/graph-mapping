@@ -189,7 +189,7 @@ dependencies {
   // dependencies that can be taken from a maven repo or local projects
   optionalProjectDependency "software.uncharted.salt:salt-core:4.0.3"
   optionalProjectDependency "software.uncharted.sparkpipe:sparkpipe-core:0.9.8"
-  optionalProjectDependency "software.uncharted.xdata:xdata-salt-tiling:0.1.2"
+  optionalProjectDependency "software.uncharted.salt:salt-tiling-contrib:0.2.0"
 
   // Compile config - needed at build and runtime
   compile "org.apache.commons:commons-csv:1.1"
