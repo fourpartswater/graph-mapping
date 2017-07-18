@@ -9,7 +9,7 @@ SOURCE_LOCATION=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
 
 
 # Set up default parameters
-MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
+MAIN_JAR=../graph-mapping-0.1-SNAPSHOT/lib/graph-mapping.jar
 
 # Set up application-specific parameters
 # Switch main classes in order to debug configuration

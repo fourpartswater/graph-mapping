@@ -5,7 +5,7 @@ SOURCE_LOCATION=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
 . ${SOURCE_LOCATION}/arg-parser.sh
 
 MEM=2g
-MAIN_JAR=../../../build/distributions/xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
+MAIN_JAR=../../../build/distributions/graph-mapping-0.1-SNAPSHOT/lib/graph-mapping.jar
 SCALA_JAR=/opt/scala-2.11.7/lib/scala-library.jar
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 

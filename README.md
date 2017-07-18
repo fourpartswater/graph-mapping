@@ -1,7 +1,7 @@
 # Hierarchical Graph Clustering and Visualization Pipeline
-`xdata-graph` provides a pipeline to cluster and visualize graph data using a hierarchical clustering algorithm based on the Louvain clustering algorithm [Blondel, Guillaume, and Lambiotte, at at]. Given the edge data representing a graph, the pipeline will cluster the graph into hierarchical communities and will then lay them out for display purposes.
+`graph-mapping` provides a pipeline to cluster and visualize graph data using a hierarchical clustering algorithm based on the Louvain clustering algorithm [Blondel, Guillaume, and Lambiotte, at at]. Given the edge data representing a graph, the pipeline will cluster the graph into hierarchical communities and will then lay them out for display purposes.
 
-the xdata-graph pipeline has 8 tasks that can used as needed to process the graph data. They are:
+the graph-mapping pipeline has 8 tasks that can used as needed to process the graph data. They are:
 
   - Convert
   - Cluster
@@ -163,17 +163,17 @@ The tasks are run sequentially and only rely on the local file system and Spark.
 ## Building
 Java 1.7+, Scala 2.11+ are required to build the library and run tests. The Gradle wrapper is used so there is no requirement to have Gradle installed.
 
-As a pre-requisite, build and install the `sparkpipe-xdata-text` project following the instructions [here](https://github.com/unchartedsoftware/sparkpipe-xdata-text).  This artifact is currently not available in a public Maven repository and needs to be built from source.
+As a pre-requisite, build and install the `sparkpipe-text-analytics` project following the instructions [here](https://github.com/unchartedsoftware/sparkpipe-text-analytics).  This artifact is currently not available in a public Maven repository and needs to be built from source.
 
-As another pre-requisite, build and install the `xdata-salt-tiling` project following the instructions [here](https://github.com/unchartedsoftware/xdata-salt-tiling).  This artifact is currently not available in a public Maven repository and needs to be built from source.
+As another pre-requisite, build and install the `salt-tiling-contrib` project following the instructions [here](https://github.com/unchartedsoftware/salt-tiling-contrib).  This artifact is currently not available in a public Maven repository and needs to be built from source.
 
 After checking out the source code, the library binary can be built from the project root and installed locally as follows:
 
 `./gradlew build install docs`
 
-A full distribution will be available as tar and zip archives in the `project_root/build/distributions` directory. The distribution consists of a single "fat" JAR that contains the class binaries for the `xdata-graph` code, along with all dependencies it requires. The distribution also contains example configuration files and run scripts that provide a starting point for running the graph pipeline.
+A full distribution will be available as tar and zip archives in the `project_root/build/distributions` directory. The distribution consists of a single "fat" JAR that contains the class binaries for the `graph-mapping` code, along with all dependencies it requires. The distribution also contains example configuration files and run scripts that provide a starting point for running the graph pipeline.
 
-In addition to the distribution, a JAR consisting of `xdata-graph` class binaries only (suitable for inclusion as a dependency in other projects) will be available in `project_root/build/libs`, and a full set of archives (binary, sources, test sources, docs) can be published to a local Maven repository via:
+In addition to the distribution, a JAR consisting of `graph-mapping` class binaries only (suitable for inclusion as a dependency in other projects) will be available in `project_root/build/libs`, and a full set of archives (binary, sources, test sources, docs) can be published to a local Maven repository via:
 
 `./gradlew publish`
 

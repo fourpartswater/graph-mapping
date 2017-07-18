@@ -77,7 +77,7 @@ object EdgeTilingPipeline extends AbstractJob {
     import BasicSaltOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => SparkpipeIO}
 
     val edgeFcn: Option[DataFrame => DataFrame] = graphConfig.edgeType.map {value =>
       filterA(new Column("isInterCommunity") === value)
@@ -89,7 +89,7 @@ object EdgeTilingPipeline extends AbstractJob {
       .to(toDataFrame(session, Map[String, String]("delimiter" -> "\t", "quote" -> null), getSchema))
       .to(optional(edgeFcn))
       .to(segmentTiling("srcX", "srcY", "dstX", "dstY", zoomLevels, graphConfig.formatType, graphConfig.minSegLength, graphConfig.maxSegLength, Some((0.0, 0.0, 256.0, 256.0))))
-      .to(XDataIO.serializeBinArray)
+      .to(SparkpipeIO.serializeBinArray)
       .to(outputOperation)
       .run()
   }

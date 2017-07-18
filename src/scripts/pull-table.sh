@@ -5,7 +5,7 @@
 #
 
 MAIN_CLASS=software.uncharted.graphing.tiling.TilesetPuller
-MAIN_JAR=../lib/xdata-graph.jar
+MAIN_JAR=../lib/graph-mapping.jar
 JOB_MASTER=yarn-client
 HDFS_LOC=hdfs://uscc0-master0.uncharted.software
 TABLE=$1
