@@ -88,7 +88,7 @@ object NodeTilingPipeline extends AbstractJob {
     import BasicSaltOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => SparkpipeIO}
 
     val schema = getSchema(graphConfig.analytics)
 
@@ -98,7 +98,7 @@ object NodeTilingPipeline extends AbstractJob {
       .to(toDataFrame(sparkSession, Map[String, String]("delimiter" -> "\t", "quote" -> null), schema))
       .to(addConstantColumn("count", 1))
       .to(cartesianTiling("x", "y", "count", zoomLevels, Some((0.0, 0.0, 256.0, 256.0))))
-      .to(XDataIO.serializeBinArray)
+      .to(SparkpipeIO.serializeBinArray)
       .to(outputOperation)
       .run()
   }

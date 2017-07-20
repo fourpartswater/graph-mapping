@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-MAIN_JAR=../xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
+MAIN_JAR=../graph-mapping-0.1-SNAPSHOT/lib/graph-mapping.jar
 MAIN_CLASS=software.uncharted.graphing.export.ESIngestExport
 BASE_LOCATION=/user/${USER}/graphs
 

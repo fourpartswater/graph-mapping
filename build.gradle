@@ -258,7 +258,7 @@ publish << {
 // execution scripts.
 distributions {
   main {
-    baseName = 'xdata-graph'
+    baseName = 'graph-mapping'
     contents {
       // Copy the run scripts over
       into ("scripts"){

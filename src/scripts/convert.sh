@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MEM=12g
-MAIN_JAR=../../../build/distributions/xdata-graph-0.1-SNAPSHOT/lib/xdata-graph.jar
+MAIN_JAR=../../../build/distributions/graph-mapping-0.1-SNAPSHOT/lib/graph-mapping.jar
 SCALA_JAR=/opt/scala-2.11.7/lib/scala-library.jar
 MAIN_CLASS=software.uncharted.graphing.clustering.unithread.Convert
 

@@ -16,5 +16,5 @@ ext {
 if (settings.hasProperty('useProjects') && settings.useProjects == 'true') {
   includeProject('salt-core', 'salt')
   includeProject('sparkpipe-core')
-  includeProject('xdata-pipeline-ops')
+  includeProject('salt-tiling-contrib')
 }

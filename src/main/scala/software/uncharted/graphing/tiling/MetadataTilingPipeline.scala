@@ -70,7 +70,7 @@ object MetadataTilingPipeline extends AbstractJob {
     import BasicSaltOperations._
     import DataFrameOperations._
     import software.uncharted.sparkpipe.ops.core.rdd.{io => RDDIO}
-    import software.uncharted.sparkpipe.ops.contrib.{io => XDataIO}
+    import software.uncharted.sparkpipe.ops.contrib.{io => SparkpipeIO}
 
     val rawData = Pipe(sparkSession.sparkContext)
       .to(RDDIO.read(tilingConfig.source + "/level_" + hierarchyLevel))
@@ -123,7 +123,7 @@ object MetadataTilingPipeline extends AbstractJob {
 
     communityData
       .to(genericFullTilingRequest(series, zoomLevels, getZoomLevel))
-      .to(XDataIO.serializeTiles(encodeTile))
+      .to(SparkpipeIO.serializeTiles(encodeTile))
       .to(outputOperation)
       .run()
   }
