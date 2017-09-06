@@ -1,6 +1,6 @@
 description = "A research library for graph processing"
 group = "software.uncharted"
-version = "0.1.0"
+version = "0.2-SNAPSHOT"
 
 // Project-level shared variables
 ext {
