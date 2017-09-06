@@ -1,211 +1,262 @@
-# Hierarchical Graph Clustering and Visualization Pipeline
-`graph-mapping` provides a pipeline to cluster and visualize graph data using a hierarchical clustering algorithm based on the Louvain clustering algorithm [Blondel, Guillaume, and Lambiotte, at at]. Given the edge data representing a graph, the pipeline will cluster the graph into hierarchical communities and will then lay them out for display purposes.
+Hierarchical Graph Clustering and Visualization Pipeline
+========================================================
 
-the graph-mapping pipeline has 8 tasks that can used as needed to process the graph data. They are:
+`graph-mapping` is a pipeline for clustering and hierarchically visualizing graph data. The graph-mapping clustering algorithm is based on the Louvain modularity algorithm [[Blondel et al.]](http://iopscience.iop.org/article/10.1088/1742-5468/2008/10/P10008). The pipeline ingests edge data from a graph, clusters the nodes into hierarchical communities and lays out all the graph components (nodes, communities, and edges) for visualization.
 
-  - Convert
-  - Cluster
-  - Layout
-  - Node Tile
-  - Metadata Tile
-  - Intra Community Edge Tile
-  - Inter Community Edge Tile
-  - Data Export
+- [Ingesting Data](#ingesting-data)
+- [Available Pipeline Tasks](#available-pipeline-tasks)
+- [Scripts](#scripts)
+- [Building the graph-mapping Library](#building-the-graph-mapping-library)
+- [Running the Pipeline](#running-the-Pipeline)
 
-Not every task needs to be called. For example, tiling produces a specific output which is only useful if the client already exists to consume the results. If the data is to be tied into another pipeline, then the data export task is more likely to be useful.
+## Ingesting Data ##
 
-## Data
-The minimal data required for the graph pipeline is a list of edges, with each edge defining a source and destination node. Additional data can be defined, including:
+At a minimum, you must provide the graph-mapping pipeline with a list of edges in your graph. Each edge in the list should contain a reference to its source and destination nodes.
 
-  - Edge weight
-  - Node information
-  - Metadata
-  - Aggregations
+Along with the edge data, you can also include:
 
-## Tasks
-### Convert
-The convert task takes the input data and converts it to the format necessary for clustering. Parameters are available to extract the right fields, renumber ids and process metadata. The convert task supports local files only.
+- Edge weights
+- Node information
+- Metadata
+- Aggregations
 
-The output of the task is a binary format used by the clustering task.
+## Available Pipeline Tasks ##
 
-### Cluster
-Clustering is done on the output of the conversion task. It uses edge information to hierarchically cluster the data based on the Louvain clustering algorithm [Blondel, Guillaume, and Lambiotte, at at]. The clustered data is output as a series of level outputs with the lowest level having the raw node information mapped to their communities. Each output file contains edge & node information.
+The following graph-mapping pipeline tasks are available to process your graph data:
 
-The node chosen as community node is the node within the community that has the highest degree. The level outputs will reuse the community nodes', information including the id.
+1. [Conversion](#conversion)
+2. [Clustering](#clustering)
+3. [Layout](#layout)
+4. [Tiling](#tiling), which is a series of subtasks that separately tile the following graph components:
+   - Nodes
+   - Metadata
+   - Intra-community edges
+   - Inter-community edges
+5. [Exporting Data](#exporting-data)
 
-As the data is clustered, analytics can be applied to aggregate data for communities. A series of aggregations are included in the library, and custom ones can be created. Once created, the aggregation is specified via parameters.
+Not every task needs to be called. For example, the output of the [tiling](#tiling) task is only useful if you have a client to consume the results. If you want to use the data in another pipeline, use the [data export](#exporting-data) instead.
 
-The clustering algorithm is run on a single instance. If the data is too large, Out of Memory exceptions could occur.
+### Conversion ###
 
-The standard output of the clustering is divided by level, where level 0 is the leaf level. Each subsequent level clusters more and more nodes together. Each level has a single output file containing both node and edge data.
+The conversion task transforms your input data to the binary format required for [clustering](#clustering). Parameters are available to extract fields, renumber IDs and process metadata.
 
-The node data output has at least 5 columns. They are (in order):
+**NOTE**: The conversion task supports local files only.
 
-  - file part ("node")
-  - id
-  - parent id
-  - number of internal nodes
-  - weight
-  - metadata & analytic data (optional)
+### Clustering ###
 
-The edge data output has the following 4 columns:
+The clustering task consumes data that has been output from the conversion task. Based on the Louvain clustering algorithm [[Blondel et al.]](http://iopscience.iop.org/article/10.1088/1742-5468/2008/10/P10008), it uses your graph's edge information to cluster nodes into hierarchical communities.
 
-  - file part ("edge")
-  - source id
-  - destination id
-  - weight
+**NOTE**: The clustering algorithm runs on a single instance. If your data is too large, *Out of Memory* exceptions may be generated.
 
-### Layout
-The clustered data is laid out using a top down approach. At any level, a community's members are laid out within its bounds. A force directed layout process is used to determine node positions within the necessary bounds.
+#### Output ####
 
-The layout step outputs coordinate information for nodes & edges, along with the necessary clustering information & the specified meatadata. Like the clustering task, the layout output is split up into levels.
+Clustered data is output as a series of level outputs, where the level 0&mdash;the leaf level and most "zoomed in" view of your data&mdash;represents your raw nodes mapped to their communities. Each subsequent higher level represents an increasingly "zoomed out" view that clusters more and more nodes together. Each level is output to a single file containing both node and edge data.
 
-The node data has at least 12 columns:
+As the data is clustered, analytics can be applied to aggregate data for communities. You can choose from a series of aggregations included in the library or your own create custom aggregations. Once created, aggregations can be specified via parameters.
 
-  - file part ("node")
-  - id
-  - x coordinate
-  - y coordinate
-  - radius
-  - parent id
-  - parent x coordinate
-  - parent y coordinate
-  - parent radius
-  - number of internal nodes
-  - degree
-  - level
+Within a community, the node with the highest degree (most connections) becomes the community node. Each level output reuses the community node's information, including the ID.
 
-All metadata in the source input is added as additional columns at the end of the record.
+##### Columns #####
 
-### Tiling
-The layout output can be used to tile the clustered data. Each level of data is mapped to one or more tile level. Tiles can be stored to S3, HBase or local file system.
+The node data output has at least five columns in the following order:
 
-All tiling tasks use Spark to generate output.
+1. File part ("node")
+2. ID
+3. Parent ID
+4. Number of internal nodes
+5. Weight
+6. Metadata and analytic data (optional)
 
-The tiles are organized into folders and files by zoom level, column and row using TMS indexing as follows: {zoom_level}/{x}/{y}.bin. The tiles themselves are binaries consisting of 64 bit floating point values, arranged in row/major order. The row and column count are equal. Each bin element in this case is a count of the data values aggregated within that bin.
+The edge data output has the following four columns:
 
-#### Node Tile
-Node tiles contain information on nodes (communities). They are essentially a heatmap of the nodes, split off into tiles for every level.
+1. File part ("edge")
+2. Source ID
+3. Destination ID
+4. Weight
 
-#### Metadata Tile
-Metadata tiles are used to add an informational layer to the graph. It contains basic community information (position, radius) as well as metadata present in the layout output.
+### Layout ###
 
-#### Intra Community Edge Tile
-Intra community edges are edges with both ends having the same parent community.
+The layout task outputs coordinate information for nodes and edges, along with the necessary clustering information and the specified metadata.
 
-#### Inter Community Edge Tile
-Inter community edges are edges with the ends having different parent communities.
+Clustered data is laid out using a top-down approach. At each level, a force-directed layout process determines the node positions of a community's members within its bounds.
 
-### Data Export
-The data export task is used to add more information to the layout output and to store the data in a format that is easier to consume. The exported data has two additional fields: unique id & community hierarchy. Each node & edge can be uniquely identified, and the community hierarchy contains the path to the root node.
+#### Output ####
 
-Spark is used to process the data and create the output, which is divided into 2 directories: nodes & edges.
+Like the clustering task, the layout output is split up into levels.
+
+##### Columns #####
+
+The node data has at least twelve columns:
+
+1. File part ("node")
+2. ID
+3. x coordinate
+4. y coordinate
+5. Radius
+6. Parent ID
+7. Parent x coordinate
+8. Parent y coordinate
+9. Parent radius
+10. Number of internal nodes
+11. Degree
+12. Level
+
+Any metadata in the source input is added as additional columns at the end of the record.
+
+### Tiling ###
+
+The optional tiling task uses [Apache Spark](https://spark.apache.org/) to tile clustered data output from the [layout](#layout) task. Each level of data is mapped to one or more tile levels. Tiles can be stored in [Amazon S3](https://aws.amazon.com/s3/), [Apache HBase](https://hbase.apache.org/) or your local file system.
+
+#### Output ####
+
+Tiles are organized into folders and files by zoom level, column and row using the following TMS indexing:
+
+```
+{zoom_level}/{x}/{y}.bin
+````
+
+The tiles are binaries consisting of 64-bit floating point values arranged in row/major order. The row and column count are equal. Each bin element represents the count of the data values it contains.
+
+| Tile Type | Description |
+|:----------|:------------|
+| Nodes | Contain information on nodes (communities). They are essentially a heatmap of the nodes, split off into tiles for every level. |
+| Metadata | Used to add an informational layer to the graph. It contains basic community information (position, radius) as well as metadata present in the layout output. |
+| Intra&#8209;community&nbsp;edges | Edges where both ends terminate within the same parent community. |
+| Inter&#8209;community&nbsp;edges | Edges where each end terminates in a different parent community.  |
+
+### Exporting Data ###
+
+The data export task uses [Spark](https://spark.apache.org/) to add more information to the layout output and allows you to store the data in a format that is easier to consume. The output is divided into two directories: nodes and edges.
+
+The exported data has two additional fields: `unique ID` and `community hierarchy`. Each node and edge can be uniquely identified, and the community hierarchy contains the path to the root node.
+
+##### Columns #####
 
 The node output has the following 13 columns:
 
-  - file part ("node")
-  - id
-    - id is unique across the whole dataset as it incorporates the level
-  - x coordinate
-  - y coordinate
-  - radius
-  - parent id
-    - parent id is unique across the whole dataset as it incorporates the level
-  - parent x coordinate
-  - parent y coordinate
-  - parent radius
-  - number of internal nodes
-  - degree
-  - level
-  - hierarchy
-    - the path to the root from the current node. ex: 12|15\_c\_0|15\_c\_1|7\_c\_2 denotes that node 12 has 15\_c\_0 as parent, which has 15\_c\_1 as parent, which has 7\_c\_2 as root community.
+- File part ("node")
+- ID (unique across the whole dataset, as it incorporates the level)
+- x coordinate
+- y coordinate
+- Radius
+- Parent ID (unique across the whole dataset, as it incorporates the level)
+- Parent x coordinate
+- Parent y coordinate
+- Parent radius
+- Number of internal nodes
+- Degree
+- Level
+- Hierarchy (Path to the root from the current node. For example, `12|15_c_0|15_c_1|7_c_2` denotes that node 12 has 15\_c\_0 as parent, which has 15\_c\_1 as parent, which has 7\_c\_2 as root community.
 
 All metadata contained in the layout output is appended to end of each record.
 
 The edge output has the following 11 columns:
 
-  - file part ("edge")
-  - source node id
-    - id is unique across the whole dataset as it incorporates the level
-  - source node x coordinate
-  - source node y coordinate
-  - destination node id
-    - id is unique across the whole dataset as it incorporates the level
-  - destination node x coordinate
-  - destination node y coordinate
-  - edge weight
-  - 1 if the edge is between two nodes having two different parents (inter community)
-  - level
-  - edge id
-    - a unique id for the edge that combines the source & destination node ids
+- File part ("edge")
+- Source node ID (Unique across the whole dataset, as it incorporates the level)
+- Source node x coordinate
+- Source node y coordinate
+- Destination node ID (Unique across the whole dataset, as it incorporates the level)
+- Destination node x coordinate
+- Destination node y coordinate
+- Edge weight
+- 1 (if the edge is between two nodes having two different parents (inter community))
+- Level
+- Edge ID (Unique ID for the edge that combines the source and destination node IDs)
 
-## Scripts
-A series of scripts are available as part of the repo. These scrips facilitate the execution of the pipeline. They also serve as examples if further integration or customization is required.
+## Scripts ##
 
-The main scripts are:
+graph-mapping contains the following scripts that facilitate execution of the pipeline. They also serve as examples if you need to perform further integration or customization.
 
-  - convert.sh
-  - cluster.sh
-  - layout.sh
-  - node-tiling.sh
-  - metadata-tiling.sh
-  - intra-edge-tiling.sh
-  - inter-edge-tiling.sh
-  - extract-es-data.sh
+- [`convert.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/convert.sh)
+- [`cluster.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/cluster.sh)
+- [`layout.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/layout.sh)
+- [`node-tiling.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/node-tiling.sh)
+- [`metadata-tiling.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/metadata-tiling.sh)
+- [`intra-edge-tiling.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/intra-edge-tiling.sh)
+- [`inter-edge-tiling.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/inter-edge-tiling.sh)
+- [`extract-es-data.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/extract-es-data.sh)
 
-At a minimum, the scripts require the dataset be specified via the -d parameter. The scripts will then take the dataset name (along with other optional parameters) and will execute the pipeline.
+For each script, you must, at a minimum, specify a dataset using the `-d` parameter. The scripts take the dataset name and any optional parameters you specify and then execute the pipeline.
 
-### Example
-As an example of an end-to-end execution, example.sh executes every step of the pipeline. It uses a sample of data from the USPTO, with each node representing a patent and each edge representing a reference between patents. The node data has an arbitrary sequential id column, the patent id the USPTO uses and the timestamp of the patent grant. The edge data contains the source patent id, the destination patent id and the weight (1).
+### Example ###
 
-The tasks are run sequentially and only rely on the local file system and Spark. Running the script could take around an hour, depending on the nature of the Spark instance. Most of that time will be spent in the tiling tasks.
+[`example.sh`](https://github.com/unchartedsoftware/graph-mapping/blob/master/src/scripts/example.sh) is an end-to-end script that executes every step of the pipeline. It uses [USPTO sample data](https://s3.ca-central-1.amazonaws.com/tiling-examples/patent-sample.zip) where:
 
-## Building
-Java 1.7+, Scala 2.11+ are required to build the library and run tests. The Gradle wrapper is used so there is no requirement to have Gradle installed.
+- Each node represents a patent. Node data includes an arbitrary sequential ID column, the patent ID that the USPTO uses and the timestamp of the patent grant.
+- Each edge represents a reference between patents. The edge data includes the source patent ID, the destination patent ID and the weight (1).
 
-As a pre-requisite, build and install the `sparkpipe-text-analytics` project following the instructions [here](https://github.com/unchartedsoftware/sparkpipe-text-analytics).  This artifact is currently not available in a public Maven repository and needs to be built from source.
+Pipeline tasks run sequentially, only relying on your local file system and Spark. Depending on the nature of your Spark instance, running the script may take around an hour, with most of the time spent in the tiling tasks.
 
-As another pre-requisite, build and install the `salt-tiling-contrib` project following the instructions [here](https://github.com/unchartedsoftware/salt-tiling-contrib).  This artifact is currently not available in a public Maven repository and needs to be built from source.
+## Building the graph-mapping Library ##
 
-After checking out the source code, the library binary can be built from the project root and installed locally as follows:
+### Prerequisites ###
 
-`./gradlew build install docs`
+Before you begin, make sure you have installed the following third-party tools required to build the library and run tests:
 
-A full distribution will be available as tar and zip archives in the `project_root/build/distributions` directory. The distribution consists of a single "fat" JAR that contains the class binaries for the `graph-mapping` code, along with all dependencies it requires. The distribution also contains example configuration files and run scripts that provide a starting point for running the graph pipeline.
+- Java 1.7+
+- Scala 2.11+
 
-In addition to the distribution, a JAR consisting of `graph-mapping` class binaries only (suitable for inclusion as a dependency in other projects) will be available in `project_root/build/libs`, and a full set of archives (binary, sources, test sources, docs) can be published to a local Maven repository via:
+ **NOTE**: Because graph-mapping uses the Gradle wrapper, you do not need to install Gradle.
+
+Additionally, build and install the following Uncharted projects according to the instructions in the respective repositories. These artifacts are currently not available in public Maven repositories and must be built from the source.
+
+- [`sparkpipe-text-analytics`](https://github.com/unchartedsoftware/sparkpipe-text-analytics)
+- [`salt-tiling-contrib`](https://github.com/unchartedsoftware/salt-tiling-contrib)
+
+### Building the Library Binary ###
+
+To build the graph-mapping library binary and install it locally:
+
+1. Check out the source code.
+2. Execute the following command in the project root:
+
+   `./gradlew build install docs`
+
+This will create a full distribution as .tar and .zip archives in `project_root/build/distributions`. The distribution consists of a single "fat" JAR that contains:
+
+- Class binaries for the `graph-mapping` code
+- All required dependencies
+- Example configuration files and scripts that provide a starting point for running the graph pipeline
+
+In addition to the distribution, a JAR consisting of `graph-mapping` class binaries only (suitable for inclusion as a dependency in other projects) will be available in `project_root/build/libs`.
+
+To publish a full set of archives (binary, sources, test sources, docs) to a local Maven repository, execute the following command:
 
 `./gradlew publish`
 
-Note that The above command requires that `MAVEN_REPO_URL`, `MAVEN_REPO_USERNAME` and `MAVEN_REPO_PASSWORD` be defined as environment variables.
+**NOTE**: Before you execute this command, make sure that `MAVEN_REPO_URL`, `MAVEN_REPO_USERNAME` and `MAVEN_REPO_PASSWORD` are defined as environment variables.
 
-## Running the Pipeline
-The following instructions assume that `Spark 2.0+` has been installed locally, and that the SPARK_HOME environment variable is pointing to the installation directory. The examples can easily be adapted to run on a Spark cluster.
+## Running the Pipeline ##
 
-Starting in the project root directory, execute the following to build the archive:
+Before you begin, make sure you have installed Spark 2.0+ has been installed locally and that the `SPARK_HOME` environment variable is pointing to the installation directory. The examples can easily be adapted to run on a Spark cluster.
 
-```bash
-./gradlew build
-```
+1. Starting in the project root directory, execute the following command to build the archive:
 
-Download the example USPTO data and unzip into the run directory:
+   ```bash
+   ./gradlew build
+   ```
+2. Download the example USPTO data and unzip it in the run directory:
 
-```bash
-cd src/scripts
-mkdir patent-sample
-wget https://s3.ca-central-1.amazonaws.com/tiling-examples/patent-sample.zip
-unzip patent-sample.zip
-```
+   ```bash
+   cd src/scripts
+   mkdir patent-sample
+   wget https://s3.ca-central-1.amazonaws.com/tiling-examples/patent-sample.zip
+   unzip patent-sample.zip
+   ```
 
-Run the job:
+3. Run the job:
 
-```bash
-./example.sh
-```
+   ```bash
+   ./example.sh
+   ```
 
-As the tasks complete, files will be written in the patent-sample folder:
+As the pipeline tasks are completed, graph-mapping writes the following files to `patent-sample/`:
 
-  - `edges.bin` & `metadata.bin` are the outputs of conversion
-  - `level_0` through `level_4` are the outputs of clustering
-  - `layout` is the output of the layout step
-  - `esexport` is the layout of the data export
+
+| Task | Output |
+|:-----|:-------|
+| Conversion  | `edges.bin` and `metadata.bin` |
+| Clustering  | `level_0` through `level_4` |
+| Layout      | `layout` |
+| Data export | `esexport` |
