@@ -12,3 +12,4 @@ build
 test-output
 affinity-graph.txt
 tags
+classes
