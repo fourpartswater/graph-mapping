@@ -67,6 +67,8 @@ object KMeansClusterer {
     *
     * @param possibleKs The possible values K may take
     * @param featureExtractorFcn A function to retrieve the feature vector from a given record
+    * @param attemptsPerK The number of clustering attempts to make at each value of K.  More attempts gives a
+    *                     greater probability of achieving a good clustering.
     * @param maxIterations The maximum number of iterations to use before quiting
     * @param seed A random seed
     * @param data The input data
@@ -76,6 +78,7 @@ object KMeansClusterer {
     */
   def clusterSetLocally[T] (possibleKs: Seq[Int],
                             featureExtractorFcn: T => Vector,
+                            attemptsPerK: Int = 10,
                             maxIterations: Int = 1000,
                             seed: Long = System.nanoTime())
                            (data: Seq[T]): Seq[(T, Int, Double)] = {
@@ -85,32 +88,34 @@ object KMeansClusterer {
     val scaledVectors = unscaledVectorData.map { case (d, v) => fromRange(minV, maxV)(v) }
 
     val results = for (k <- possibleKs) yield {
-      // Initialize centroids randomly
-      var centroids = new Array[Vector](k)
-      var closestCentroids: Seq[Int] = Seq()
-      val newRandomVector = () => randomVector(r)(minV, maxV)
-      for (i <- 0 until k) {
-        centroids(i) = newRandomVector()
-      }
+      (1 to attemptsPerK).map { n =>
+        // Initialize centroids randomly
+        var centroids = new Array[Vector](k)
+        var closestCentroids: Seq[Int] = Seq()
+        val newRandomVector = () => randomVector(r)(minV, maxV)
+        for (i <- 0 until k) {
+          centroids(i) = newRandomVector()
+        }
 
-      // Initialize bookkeeping
-      var iterations = 0
-      var oldCentroids: Array[Vector] = null
+        // Initialize bookkeeping
+        var iterations = 0
+        var oldCentroids: Array[Vector] = null
 
-      while (!shouldStop(oldCentroids, centroids, iterations, maxIterations)) {
-        // Save old centroids for convergence test, bookkeeping
-        oldCentroids = centroids
-        iterations = iterations + 1
+        while (!shouldStop(oldCentroids, centroids, iterations, maxIterations)) {
+          // Save old centroids for convergence test, bookkeeping
+          oldCentroids = centroids
+          iterations = iterations + 1
 
-        // Assign centroids to each data point
-        closestCentroids = getClosestCentroids(scaledVectors, centroids)
+          // Assign centroids to each data point
+          closestCentroids = getClosestCentroids(scaledVectors, centroids)
 
-        // Determine new centroids based on data
-        centroids = getCentroids(scaledVectors, closestCentroids, k,
-          newRandomVectorFromLargestGroup(r, closestCentroids, scaledVectors), r)
-      }
+          // Determine new centroids based on data
+          centroids = getCentroids(scaledVectors, closestCentroids, k,
+            newRandomVectorFromLargestGroup(r, closestCentroids, scaledVectors), r)
+        }
 
-      KResult(k, centroids, closestCentroids, calculateDk(scaledVectors, closestCentroids, centroids))
+        KResult(k, centroids, closestCentroids, calculateDk(scaledVectors, closestCentroids, centroids))
+      }.minBy(_.Sk) // Pick the best attempt at this value of K
     }
 
     val k = bestKByRatio(results.map(r => (r.k, r.Sk)), () => numFeatures)
@@ -118,9 +123,7 @@ object KMeansClusterer {
 
     data.zipWithIndex.map { case (d, i) =>
       val cluster = bestResults.clusters(i)
-      val distance = math.sqrt(Vectors.sqdist(
-        toRange(minV, maxV)(bestResults.centroids(cluster)),
-        featureExtractorFcn(d)))
+      val distance = math.sqrt(Vectors.sqdist(featureExtractorFcn(d), toRange(minV, maxV)(bestResults.centroids(cluster))))
       (d, cluster, distance)
     }
   }
@@ -137,6 +140,8 @@ object KMeansClusterer {
     *
     * @param possibleKs The possible values K may take
     * @param featureExtractorFcn A function to retrieve the feature vector from a given record
+    * @param attemptsPerK The number of clustering attempts to make at each value of K.  More attempts gives a
+    *                     greater probability of achieving a good clustering.
     * @param maxIterations The maximum number of iterations to use before quiting
     * @param seed A random seed
     * @param data The input data
@@ -146,6 +151,7 @@ object KMeansClusterer {
   def heirarchicalClusterSetLocally[T] (possibleKs: Seq[Int],
                                         featureExtractorFcn: T => Vector,
                                         idExtractorFcn: T => Int,
+                                        attemptsPerK: Int = 10,
                                         maxIterations: Int = 1000,
                                         seed: Long = System.nanoTime())
                                        (data: Seq[T]): Seq[(T, Seq[Int])] = {
@@ -153,7 +159,7 @@ object KMeansClusterer {
     var avgSize = data.length.toDouble
 
     // Add a root cluster
-    val firstLevelResult = clusterSetLocally(possibleKs, featureExtractorFcn, maxIterations, seed)(data)
+    val firstLevelResult = clusterSetLocally(possibleKs, featureExtractorFcn, attemptsPerK, maxIterations, seed)(data)
     if (1 == firstLevelResult.map(_._2).toSet.size) {
       // Couldn't find a sub-cluster - it's all one.
       val centralId = idExtractorFcn(firstLevelResult.minBy(_._3)._1)
@@ -172,6 +178,7 @@ object KMeansClusterer {
               possibleKs,
               d => featureExtractorFcn(d._1),
               d => idExtractorFcn(d._1),
+              attemptsPerK,
               maxIterations,
               seed
             )(clusterData)
@@ -277,20 +284,20 @@ object KMeansClusterer {
     * for the dataset, using the Spark MLLib K-Means clustering
     *
     * @param possibleKs The possible numbers of clusters into which to cluster the dataset
-    * @param seed The random seed to be used for clustering
     * @param featureColumn The column in which to find the vector on which clustering for each point of data
     * @param resultColumn The column into which to put the cluster for each point of data
     * @param distanceColumn The column into which to put the distance of each datum to the center of its cluster; None
     *                       not to record this information
+    * @param seed The random seed to be used for clustering
     * @param data The dataset
     * @tparam T The dataset type
     * @return A similar dataset, augmented with a column that contains a prefered cluster ID for each point
     */
   def clusterSetDistributed[T](possibleKs: Seq[Int],
-                               seed: Long = System.nanoTime(),
                                featureColumn: String = "features",
                                resultColumn: String = "prediction",
-                               distanceColumn: Option[String] = None)
+                               distanceColumn: Option[String] = None,
+                               seed: Long = System.nanoTime())
                               (data: Dataset[T]): DataFrame = {
     assert(possibleKs.length > 0)
 
@@ -342,21 +349,27 @@ object KMeansClusterer {
     * small enough to fit on a single machine.  This is, however, problematic, because there is no heirarchical
     * k-means clustering in MLLib, so we have to run on each sub-cluster sequentially, rather than in parallel.
     *
-    * @param possibleKs
-    * @param seed
-    * @param idColumn
-    * @param featureColumn
-    * @param resultColumn
-    * @param data
-    * @tparam T
-    * @return
+    * @param possibleKs The possible numbers of clusters into which to cluster the dataset
+    * @param idColumn The column in which to find the ID of each datum (so that this ID can be propagated up through
+    *                 the heirarchy, to indicate the most central node of each cluster).
+    * @param featureColumn The column in which to find the vector on which clustering for each point of data
+    * @param resultColumn The column into which to put the cluster for each point of data
+    * @param attemptsPerK The number of clustering attempts to make at each value of K when breaking up upper-level
+    *                     clusters.  More attempts gives a greater probability of achieving a good clustering.
+    * @param maxIterations The maximum number of iterations to use before quiting (when breaking up upper-level
+    *                      clusters)
+    * @param seed A random seed
+    * @param data The dataset
+    * @tparam T The dataset type
+    * @return A similar dataset, augmented with a column that contains a prefered cluster ID for each point
     */
   def heirarchicalClusterSetDistributed[T] (possibleKs: Seq[Int],
-                                            maxIterations: Int = 1000,
-                                            seed: Long = System.nanoTime(),
                                             idColumn: String = "id",
                                             featureColumn: String = "features",
-                                            resultColumn: String = "prediction")
+                                            resultColumn: String = "prediction",
+                                            attemptsPerK: Int = 10,
+                                            maxIterations: Int = 1000,
+                                            seed: Long = System.nanoTime())
                                            (data: Dataset[T]): DataFrame = {
     import data.sparkSession.implicits._
 
@@ -364,7 +377,7 @@ object KMeansClusterer {
     val distanceColumn = resultColumn + "_dist"
 
     // Figure out our top level clusters
-    val topLevelData = clusterSetDistributed(possibleKs, seed, featureColumn, topLevelResultColumn, Some(distanceColumn))(data)
+    val topLevelData = clusterSetDistributed(possibleKs, featureColumn, topLevelResultColumn, Some(distanceColumn), seed = seed)(data)
 
     // Determine lower-level clusters in parallel
     val minK = possibleKs.min
@@ -390,6 +403,7 @@ object KMeansClusterer {
             possibleKs,
             r => r._1.getAs[Vector](vc),
             r => r._2,
+            attemptsPerK,
             maxIterations,
             seed
           )(data)
