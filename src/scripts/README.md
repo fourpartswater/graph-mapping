@@ -1,27 +1,27 @@
-Run scripts for processing graphs
+Run Scripts for Processing Graphs
 =================================
 
-To process graphs, there is, in essence, a pipeline of pipelines. The processing scripts must be run in the following order:
+Processing graphs requires a pipeline of scripts that must be run in the following order:
 
- * convert.sh - this script requires some customization based on the dataset - specification of which columns correspond to which
-   aspects of the data, or whether or not the graph is weighted or bidirectional.  See the case statement near the top of the 
-   script for examples.
- * cluster.sh
- * layout.sh
- * tiling (any order):
-   * node-tiling.sh
-   * inter-edge-tiling.sh
-   * intra-edge-tiling.sh
-   * metadata-tiling.sh
+ 1. `convert.sh` (Requires dataset-specific customization. Specify which columns correspond to which aspects of the data or indicate whether the graph is weighted or bidirectional.  See the case statement near the top of the script for examples.)
+ 2. `cluster.sh`
+ 3. `layout.sh`
+ 4. tiling (any order):
+    - `node-tiling.sh`
+    - `inter-edge-tiling.sh`
+    - `intra-edge-tiling.sh`
+    - `metadata-tiling.sh`
 
-All scripts expect their dataset to be based in a sub-directory of the place from which they are run, and intermediate files 
-should be left as is - future scripts use them to do things like determine the number of hierarchy levels.  For each script, 
-the dataset is specified with a '-d' or '--dataset' option, which should list the name of the subdirectory.
+**To execute a script**:
 
-Also note, at the moment, that the base HDFS location in each script (specified by the BASE_LOCATION variable) is hard-coded
-to my own directory in HDFS; this will change in future versions, but should of course be edited by the user until it is 
-changed.
+1. Make sure that your dataset is located in a subdirectory of the folder in which you will run the script.
 
-Tiling scripts have two additional parameters: -t and -b.  -t specifies the number of tile levels used to show the top level 
-of the cluster hierarchy (the level with the fewest nodes).  -b specifies the number of tile levels used to show each of the 
-lower levels of the cluster hierarchy.
+   **NOTE**: Leave intermediate files as is. Future scripts may use them to, for example, determine the number of hierarchy levels.
+
+2. Edit the base HDFS location (`BASE_LOCATION`) in the script.
+3. Specify the dataset by using the `-d` or `--dataset` flag to enter the name of the subdirectory.
+
+   **NOTE**: Tiling scripts have two additional parameters:
+
+   - `-t` specifies the number of tile levels used to show the top level of the cluster hierarchy (the level with the fewest nodes).
+   - `-b` specifies the number of tile levels used to show each of the lower levels of the cluster hierarchy.
