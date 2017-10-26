@@ -204,9 +204,21 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val isolatedLayout = layoutIsolatedNodes(isolatedNodes, bounds, collectedRadius)
     isolatedNodeCallback.foreach(_(isolatedLayout))
 
-    val connectedLayout = layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
-      new Circle(bounds.center, collectedRadius),
-      connectedInternalNodes)
+    val connectedNodeSeq = connectedNodes.toSeq
+    val connectedNodeBounds = new Circle(bounds.center, collectedRadius)
+    val connectedLayout =
+      connectedNodeSeq.length match {
+        case 0 =>
+          Iterable[LayoutNode]()
+        case 1 =>
+          oneNodeLayout(connectedNodeSeq, parentId, connectedNodeBounds)
+        case 2 | 3 | 4 =>
+          smallNodeLayout(connectedNodeSeq, parentId, connectedNodeBounds)
+        case _ =>
+          layoutConnectedNodes(connectedNodes.toSeq, edges, parentId,
+            connectedNodeBounds,
+            connectedInternalNodes)
+      }
 
     isolatedLayout ++ connectedLayout
   }
