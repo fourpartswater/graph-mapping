@@ -14,7 +14,8 @@ package software.uncharted.graphing.clustering.utilities
 
 
 
-import org.apache.spark.graphx.{Edge, Graph, VertexId}
+import org.apache.spark.Partitioner
+import org.apache.spark.graphx.{Edge, Graph, PartitionStrategy, VertexId}
 
 import scala.reflect.ClassTag
 
@@ -40,15 +41,12 @@ object ClusterConsolidator {
   def consolidate[VD: ClassTag, ED: ClassTag] (graph: Graph[VD, ED],
                                                newNodeFcn: (VertexId, VD) => VertexId,
                                                mergeNodesFcn: Option[(VD, VD) => VD] = None): Graph[VD, ED] = {
-    val newEdges = graph.mapTriplets{et =>
-      (
-        newNodeFcn(et.srcId, et.srcAttr),
-        newNodeFcn(et.dstId, et.dstAttr),
-        et.attr
-      )
-    }.edges.map { edge =>
-      new Edge(edge.attr._1, edge.attr._2, edge.attr._3)
+    val newEdges = graph.triplets.map { et =>
+      val srcId = newNodeFcn(et.srcId, et.srcAttr)
+      val dstId = newNodeFcn(et.dstId, et.dstAttr)
+      new Edge(srcId, dstId, et.attr)
     }
+
     val newNodes =
       mergeNodesFcn.map{fcn =>
         graph.vertices.map{case (id, data) =>
@@ -61,6 +59,8 @@ object ClusterConsolidator {
         }
       }
 
+    // Consolidation doesn't work properly unless edges are properly partitioned.
     Graph(newNodes, newEdges)
+      .partitionBy(PartitionStrategy.EdgePartition2D)
   }
 }

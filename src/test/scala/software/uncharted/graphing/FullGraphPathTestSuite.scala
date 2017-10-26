@@ -19,9 +19,9 @@ import java.nio.file.Files
 
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.SharedSparkContext
 import org.scalatest.FunSuite
 import org.apache.spark.graphx.{Edge, Graph => SparkGraph}
+import org.apache.spark.sql.test.SharedSQLContext
 import software.uncharted.graphing.analytics.{SumAnalytic0, SumAnalytic2}
 import software.uncharted.graphing.clustering.unithread.{Graph => InputGraph, _}
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParametersParser, LayoutNode}
@@ -32,7 +32,7 @@ import scala.io.Source
 /**
   * Test our full graph pipeline, from clustering to layout
   */
-class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
+class FullGraphPathTestSuite extends SharedSQLContext {
   // Edge analytics - always empty
   private val ea: Seq[String] = Seq()
   private val rawLinks = Array(
@@ -157,7 +157,7 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
          """.stripMargin.getBytes)
       configOS.flush()
       configOS.close()
-      ClusteredGraphLayoutApp.execute(session, ConfigFactory.parseFile(tmpConfig))
+      ClusteredGraphLayoutApp.execute(spark, ConfigFactory.parseFile(tmpConfig))
 
       // Check that our layout produced what it was supposed to
       val (e0, n0) = parseLayoutOutput(new File(layoutLoc, "level_1"))
@@ -205,7 +205,7 @@ class FullGraphPathTestSuite extends FunSuite with SharedSparkContext {
     // Step 2: Cluster our graph
     val baseCommunity = new Community(flatGraph, -1, 0.0)
     val clusterer = new CommunityClusterer(baseCommunity, false, false, 0.0, level => new BaselineAlgorithm)
-    val clusters = clusterer.doClustering[SparkGraph[GraphNode, Long]](ClusterToLayoutConverter.withLevel(session.sparkContext))
+    val clusters = clusterer.doClustering[SparkGraph[GraphNode, Long]](ClusterToLayoutConverter.withLevel(spark.sparkContext))
 
     // Step 3: Do layout
     val layoutConfig = HierarchicalLayoutConfig(null, None, null, null, None,
