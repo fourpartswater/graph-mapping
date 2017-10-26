@@ -140,6 +140,7 @@ object KMeansClusterer {
     *
     * @param possibleKs The possible values K may take
     * @param featureExtractorFcn A function to retrieve the feature vector from a given record
+    * @param idExtractorFcn A function to retrieve the ID of each record
     * @param attemptsPerK The number of clustering attempts to make at each value of K.  More attempts gives a
     *                     greater probability of achieving a good clustering.
     * @param maxIterations The maximum number of iterations to use before quiting
@@ -380,7 +381,6 @@ object KMeansClusterer {
     val topLevelData = clusterSetDistributed(possibleKs, featureColumn, topLevelResultColumn, Some(distanceColumn), seed = seed)(data)
 
     // Determine lower-level clusters in parallel
-    val minK = possibleKs.min
     val maxK = possibleKs.max
     val ic = topLevelData.schema.fieldIndex(idColumn)
     val rc = topLevelData.schema.fieldIndex(topLevelResultColumn)
