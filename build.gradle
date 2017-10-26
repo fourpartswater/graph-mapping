@@ -211,6 +211,8 @@ dependencies {
   provided "org.apache.spark:spark-mllib_$dependencyScalaVersion:$sparkVersion"
 
   testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
+  testCompile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion:tests"
+  testCompile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion:tests"
   testRuntime 'org.pegdown:pegdown:1.1.0'
 }
 
