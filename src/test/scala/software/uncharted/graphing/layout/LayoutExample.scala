@@ -112,41 +112,41 @@ class LayoutExample extends FunSuite with SharedSparkContext {
     val outDir = new File("layout-example-output")
     outDir
   }
-  ignore("Example of layout application, to be used to debug through the process") {
-    val sourceDir = makeSource
-    val sourcePath = sourceDir.getAbsolutePath
-    val outputDir = getOutputLocation
-    val outputPath = outputDir.getAbsolutePath
-    val config = HierarchicalLayoutConfigParser.parse(ConfigFactory.parseString(
-      s"""
-         |{
-         |  layout: {
-         |    input: { location = "$sourcePath" }
-         |    output : { location = "$outputPath" }
-         |    max-level : 2
-         |  }
-         |}
-       """.stripMargin)).get
-    val parameters = ForceDirectedLayoutParametersParser.parse(ConfigFactory.parseString(
-      s"""
-         |{
-         |  layout: {
-         |    force-directed: {
-         |      use-node-sizes: true
-         |      node-area-factor: 0.6
-         |    }
-         |  }
-         |}
-       """.stripMargin)).get
-
-    val fileStartTime = System.currentTimeMillis()
-
-    // Hierarchical Force-Directed layout scheme
-    HierarchicFDLayout.determineLayout(sc, config, parameters)
-
-    sourceDir.delete()
-    outputDir.delete()
-  }
+//  ignore("Example of layout application, to be used to debug through the process") {
+//    val sourceDir = makeSource
+//    val sourcePath = sourceDir.getAbsolutePath
+//    val outputDir = getOutputLocation
+//    val outputPath = outputDir.getAbsolutePath
+//    val config = HierarchicalLayoutConfigParser.parse(ConfigFactory.parseString(
+//      s"""
+//         |{
+//         |  layout: {
+//         |    input: { location = "$sourcePath" }
+//         |    output : { location = "$outputPath" }
+//         |    max-level : 2
+//         |  }
+//         |}
+//       """.stripMargin)).get
+//    val parameters = ForceDirectedLayoutParametersParser.parse(ConfigFactory.parseString(
+//      s"""
+//         |{
+//         |  layout: {
+//         |    force-directed: {
+//         |      use-node-sizes: true
+//         |      node-area-factor: 0.6
+//         |    }
+//         |  }
+//         |}
+//       """.stripMargin)).get
+//
+//    val fileStartTime = System.currentTimeMillis()
+//
+//    // Hierarchical Force-Directed layout scheme
+//    HierarchicFDLayout.determineLayout(sc, config, parameters)
+//
+//    sourceDir.delete()
+//    outputDir.delete()
+//  }
 }
 
 /**

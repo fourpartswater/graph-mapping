@@ -13,6 +13,8 @@
 package software.uncharted.graphing.layout.forcedirected
 
 
+import software.uncharted.graphing.layout
+
 import scala.collection.mutable
 import scala.util.{Random, Try}
 import software.uncharted.graphing.layout._ //scalastyle:ignore
@@ -29,23 +31,23 @@ import software.uncharted.graphing.layout._ //scalastyle:ignore
   * I will soon have a second use case for it, and would like to do so then, when I can see both ways it is needed.
   * For instance, I'm not sure if they should get passed into the class, or inot the run method.
   */
-class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Serializable {
-  private var iterationCallback: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit] = None
-  private var isolatedNodeCallback: Option[Iterable[LayoutNode] => Unit] = None
+class ForceDirectedLayouter(parameters: ForceDirectedLayoutParameters) extends Serializable {
+  private var iterationCallback: Option[(Array[layout.LayoutNode], Iterable[layout.LayoutEdge], Int, Double) => Unit] = None
+  private var isolatedNodeCallback: Option[Iterable[layout.LayoutNode] => Unit] = None
 
   /**
     * Set a callback that will get called once on each iteration of the force-direct layout on connected nodes
     * @param fcnOpt The function to be called; parameters are the laid out connected nodes and edges, the number of
     *               iterations, and the current temperature.
     */
-  def setIterationCallback (fcnOpt: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit]): Unit =
+  def setIterationCallback (fcnOpt: Option[(Array[layout.LayoutNode], Iterable[layout.LayoutEdge], Int, Double) => Unit]): Unit =
     iterationCallback = fcnOpt
 
   /**
     * Set a callback that will get called once isolated nodes are laid out
     * @param fcnOpt The function to be called; parameters are the laid out isolated nodes
     */
-  def setIsolatedNodeCallback (fcnOpt: Option[Iterable[LayoutNode] => Unit]): Unit =
+  def setIsolatedNodeCallback (fcnOpt: Option[Iterable[layout.LayoutNode] => Unit]): Unit =
     isolatedNodeCallback = fcnOpt
 
   /**
@@ -64,7 +66,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   def run (nodes: Iterable[GraphNode],
            edges: Iterable[GraphEdge],
            parentId: Long,
-           bounds: Circle): Iterable[LayoutNode] = {
+           bounds: Circle): Iterable[layout.LayoutNode] = {
     nodes.size match {
       case 0 =>
         throw new IllegalArgumentException("Attempt to layout 0 nodes")
@@ -100,10 +102,10 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   // do this?
   private def oneNodeLayout (nodes: Iterable[GraphNode],
                      parentId: Long,
-                     bounds: Circle): Iterable[LayoutNode] = {
+                     bounds: Circle): Iterable[layout.LayoutNode] = {
     assert(1 == nodes.size)
 
-    Array(LayoutNode(nodes.head, bounds.center, ifUseNodeSizes(bounds.radius, 0.0)))
+    Array(LayoutNode(nodes.head, bounds.center, ifUseNodeSizes(bounds.radius, 1.0)))
   }
 
   // Precalculate relative locations of small layouts, so we don't have to do lots of parallel trig calculations
@@ -118,7 +120,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   // to be a central primary node with satelites evenly spaced around it.
   private def smallNodeLayout (nodes: Iterable[GraphNode],
                                parentId: Long,
-                               bounds: Circle): Iterable[LayoutNode] = {
+                               bounds: Circle): Iterable[layout.LayoutNode] = {
     assert(1 < nodes.size && nodes.size <= 4)
 
     val epsilon = 1E-6
@@ -131,7 +133,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
         val nodeArea = parentArea * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes
         (node.id, radiusFromArea(nodeArea))
       } else {
-        (node.id, 0.0)
+        (node.id, 1.0)
       }
     }.toMap
     val primaryNodeRadius = radii.getOrElse(parentId, 0.0)
@@ -180,7 +182,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   private def generalLayout (nodes: Iterable[GraphNode],
                              edges: Iterable[GraphEdge],
                              parentId: Long,
-                             bounds: Circle): Iterable[LayoutNode] = {
+                             bounds: Circle): Iterable[layout.LayoutNode] = {
     // Manually layout isolated nodes
     val (connectedNodes, isolatedNodes) = ifUseNodeSizes(
       {
@@ -209,7 +211,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     val connectedLayout =
       connectedNodeSeq.length match {
         case 0 =>
-          Iterable[LayoutNode]()
+          Iterable[layout.LayoutNode]()
         case 1 =>
           oneNodeLayout(connectedNodeSeq, parentId, connectedNodeBounds)
         case 2 | 3 | 4 =>
@@ -232,7 +234,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
                                     edges: Iterable[GraphEdge],
                                     parentId: Long,
                                     bounds: Circle,
-                                    totalInternalNodes: Long): Iterable[LayoutNode] = {
+                                    totalInternalNodes: Long): Iterable[layout.LayoutNode] = {
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
@@ -297,7 +299,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     ).flatten
   }
 
-  private def updatePositions (layoutNodes: Array[LayoutNode], displacements: Array[V2],
+  private def updatePositions (layoutNodes: Array[layout.LayoutNode], displacements: Array[V2],
                                parentId: Long, terms: ForceDirectedLayoutTerms): Double = {
     var largestSquaredStep = Double.MinValue
     val numNodes = layoutNodes.length
@@ -351,7 +353,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   }
 
   // Scale final positions to fit within the prescribed area
-  private def scaleNodesToArea (nodes: Array[LayoutNode], bounds: Circle, terms: ForceDirectedLayoutTerms): Unit = {
+  private def scaleNodesToArea (nodes: Array[layout.LayoutNode], bounds: Circle, terms: ForceDirectedLayoutTerms): Unit = {
     // Find the largest distance from center currently
     Try {
       nodes.map { node =>
@@ -375,11 +377,11 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
                                               parentId: Long,
                                               bounds: Circle,
                                               totalInternalNodes: Long,
-                                              random: Random): Array[LayoutNode] = {
+                                              random: Random): Array[layout.LayoutNode] = {
     val border = parameters.borderPercent / 100.0 * bounds.radius
     val area = areaFromRadius(bounds.radius)
 
-    val layoutNodes = new Array[LayoutNode](nodes.size)
+    val layoutNodes = new Array[layout.LayoutNode](nodes.size)
     for (i <- nodes.indices) {
       val node = nodes(i)
       val position = if (node.id == parentId) {
@@ -394,7 +396,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
     layoutNodes
   }
 
-  private def convertGraphEdgesToLayoutEdges (edges: Iterable[GraphEdge], nodeIds: Map[Long, Int]): Iterable[LayoutEdge] = {
+  private def convertGraphEdgesToLayoutEdges (edges: Iterable[GraphEdge], nodeIds: Map[Long, Int]): Iterable[layout.LayoutEdge] = {
     edges.flatMap { edge =>
       for (srcIndex <- nodeIds.get(edge.srcId);
            dstIndex <- nodeIds.get(edge.dstId)) yield {
@@ -445,7 +447,7 @@ class ForceDirectedLayout (parameters: ForceDirectedLayoutParameters) extends Se
   // nodes in their community)
   private[forcedirected] def layoutIsolatedNodes (nodes: Iterable[GraphNode],
                                                   bounds: Circle,
-                                                  minRadiusFromCenter: Double): Iterable[LayoutNode] = {
+                                                  minRadiusFromCenter: Double): Iterable[layout.LayoutNode] = {
     val numNodes = nodes.size
     val rows = determineIsolatedNodeRows(minRadiusFromCenter, bounds.radius, numNodes)
     val avgOffset = (2.0 * math.Pi * rows * (minRadiusFromCenter + bounds.radius) / 2.0) / numNodes

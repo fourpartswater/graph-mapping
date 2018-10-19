@@ -12,7 +12,7 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
-import software.uncharted.graphing.layout.{Circle, V2}
+import software.uncharted.graphing.layout._
 
 /**
   * A force that keeps objects within a bounding circle, by pressing them inward severely when they reach beyond it.

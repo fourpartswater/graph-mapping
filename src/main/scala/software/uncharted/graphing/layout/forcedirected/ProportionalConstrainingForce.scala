@@ -14,7 +14,7 @@ package software.uncharted.graphing.layout.forcedirected
 
 
 
-import software.uncharted.graphing.layout.V2
+import software.uncharted.graphing.layout.{LayoutEdge, LayoutNode, V2}
 
 
 /**

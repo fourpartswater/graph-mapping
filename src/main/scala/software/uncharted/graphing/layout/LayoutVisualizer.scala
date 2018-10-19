@@ -73,7 +73,7 @@ object LayoutVisualizer extends AbstractJob with Logging {
     val layoutParameters = readLayoutParameters(config)
     val dataParameters = readDataParameters(config)
 
-    val arranger = new ForceDirectedLayout(layoutParameters)
+    val arranger = new ForceDirectedLayouter(layoutParameters)
 
     val (parent, nodes) = readNodes(dataParameters)
     val edges = readEdges(dataParameters)
@@ -89,7 +89,7 @@ object LayoutVisualizer extends AbstractJob with Logging {
    * Start the layout, but in another thread that can be paused/continued at will
    */
   private def startLayout (visualizer: LayoutVisualizer,
-                           arranger: ForceDirectedLayout,
+                           arranger: ForceDirectedLayouter,
                            dataParameters: VisualLayoutDataConfig,
                            nodes: Iterable[GraphNode],
                            parentId: Long,

@@ -17,11 +17,11 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.mutable.{Buffer => MutableBuffer}
 import org.scalatest.FunSpec
-import software.uncharted.graphing.layout.{Circle, V2, GraphEdge, GraphNode}
+import software.uncharted.graphing.layout._
 
 
 
-class ForceDirectedLayoutTests extends FunSpec {
+class ForceDirectedLayouterTests extends FunSpec {
   private val g2 = (Seq(
     GraphNode(1834232L, 1834232L, 129051, 3433500, "7075520 0,0,1,5,127,23785,59858,45275"),
     GraphNode(1548108L, 1834232L,  68833, 1660994, "9213857 0,0,1,0,47,13033,32166,23586")
@@ -81,7 +81,7 @@ class ForceDirectedLayoutTests extends FunSpec {
 
     val unitCircle = Circle(V2(0.0, 0.0), 1.0)
     it("Should lay out a simple 2-node graph within the bounds provided") {
-      val arranger = new ForceDirectedLayout(nodeSizeParameters)
+      val arranger = new ForceDirectedLayouter(nodeSizeParameters)
       val bounds = Circle(V2(128.0, 128.0), 11.729350489692258)
       val layout = arranger.run(g2._1, g2._2, 1834232L, bounds).map { node =>
         (node.id, node)
@@ -95,7 +95,7 @@ class ForceDirectedLayoutTests extends FunSpec {
       assert(gPrimus.radius + gSecundus.radius < (gSecundus.center - gPrimus.center).length)
     }
     it("Should lay out a simple 5-node graph in a circle when ignoring node size") {
-      val arranger = new ForceDirectedLayout(defaultParameters)
+      val arranger = new ForceDirectedLayouter(defaultParameters)
       val layout = arranger.run(g5._1, g5._2, 1L, unitCircle).map { node =>
         (node.id, node)
       }.toMap
@@ -117,7 +117,7 @@ class ForceDirectedLayoutTests extends FunSpec {
           |}
         """.stripMargin)
       val parameters = ForceDirectedLayoutParametersParser.parse(config).get
-      val arranger = new ForceDirectedLayout(parameters)
+      val arranger = new ForceDirectedLayouter(parameters)
       val layout = arranger.run(g5._1, g5._2, 1L, unitCircle).map { node =>
         (node.id, node)
       }.toMap
@@ -138,7 +138,7 @@ class ForceDirectedLayoutTests extends FunSpec {
     describe("#layoutIsolatedNodes") {
       val circle15 = Circle(V2(0.0, 0.0), 15.0)
       val nodes = (1L to 1000L).map(n => GraphNode(n, n, 1, 0, s"Node $n"))
-      val arranger = new ForceDirectedLayout(defaultParameters)
+      val arranger = new ForceDirectedLayouter(defaultParameters)
       it("should lay things out in the allotted space only") {
         val results = arranger.layoutIsolatedNodes(nodes, circle15, 10.0)
         results.foreach { r =>

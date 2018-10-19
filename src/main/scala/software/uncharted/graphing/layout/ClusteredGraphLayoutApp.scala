@@ -21,6 +21,7 @@ import grizzled.slf4j.Logging
 import org.apache.spark.sql.SparkSession
 import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayoutParameters, ForceDirectedLayoutParametersParser}
 import software.uncharted.contrib.tiling.jobs.AbstractJob
+import software.uncharted.graphing.layout.openord.OpenOrdLayoutParametersParser
 
 
 /**
@@ -60,7 +61,7 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
         error("Couldn't read hierarchical layout configuration", f)
         sys.exit(-1)
     }
-    val forceDirectedLayoutConfig = ForceDirectedLayoutParametersParser.parse(config) match {
+    val openOrdLayoutConfig = OpenOrdLayoutParametersParser.parse(config) match {
       case Success(s) => s
       case Failure(f) =>
         error("Couldn't read force-directed layout configuration", f)
@@ -71,7 +72,7 @@ object ClusteredGraphLayoutApp extends AbstractJob with Logging {
 
     // Hierarchical Force-Directed layout scheme
     info("\n\n\nStarting layout at " + new Date)
-    HierarchicFDLayout.determineLayout(session.sparkContext, hierarchicalLayoutConfig, forceDirectedLayoutConfig)
+    HierarchicFDLayout.determineLayout(session.sparkContext, hierarchicalLayoutConfig, openOrdLayoutConfig)
     info("Layout complete at " + new Date + "\n\n\n")
 
     val fileEndTime = System.currentTimeMillis()

@@ -12,7 +12,8 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
-import software.uncharted.graphing.layout.{Circle, V2, QuadNode}
+import software.uncharted.graphing.layout
+import software.uncharted.graphing.layout.{Circle, QuadNode, V2}
 
 import scala.util.Random
 
@@ -82,11 +83,11 @@ class QuadTreeRepulsionForce (val random: Random) extends RepulsionForce {
     *                      act, so as to avoid confusing force interactions.
     * @param terms The parameters and terms describing the current force-directed layout
     */
-  def apply (nodes: Seq[LayoutNode],
-             edges: Iterable[LayoutEdge],
+  def apply (nodes: Seq[layout.LayoutNode],
+             edges: Iterable[layout.LayoutEdge],
              displacements: Array[V2],
              terms: ForceDirectedLayoutTerms): Unit = {
-    val qt = LayoutNode.createQuadTree(nodes)
+    val qt = layout.LayoutNode.createQuadTree(nodes)
     for (i <- nodes.indices) {
       val node = nodes(i)
       val momentaryDelta = calculateRepulsion(i, node.geometry, qt.getRoot, terms)
@@ -165,8 +166,8 @@ class ElementRepulsionForce (val random: Random) extends RepulsionForce {
     *                      act, so as to avoid confusing force interactions.
     * @param terms The parameters and terms describing the current force-directed layout
     */
-  override def apply(nodes: Seq[LayoutNode],
-                     edges: Iterable[LayoutEdge],
+  override def apply(nodes: Seq[layout.LayoutNode],
+                     edges: Iterable[layout.LayoutEdge],
                      displacements: Array[V2],
                      terms: ForceDirectedLayoutTerms): Unit = {
     for (n1 <- nodes.indices) {

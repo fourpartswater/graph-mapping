@@ -10,9 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.layout.forcedirected
-
-import software.uncharted.graphing.layout.{Circle, V2, GraphNode, QuadTree}
+package software.uncharted.graphing.layout
 
 
 /**

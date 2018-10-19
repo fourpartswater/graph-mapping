@@ -15,12 +15,13 @@ package software.uncharted.graphing.layout
 
 
 import scala.util.Try
-
-import scala.collection.JavaConverters._ //scalastyle:ignore
+import scala.collection.JavaConverters._
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.graphx._ //scalastyle:ignore
-import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayout, ForceDirectedLayoutParameters, LayoutNode}
+import org.apache.spark.graphx._
+import org.gephi.layout.plugin.openord.OpenOrdLayout
+import software.uncharted.graphing.layout.forcedirected.{ForceDirectedLayouter, ForceDirectedLayoutParameters}
+import software.uncharted.graphing.layout.openord.{OpenOrdLayoutParameters, OpenOrdLayouter}
 
 
 
@@ -38,6 +39,10 @@ object HierarchicFDLayout {
       .orElse(Some(sc.textFile(config.input + "/level_" + level))).get
 
     val edges = gparser.parseEdgeData(rawData, config.inputDelimiter, 1, 2, 3)
+
+    val edgesArray = edges.collect
+
+    val edges2 = sc.parallelize(edgesArray)
 
     val nodeData = gparser.parseNodeData(rawData, config.inputDelimiter, 1, 2, 3, 4)
     Graph(nodeData.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
@@ -120,7 +125,7 @@ object HierarchicFDLayout {
 
   def determineLayout(sc: SparkContext,
                       layoutConfig: HierarchicalLayoutConfig,
-                      layoutParameters: ForceDirectedLayoutParameters): Unit = {
+                      layoutParameters: OpenOrdLayoutParameters): Unit = {
     val levelStats = new Array[Seq[(String, AnyVal)]](layoutConfig.maxHierarchyLevel + 1)
     val scaleFactors = sc.collectionAccumulator[Double]("scale factors")
 
@@ -153,7 +158,7 @@ object HierarchicFDLayout {
 
   //scalastyle:off method.length
   def determineLayout[T] (layoutConfig: HierarchicalLayoutConfig,
-                          layoutParameters: ForceDirectedLayoutParameters)
+                          layoutParameters: OpenOrdLayoutParameters)
                          (getGraphLevel: Int => Graph[GraphNode, Long],
                           withLayout: (Int, Graph[LayoutNode, Long], Double, Boolean) => T): Seq[T] = {
     //TODO -- this class assumes edge weights are Longs.  If this becomes an issue for some datasets, then change expected edge weights to Doubles?
@@ -162,7 +167,7 @@ object HierarchicFDLayout {
       throw new IllegalArgumentException("nodeAreaFactor parameter must be between 0.1 and 0.9")
     }
 
-    val forceDirectedLayouter = new ForceDirectedLayout(layoutParameters)
+    val openOrdLayouter = new OpenOrdLayouter(layoutParameters)
 
     // init results for 'parent group' rectangle with group ID -1 (because top hierarchical communities don't
     // have valid parents).  Rectangle format is left coord, bottom coord, width, height
@@ -188,7 +193,7 @@ object HierarchicFDLayout {
       // perform force-directed layout algorithm on all nodes and edges in a given parent community
       // note: format for nodeDataAll is (id, (x, y, radius, parentID, parentX, parentY, parentR, numInternalNodes, degree, metaData))
       val nodeDataAll = getLayoutData(graph, parentLevelLayout, layoutConfig, level).flatMap { p =>
-        forceDirectedLayouter.run(p.nodes, p.edges, p.parentId, p.bounds).map { node =>
+        openOrdLayouter.run(p.nodes, p.edges, p.parentId, p.bounds).map { node =>
           (node.id, node.inParent(p.bounds))
         }
       }.cache
@@ -309,7 +314,7 @@ object HierarchicFDLayout {
   }
   //scalastyle:on method.length
 
-  private def saveLayoutResults(graphWithCoords: Graph[forcedirected.LayoutNode, Long],
+  private def saveLayoutResults(graphWithCoords: Graph[LayoutNode, Long],
                                 outputDir: String,
                                 level: Int, bIsMaxLevel: Boolean) = {
 

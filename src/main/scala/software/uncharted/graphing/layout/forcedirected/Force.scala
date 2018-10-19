@@ -12,7 +12,7 @@
   */
 package software.uncharted.graphing.layout.forcedirected
 
-import software.uncharted.graphing.layout.V2
+import software.uncharted.graphing.layout.{LayoutEdge, LayoutNode, V2}
 
 /**
   * A generic representation of a force, for use in force-directed layout

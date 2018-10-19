@@ -10,7 +10,7 @@
   * accordance with the terms of the license agreement you entered into
   * with Uncharted Software Inc.
   */
-package software.uncharted.graphing.layout.forcedirected
+package software.uncharted.graphing.layout.openord
 
 import com.typesafe.config.Config
 import software.uncharted.contrib.tiling.config.ConfigParser
@@ -51,7 +51,7 @@ import scala.util.Try
   *                                  a layout.
   * @param randomSeed A potential random seed to allow consistency when repeating layouts.
   */
-case class ForceDirectedLayoutParameters (
+case class OpenOrdLayoutParameters (
                                            overlappingNodeRepulsionFactor: Double,
                                            nodeAreaFactor: Double,
                                            stepLimitFactor: Double,
@@ -108,7 +108,7 @@ case class ForceDirectedLayoutParameters (
   *     use-edge-weights = true
   *   }
   */
-object ForceDirectedLayoutParametersParser extends ConfigParser {
+object OpenOrdLayoutParametersParser extends ConfigParser {
 
   private val SectionKey = "layout.force-directed"
   private val OverlappingNodesRepulsionFactorKey = "overlapping-nodes-repulsion-factor"
@@ -125,19 +125,19 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   private val RandomHeatingKey = "random-heating-deceleration"
   private val RandomSeedKey = "random-seed"
 
-  private[forcedirected] val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
-  private[forcedirected] val defaultNodeAreaFactor = 0.3
-  private[forcedirected] val defaultStepLimitFactor = 0.001
-  private[forcedirected] val defaultBorderPercent = 2.0
-  private[forcedirected] val defaultIsolatedDegreeThreshold = 0
-  private[forcedirected] val defaultQuadTreeNodeThreshold = 20
-  private[forcedirected] val defaultQuadTreeTheta = 1.0
-  private[forcedirected] val defaultProportionalConstraint = 0.0
-  private[forcedirected] val defaultMaxIterations = 500
-  private[forcedirected] val defaultUseEdgeWeights = false
-  private[forcedirected] val defaultUseNodeSizes = false
-  private[forcedirected] val defaultRandomHeating = 1.0
-  private[forcedirected] val defaultRandomSeed = 911L
+  private[openord] val defaultOverlappingNodesRepulsionFactor = (1000.0 * 1000.0) / (256.0 * 256.0)
+  private[openord] val defaultNodeAreaFactor = 0.3
+  private[openord] val defaultStepLimitFactor = 0.001
+  private[openord] val defaultBorderPercent = 2.0
+  private[openord] val defaultIsolatedDegreeThreshold = 0
+  private[openord] val defaultQuadTreeNodeThreshold = 20
+  private[openord] val defaultQuadTreeTheta = 1.0
+  private[openord] val defaultProportionalConstraint = 0.0
+  private[openord] val defaultMaxIterations = 500
+  private[openord] val defaultUseEdgeWeights = false
+  private[openord] val defaultUseNodeSizes = false
+  private[openord] val defaultRandomHeating = 1.0
+  private[openord] val defaultRandomSeed = 911L
 
   /**
     * Extract force-directed layout configuration details from a more general configuration set
@@ -145,12 +145,12 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
     * @param config The general configuration set
     * @return Those portions of the configuration directly relevant to force-directed layout
     */
-  def parse(config: Config): Try[ForceDirectedLayoutParameters] = {
+  def parse(config: Config): Try[OpenOrdLayoutParameters] = {
     Try {
       val sectionOpt = getConfigOption(config, SectionKey)
 
       sectionOpt.map { section =>
-        ForceDirectedLayoutParameters(
+        OpenOrdLayoutParameters(
           getDouble(section, OverlappingNodesRepulsionFactorKey, defaultOverlappingNodesRepulsionFactor),
           getDouble(section, NodeAreaFactorKey, defaultNodeAreaFactor),
           getDouble(section, StepLimitFactorKey, defaultStepLimitFactor),
@@ -166,7 +166,7 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
           getRandomSeed(section)
         )
       }.getOrElse(
-        ForceDirectedLayoutParameters(
+        OpenOrdLayoutParameters(
           defaultOverlappingNodesRepulsionFactor,
           defaultNodeAreaFactor,
           defaultStepLimitFactor,
@@ -206,8 +206,8 @@ object ForceDirectedLayoutParametersParser extends ConfigParser {
   * @param parameters The global layout parameters constraining all distributions of nodes
   * @param getMaxEdgeWeight A function to get the maximum edge weight, if it is needed.
   */
-class ForceDirectedLayoutTerms (numNodes: Int, maxRadius: Double,
-                                val parameters: ForceDirectedLayoutParameters,
+class OpenOrdLayoutTerms (numNodes: Int, maxRadius: Double,
+                                val parameters: OpenOrdLayoutParameters,
                                 getMaxEdgeWeight: => Double) {
   var useQuadTree = numNodes > parameters.quadTreeNodeThreshold
   var kSq: Double = math.Pi * maxRadius * maxRadius / numNodes

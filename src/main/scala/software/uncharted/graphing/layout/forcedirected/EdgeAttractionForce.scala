@@ -14,7 +14,7 @@ package software.uncharted.graphing.layout.forcedirected
 
 
 
-import software.uncharted.graphing.layout.V2
+import software.uncharted.graphing.layout._
 
 
 /**
@@ -42,11 +42,11 @@ class EdgeAttractionForce extends Force {
       val distance = delta.length - src.geometry.radius - dst.geometry.radius
       if (distance > 0) {
         // Only calculate attractive force if nodes don't overlap
-        val force = terms.edgeWeightNormalizationFactor.map(_ * edge.weight).getOrElse(1.0) * distance * terms.kInv
+        // note: added SQRT of normalized edge weight to give more significance to higher weight values within a community
+        val force = terms.edgeWeightNormalizationFactor.map( w => Math.sqrt(w * edge.weight) ).getOrElse(1.0) * distance * terms.kInv
         displacements(edge.srcIndex) = displacements(edge.srcIndex) + delta * force
         displacements(edge.dstIndex) = displacements(edge.dstIndex) - delta * force
       }
     }
   }
 }
-
