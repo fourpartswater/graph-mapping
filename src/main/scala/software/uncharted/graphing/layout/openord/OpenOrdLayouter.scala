@@ -15,12 +15,13 @@ package software.uncharted.graphing.layout.openord
 import org.gephi.graph.api._
 import org.gephi.io.importer.api.{Container, ImportController}
 import org.gephi.io.processor.plugin.DefaultProcessor
+import org.gephi.layout.plugin.noverlap.{NoverlapLayout, NoverlapLayoutBuilder}
 import org.gephi.layout.plugin.openord.{OpenOrdLayout, OpenOrdLayoutBuilder}
 import org.gephi.project.api.{ProjectController, Workspace}
 import org.openide.util.Lookup
 import software.uncharted.graphing.layout._
-import collection.JavaConversions._
 
+import collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
 import scala.util.{Random, Try} //scalastyle:ignore
@@ -307,6 +308,19 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     }) ool.goAlgo()
 
     ool.endAlgo()
+
+    val nlb = new NoverlapLayoutBuilder
+    val nl = new NoverlapLayout(nlb)
+    nl.setGraphModel(graphModel)
+
+    nl.resetPropertiesValues()
+    nl.initAlgo()
+
+    while ( {
+      !nl.isConverged
+    }) nl.goAlgo()
+
+    nl.endAlgo()
 
     val nodeMap = graphModel.getUndirectedGraph.getNodes.map(x => (x.getLabel.toLong, x)).toMap
 
