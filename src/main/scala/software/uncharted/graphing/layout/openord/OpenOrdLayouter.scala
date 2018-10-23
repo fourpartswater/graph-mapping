@@ -244,13 +244,18 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     gephiNodes.toMap
   }
 
-  private def convertLayoutEdgesToGephiEdges(layoutEdges: Iterable[LayoutEdge], graphModel: GraphModel, gephiNodes: Map[Long, Node]): Iterable[Edge] = {
-    val gephiEdges = layoutEdges.map(edge => {
-      val srcNode = gephiNodes.get(edge.srcIndex)
-      val dstNode = gephiNodes.get(edge.dstIndex)
-      val thisEdge = graphModel.factory.newEdge(srcNode.get, dstNode.get)
-      thisEdge.setWeight(edge.weight.doubleValue)
-      thisEdge
+  private def convertGraphEdgesToGephiEdges(layoutEdges: Iterable[GraphEdge], graphModel: GraphModel, gephiNodes: Map[Long, Node]): Iterable[Edge] = {
+    val gephiEdges = layoutEdges.flatMap(edge => {
+      val srcNode = gephiNodes.get(edge.srcId)
+      val dstNode = gephiNodes.get(edge.dstId)
+      if (srcNode != None && dstNode != None) {
+        val thisEdge = graphModel.factory.newEdge(srcNode.get, dstNode.get)
+        thisEdge.setWeight(edge.weight.doubleValue)
+        Some(thisEdge)
+      }
+      else {
+        None
+      }
     })
     gephiEdges
   }
@@ -266,7 +271,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     }
   }
 
-  private def doLayout(layoutNodes: Array[LayoutNode], layoutEdges: Iterable[LayoutEdge]) = {
+  private def doLayout(layoutNodes: Array[LayoutNode], layoutEdges: Iterable[GraphEdge]) = {
     //Init a project - and therefore a workspace
     val pc = Lookup.getDefault.lookup(classOf[ProjectController])
     pc.newProject()
@@ -282,7 +287,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel
 
     val gephiNodes = convertLayoutNodesToGephiNodes(layoutNodes, graphModel)
-    val gephiEdges = convertLayoutEdgesToGephiEdges(layoutEdges, graphModel, gephiNodes)
+    val gephiEdges = convertGraphEdgesToGephiEdges(layoutEdges, graphModel, gephiNodes)
 
     val graph = graphModel.getDirectedGraph
 
@@ -322,9 +327,9 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     // Initialize output coordinates randomly
     val layoutNodes = convertGraphNodesToLayoutNodes(nodes, parentId, bounds, totalInternalNodes, random)
     val terms = new OpenOrdLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
-    val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
+    //val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
 
-    doLayout(layoutNodes, layoutEdges);
+    doLayout(layoutNodes, edges);
 
     scaleNodesToArea(layoutNodes, bounds, terms)
 

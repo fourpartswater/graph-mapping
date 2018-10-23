@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+    <appender name="console" class="org.apache.log4j.ConsoleAppender">
+        <param name="Target" value="System.out" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{ISO8601} %-5p [%t][%c] %m%n" />
+        </layout>
+    </appender>
+
+    <!-- Logging level for software.uncharted packages -->
+    <logger name="software.uncharted">
+        <level value="INFO" />
+    </logger>
+
+    <!-- ensure natty log msgs aren't too verbose -->
+    <logger name="com.joestelmach.natty">
+        <level value="ERROR" />
+    </logger>
+
+    <!-- To mute java.net.BindException: Address already in use exception when assigning Spark UI ports -->
+    <logger name="org.spark_project.jetty.util.component.AbstractLifeCycle">
+        <level value="ERROR" />
+    </logger>
+
+    <!-- To mute  Listener EventLoggingListener exception with Spark 2.0.1 -->
+    <logger name="org.apache.spark.scheduler.LiveListenerBus">
+        <level value="FATAL" />
+    </logger>
+
+    <!-- Default logging level for all 'other' packages (not listed in this config file) -->
+    <!-- This setting should be last! -->
+    <root>
+        <level value="WARN" />
+        <appender-ref ref="console" />
+    </root>
+
+</log4j:configuration>

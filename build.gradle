@@ -34,7 +34,7 @@ apply plugin: 'scalaStyle'
 
 
 // Gradle/intellij don't work properly together with 1.8
-sourceCompatibility = '1.7'
+sourceCompatibility = '1.8'
 
 // maven repositories
 repositories {
@@ -70,7 +70,7 @@ task wrapper(type: Wrapper) {
 // to block those via -PexcludeIoTests.
 test {
   maxParallelForks = 1
-  jvmArgs += ["-XX:MaxPermSize=512m", "-Xmx1000m"]
+  jvmArgs += ["-Xmx1000m"]
   if (project.hasProperty('excludeIoTests')) {
     tags {
       exclude 's3.test'
@@ -99,6 +99,7 @@ scalaStyle {
 // Configure a jar task to build a fat jar, run it before the assembly step
 task assemblyJar(type: Jar) {
   classifier = "assembly"
+  zip64 = true
   from files(sourceSets.main.output.classesDir)
   from files(sourceSets.main.output.resourcesDir)
 
@@ -221,7 +222,7 @@ dependencies {
   testCompile "org.scalatest:scalatest_$dependencyScalaVersion:2.2.5"
   testCompile "org.apache.spark:spark-core_$dependencyScalaVersion:$sparkVersion:tests"
   testCompile "org.apache.spark:spark-sql_$dependencyScalaVersion:$sparkVersion:tests"
-  testRuntime 'org.pegdown:pegdown:1.1.0'
+  testRuntime 'org.pegdown:pegdown:1.6.0'
 }
 
 // publishing setup - url, username, password need to be stored in environment
