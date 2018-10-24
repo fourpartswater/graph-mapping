@@ -174,6 +174,8 @@ object HierarchicFDLayout {
     var lastLevelLayoutOpt: Option[RDD[(Long, Circle)]] = None
 
     for (level <- layoutConfig.maxHierarchyLevel to 0 by -1) yield {
+    //for (level <- layoutConfig.maxHierarchyLevel to layoutConfig.maxHierarchyLevel by -1) yield {
+
       println(s"\n\n\nStarting Force Directed Layout for hierarchy level $level\n\n\n")
       // For each hierarchical level > 0, get community ID's, community degree (num outgoing edges),
       // and num internal nodes, and the parent community ID.

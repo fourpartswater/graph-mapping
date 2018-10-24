@@ -91,6 +91,10 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
   /* The area of a circle with the given radius */
   private def areaFromRadius (radius: Double): Double = radius * radius * math.Pi
 
+  private def degreeColumnLabel = "degree"
+  private def parentIdColumnLabel = "parentId"
+  private def internalNodesColumnLabel = "internalNodes"
+  private def metadataColumnLabel = "metadata"
 
   /* simple function to encapsulate the common case of doing things differently if we are using node sizes or not
    * in one line.
@@ -232,20 +236,50 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     isolatedLayout ++ connectedLayout
   }
 
-  private def convertLayoutNodesToGephiNodes(layoutNodes: Array[LayoutNode], graphModel: GraphModel): Map[Long, Node] = {
+  private def convertGraphNodesToGephiNodes (graphModel: GraphModel,
+                                             nodes: Seq[GraphNode],
+                                             parentId: Long,
+                                             bounds: Circle,
+                                             totalInternalNodes: Long,
+                                             random: Random): Map[Long, Node] = {
+
+    val border = parameters.borderPercent / 100.0 * bounds.radius
+    val area = areaFromRadius(bounds.radius)
+
     val gephiNodes = new scala.collection.mutable.HashMap[Long, Node]
-    for (i <- layoutNodes.indices) {
-      val layoutNode = layoutNodes(i)
-      val label = layoutNode.id.toString
+
+    val degreeColumn = graphModel.getNodeTable.getColumn(degreeColumnLabel)
+    val parentIdColumn = graphModel.getNodeTable.getColumn(parentIdColumnLabel)
+    val internalNodesColumn = graphModel.getNodeTable.getColumn(internalNodesColumnLabel)
+    val metadataColumn = graphModel.getNodeTable.getColumn(metadataColumnLabel)
+
+    for (i <- nodes.indices) {
+      val node = nodes(i)
+      val position = if (node.id == parentId) {
+        bounds.center
+      } else {
+        // TODO: Should the random vector range over [-1, 1) instead of [-0.5, 0.5)?
+        bounds.center + (V2.randomVector(random) - V2(0.5, 0.5)) * bounds.radius
+      }
+      val radius = ifUseNodeSizes(radiusFromArea(area * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
+
+      val label = node.id.toString
       val n = graphModel.factory.newNode(label)
       n.setLabel(label)
-      n.setSize(layoutNode.geometry.radius.toFloat)
-      gephiNodes.put(layoutNode.id, n)
+      n.setPosition(bounds.center.x.toFloat, bounds.center.y.toFloat)
+      n.setSize(radius.toFloat)
+
+      n.setAttribute(degreeColumn, node.degree)
+      n.setAttribute(parentIdColumn, node.parentId)
+      n.setAttribute(internalNodesColumn, node.parentId)
+      n.setAttribute(metadataColumn, node.metadata)
+
+      gephiNodes.put(node.id, n)
     }
     gephiNodes.toMap
   }
 
-  private def convertGraphEdgesToGephiEdges(layoutEdges: Iterable[GraphEdge], graphModel: GraphModel, gephiNodes: Map[Long, Node]): Iterable[Edge] = {
+  private def convertGraphEdgesToGephiEdges(graphModel: GraphModel, layoutEdges: Iterable[GraphEdge], gephiNodes: Map[Long, Node]): Iterable[Edge] = {
     val gephiEdges = layoutEdges.flatMap(edge => {
       val srcNode = gephiNodes.get(edge.srcId)
       val dstNode = gephiNodes.get(edge.dstId)
@@ -261,18 +295,26 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     gephiEdges
   }
 
-  private def convertGephiNodesToLayoutNodes(gephiNodes: Map[Long, Node], layoutNodes: Array[LayoutNode]) = {
-    for (i <- layoutNodes.indices) {
-      val layoutNode = layoutNodes(i)
-      val gephiNode = gephiNodes.get(layoutNode.id)
-      val x = gephiNode.get.x
-      val y = gephiNode.get.y
+  def convertGephiNodesToLayoutNodes(nodes: Array[Node]): Array[LayoutNode] = {
+    val layoutNodes = new Array[LayoutNode](nodes.length)
 
-      layoutNodes(i) = LayoutNode(layoutNode, x, y, layoutNode.geometry.radius)
+    for (i <- nodes.indices) {
+      val node = nodes(i)
+      val graphNode = new GraphNode(
+        node.getLabel.toLong,
+        node.getAttribute(parentIdColumnLabel).asInstanceOf[Long],
+        node.getAttribute(internalNodesColumnLabel).asInstanceOf[Long],
+        node.getAttribute(degreeColumnLabel).asInstanceOf[Int],
+        node.getAttribute(metadataColumnLabel).asInstanceOf[String]
+      )
+
+      layoutNodes(i) = LayoutNode(graphNode, node.x, node.y, node.size)
     }
+
+    layoutNodes
   }
 
-  private def doLayout(layoutNodes: Array[LayoutNode], layoutEdges: Iterable[GraphEdge]) = {
+  private def setupLayout() : GraphModel = {
     //Init a project - and therefore a workspace
     val pc = Lookup.getDefault.lookup(classOf[ProjectController])
     pc.newProject()
@@ -286,9 +328,16 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     importController.process(container, new DefaultProcessor, workspace)
 
     val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel
+    graphModel.getNodeTable.addColumn("degree", classOf[Int])
+    graphModel.getNodeTable.addColumn("parentId", classOf[Long])
+    graphModel.getNodeTable.addColumn("internalNodes", classOf[Long])
+    graphModel.getNodeTable.addColumn("metadata", classOf[String])
 
-    val gephiNodes = convertLayoutNodesToGephiNodes(layoutNodes, graphModel)
-    val gephiEdges = convertGraphEdgesToGephiEdges(layoutEdges, graphModel, gephiNodes)
+    graphModel
+  }
+
+  def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge]) : Array[LayoutNode] = {
+    val layoutNodes = new Array[LayoutNode](gephiNodes.size)
 
     val graph = graphModel.getDirectedGraph
 
@@ -324,7 +373,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     val nodeMap = graphModel.getUndirectedGraph.getNodes.map(x => (x.getLabel.toLong, x)).toMap
 
-    convertGephiNodesToLayoutNodes(nodeMap, layoutNodes)
+    convertGephiNodesToLayoutNodes(graphModel.getUndirectedGraph.getNodes.toArray)
   }
 
   // Lay out an arbitrarily large number of connected nodes (i.e., nodes that do have a sufficient connection to others
@@ -338,72 +387,22 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
-    // Initialize output coordinates randomly
-    val layoutNodes = convertGraphNodesToLayoutNodes(nodes, parentId, bounds, totalInternalNodes, random)
-    val terms = new OpenOrdLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
-    //val layoutEdges = convertGraphEdgesToLayoutEdges(edges, nodes.map(_.id).zipWithIndex.toMap)
+    val graphModel = setupLayout()
 
-    doLayout(layoutNodes, edges);
+    // Initialize output coordinates randomly
+    val gephiNodes = convertGraphNodesToGephiNodes(graphModel, nodes, parentId, bounds, totalInternalNodes, random)
+    val terms = new OpenOrdLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
+    val gephiEdges = convertGraphEdgesToGephiEdges(graphModel, edges, gephiNodes)
+
+    val layoutNodes = runLayout(graphModel, gephiNodes, gephiEdges)
 
     scaleNodesToArea(layoutNodes, bounds, terms)
 
     layoutNodes
-  }
 
+    //val finalNodes = runLayout(graphModel, gephiNodes, gephiEdges)
 
-
-
-  private def updatePositions (layoutNodes: Array[LayoutNode], displacements: Array[V2],
-                               parentId: Long, terms: OpenOrdLayoutTerms): Double = {
-    var largestSquaredStep = Double.MinValue
-    val numNodes = layoutNodes.length
-    for (n <- 0 until numNodes) {
-      val node = layoutNodes(n)
-      // Never move our central node
-      if (node.id != parentId) {
-        var displacement = displacements(n)
-        var displacementMagnitude = displacement.length
-        if (displacementMagnitude > terms.temperature) {
-          val normalizedTemperature = terms.temperature / displacementMagnitude
-          displacement = displacement * normalizedTemperature
-          displacementMagnitude = terms.temperature
-        }
-        val squaredStep = displacementMagnitude * displacementMagnitude
-        largestSquaredStep = squaredStep max largestSquaredStep
-        terms.totalEnergy = terms.totalEnergy + squaredStep
-
-        layoutNodes(n) = LayoutNode(node, node.geometry.center + displacement, node.geometry.radius)
-      }
-    }
-    largestSquaredStep
-  }
-
-  private def updateTemperature (terms: OpenOrdLayoutTerms,
-                                 initialTotalEnergy: Double,
-                                 iterations: Int): Unit = {
-    //---- Adaptive cooling function (based on Yifan Hu "Efficient, High-Quality Force-Directed Graph Drawing", 2006)
-    val m = terms.parameters.maxIterations.toDouble
-    val i = iterations.toDouble
-    val randomHeatingChance = 0.2 * math.pow((m - i) / m, terms.parameters.randomHeatingDeceleration)
-    if (terms.totalEnergy < initialTotalEnergy && math.random < randomHeatingChance) {
-      // system energy (movement) is decreasing, so keep temperature constant
-      // or increase slightly to prevent algorithm getting stuck in a local minimum
-      terms.progressCount += 1
-      if (terms.progressCount >= 5) {
-        terms.progressCount   = 0
-        terms.temperature = Math.min(terms.temperature / parameters.alphaCool, terms.initialTemperature)
-      }
-    } else {
-      // system energy (movement) is increasing, so cool the temperature
-      terms.progressCount = 0
-      if (terms.overlappingNodes) {
-        // cool slowly if nodes are overlapping
-        terms.temperature = terms.temperature * parameters.alphaCoolSlow
-      } else {
-        // cool at the regular rate
-        terms.temperature = terms.temperature * parameters.alphaCool
-      }
-    }
+    //finalNodes
   }
 
   // Scale final positions to fit within the prescribed area
@@ -426,40 +425,6 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
       }
     }
   }
-
-  private def convertGraphNodesToLayoutNodes (nodes: Seq[GraphNode],
-                                              parentId: Long,
-                                              bounds: Circle,
-                                              totalInternalNodes: Long,
-                                              random: Random): Array[LayoutNode] = {
-    val border = parameters.borderPercent / 100.0 * bounds.radius
-    val area = areaFromRadius(bounds.radius)
-
-    val layoutNodes = new Array[LayoutNode](nodes.size)
-    for (i <- nodes.indices) {
-      val node = nodes(i)
-      val position = if (node.id == parentId) {
-        bounds.center
-      } else {
-        // TODO: Should the random vector range over [-1, 1) instead of [-0.5, 0.5)?
-        bounds.center + (V2.randomVector(random) - V2(0.5, 0.5)) * bounds.radius
-      }
-      val radius = ifUseNodeSizes(radiusFromArea(area * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
-      layoutNodes(i) = LayoutNode(node, position, radius)
-    }
-    layoutNodes
-  }
-
-  private def convertGraphEdgesToLayoutEdges (edges: Iterable[GraphEdge], nodeIds: Map[Long, Int]): Iterable[LayoutEdge] = {
-    edges.flatMap { edge =>
-      for (srcIndex <- nodeIds.get(edge.srcId);
-           dstIndex <- nodeIds.get(edge.dstId)) yield {
-        LayoutEdge(srcIndex, dstIndex, edge.weight)
-      }
-    }
-  }
-
-
 
   /* If our math says we need up to N + isolatedNodeSquishFactor rows, squish isolated nodes to N rows. */
   private val isolatedNodeSquishFactor = 0.25
