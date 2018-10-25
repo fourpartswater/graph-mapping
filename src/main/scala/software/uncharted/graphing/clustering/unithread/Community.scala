@@ -385,7 +385,7 @@ class Community (val g: Graph,
       val id = g.id(i)
       val newCommunityId = g.nodeInfo(i).communityNode.get.id
       val size = g.internalSize(i)
-      val weight = g.weightedDegree(i).round.toInt
+      val weight = g.weightedDegree(i).round
       val metadata = g.metaData(i)
       val analyticData = g.nodeInfo(i).finishedAnalyticValues
       val analytics =

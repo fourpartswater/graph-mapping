@@ -300,6 +300,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     for (i <- nodes.indices) {
       val node = nodes(i)
+
       val graphNode = new GraphNode(
         node.getLabel.toLong,
         node.getAttribute(parentIdColumnLabel).asInstanceOf[Long],
@@ -312,28 +313,6 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     }
 
     layoutNodes
-  }
-
-  private def setupLayout() : GraphModel = {
-    //Init a project - and therefore a workspace
-    val pc = Lookup.getDefault.lookup(classOf[ProjectController])
-    pc.newProject()
-    val workspace = pc.getCurrentWorkspace
-
-    //Generate a new random graph into a container, we will load node and edge data later on
-    val container = Lookup.getDefault.lookup(classOf[Container.Factory]).newContainer
-
-    //Append container to graph structure
-    val importController = Lookup.getDefault.lookup(classOf[ImportController])
-    importController.process(container, new DefaultProcessor, workspace)
-
-    val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel
-    graphModel.getNodeTable.addColumn("degree", classOf[Int])
-    graphModel.getNodeTable.addColumn("parentId", classOf[Long])
-    graphModel.getNodeTable.addColumn("internalNodes", classOf[Long])
-    graphModel.getNodeTable.addColumn("metadata", classOf[String])
-
-    graphModel
   }
 
   def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge]) : Array[LayoutNode] = {
@@ -387,7 +366,15 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val numNodes = nodes.size
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
-    val graphModel = setupLayout()
+    // create new gephi project
+    val pc = Lookup.getDefault.lookup(classOf[ProjectController])
+    pc.newProject()
+
+    val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel
+    if (!graphModel.getNodeTable.hasColumn(degreeColumnLabel)) graphModel.getNodeTable.addColumn(degreeColumnLabel, classOf[Int])
+    if (!graphModel.getNodeTable.hasColumn(parentIdColumnLabel)) graphModel.getNodeTable.addColumn(parentIdColumnLabel, classOf[Long])
+    if (!graphModel.getNodeTable.hasColumn(internalNodesColumnLabel)) graphModel.getNodeTable.addColumn(internalNodesColumnLabel, classOf[Long])
+    if (!graphModel.getNodeTable.hasColumn(metadataColumnLabel)) graphModel.getNodeTable.addColumn(metadataColumnLabel, classOf[String])
 
     // Initialize output coordinates randomly
     val gephiNodes = convertGraphNodesToGephiNodes(graphModel, nodes, parentId, bounds, totalInternalNodes, random)
@@ -398,11 +385,10 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     scaleNodesToArea(layoutNodes, bounds, terms)
 
+    pc.closeCurrentWorkspace
+    pc.closeCurrentProject
+
     layoutNodes
-
-    //val finalNodes = runLayout(graphModel, gephiNodes, gephiEdges)
-
-    //finalNodes
   }
 
   // Scale final positions to fit within the prescribed area

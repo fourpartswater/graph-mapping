@@ -40,10 +40,6 @@ object HierarchicFDLayout {
 
     val edges = gparser.parseEdgeData(rawData, config.inputDelimiter, 1, 2, 3)
 
-    val edgesArray = edges.collect
-
-    val edges2 = sc.parallelize(edgesArray)
-
     val nodeData = gparser.parseNodeData(rawData, config.inputDelimiter, 1, 2, 3, 4)
     Graph(nodeData.map(node => (node.id, node)), edges).subgraph(vpred = (id, attr) => {
       (attr != null) && (attr.internalNodes > config.communitySizeThreshold || level == 0) //scalastyle:ignore
