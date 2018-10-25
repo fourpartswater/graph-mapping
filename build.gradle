@@ -55,6 +55,9 @@ repositories {
   maven {
     url = "https://oss.sonatype.org/content/repositories/snapshots"
   }
+  maven {
+    url = "https://raw.github.com/gephi/gephi/mvn-thirdparty-repo"
+  }
 }
 
 // Task to update the gradle wrapper
