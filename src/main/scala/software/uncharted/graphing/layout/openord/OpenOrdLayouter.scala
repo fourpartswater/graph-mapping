@@ -281,15 +281,19 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
   private def convertGraphEdgesToGephiEdges(graphModel: GraphModel, layoutEdges: Iterable[GraphEdge], gephiNodes: Map[Long, Node]): Iterable[Edge] = {
     val gephiEdges = layoutEdges.flatMap(edge => {
-      val srcNode = gephiNodes.get(edge.srcId)
-      val dstNode = gephiNodes.get(edge.dstId)
-      if (srcNode != None && dstNode != None) {
-        val thisEdge = graphModel.factory.newEdge(srcNode.get, dstNode.get)
-        thisEdge.setWeight(edge.weight.doubleValue)
-        Some(thisEdge)
-      }
-      else {
+      if (edge.srcId == edge.dstId) {
         None
+      } else {
+        val srcNode = gephiNodes.get(edge.srcId)
+        val dstNode = gephiNodes.get(edge.dstId)
+        if (srcNode != None && dstNode != None) {
+          val thisEdge = graphModel.factory.newEdge(srcNode.get, dstNode.get)
+          thisEdge.setWeight(edge.weight.doubleValue)
+          Some(thisEdge)
+        }
+        else {
+          None
+        }
       }
     })
     gephiEdges
