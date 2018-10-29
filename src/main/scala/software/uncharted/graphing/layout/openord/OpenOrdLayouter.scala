@@ -293,7 +293,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     gephiEdges
   }
 
-  def convertGephiNodesToLayoutNodes(nodes: Array[Node]): Array[LayoutNode] = {
+  private def convertGephiNodesToLayoutNodes(nodes: Array[Node]): Array[LayoutNode] = {
     val layoutNodes = new Array[LayoutNode](nodes.length)
 
     for (i <- nodes.indices) {
@@ -313,8 +313,28 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     layoutNodes
   }
 
+  private def scaleLayoutToBounds(graphModel: GraphModel, bounds: Circle, terms: OpenOrdLayoutTerms) = {
+    val nodes = graphModel.getDirectedGraph.getNodes
+    // Find the largest distance from center currently
+    Try {
+      nodes.map { node =>
+        (Math.sqrt(Math.pow((node.x - bounds.center.x), 2.0) + Math.pow((node.y - bounds.center.y), 2.0)), node.size)
+      }.reduce((a, b) => if (a._1 + a._2 > b._1 + b._2) a else b)
+    }.map { case (farthestDistance, radiusOfFarthestPoint) =>
+      val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
+      // target max radius is bounds.radius * borderScale
+      val scale = Math.abs(bounds.radius * borderScale) / (Math.abs(farthestDistance) + Math.abs(radiusOfFarthestPoint))
+      // Scale both the size of each node, and the vector defining its position relative to its parent node location.
+      nodes.map { node =>
+        node.setX((bounds.center.x + (node.x - bounds.center.x) * scale).toFloat)
+        node.setY((bounds.center.y + (node.y - bounds.center.y) * scale).toFloat)
+        node.setSize((node.size * scale).toFloat)
+      }
+    }
+  }
+
   //noinspection ScalaStyle
-  def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge]) : Array[LayoutNode] = {
+  def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge], bounds: Circle, terms: OpenOrdLayoutTerms) : Array[LayoutNode] = {
     val layoutNodes = new Array[LayoutNode](gephiNodes.size)
 
     val graph = graphModel.getDirectedGraph
@@ -336,15 +356,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     ool.endAlgo()
 
-    val clb = new Contract
-    val cl = new ContractLayout(clb, 0.1)
-    cl.setGraphModel(graphModel)
-
-    while ( {
-      !cl.isConverged
-    }) cl.goAlgo()
-
-    cl.endAlgo()
+    scaleLayoutToBounds(graphModel, bounds, terms)
 
     val nlb = new NoverlapLayoutBuilder
     val nl = new NoverlapLayout(nlb)
@@ -392,8 +404,9 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val terms = new OpenOrdLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
     val gephiEdges = convertGraphEdgesToGephiEdges(graphModel, edges, gephiNodes)
 
-    val layoutNodes = runLayout(graphModel, gephiNodes, gephiEdges)
+    val layoutNodes = runLayout(graphModel, gephiNodes, gephiEdges, bounds, terms)
 
+    // final scaling to make sure the nodes fit in the area
     scaleNodesToArea(layoutNodes, bounds, terms)
 
     pc.closeCurrentWorkspace
