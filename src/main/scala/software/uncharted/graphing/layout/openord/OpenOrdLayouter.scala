@@ -13,16 +13,14 @@
 package software.uncharted.graphing.layout.openord
 
 import org.gephi.graph.api._
-import org.gephi.io.importer.api.{Container, ImportController}
-import org.gephi.io.processor.plugin.DefaultProcessor
 import org.gephi.layout.plugin.noverlap.{NoverlapLayout, NoverlapLayoutBuilder}
 import org.gephi.layout.plugin.openord.{OpenOrdLayout, OpenOrdLayoutBuilder}
-import org.gephi.project.api.{ProjectController, Workspace}
+import org.gephi.layout.plugin.scale.{Contract, ContractLayout}
+import org.gephi.project.api.{ProjectController}
 import org.openide.util.Lookup
 import software.uncharted.graphing.layout._
 
 import collection.JavaConversions._
-import scala.collection.immutable.HashMap
 import scala.collection.mutable
 import scala.util.{Random, Try} //scalastyle:ignore
 
@@ -338,6 +336,16 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     ool.endAlgo()
 
+    val clb = new Contract
+    val cl = new ContractLayout(clb, 0.1)
+    cl.setGraphModel(graphModel)
+
+    while ( {
+      !cl.isConverged
+    }) cl.goAlgo()
+
+    cl.endAlgo()
+
     val nlb = new NoverlapLayoutBuilder
     val nl = new NoverlapLayout(nlb)
     nl.setGraphModel(graphModel)
@@ -404,7 +412,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     }.map { case (farthestDistance, radiusOfFarthestPoint) =>
       val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
       // target max radius is bounds.radius * borderScale
-      val scale = Math.abs(bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
+      val scale = Math.abs(bounds.radius * borderScale) / (Math.abs(farthestDistance) + Math.abs(radiusOfFarthestPoint))
       // Scale both the size of each node, and the vector defining its position relative to its parent node location.
       for (i <- nodes.indices) {
         val node = nodes(i)
