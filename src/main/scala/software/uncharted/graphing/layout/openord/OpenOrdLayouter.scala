@@ -263,7 +263,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
       val n = graphModel.factory.newNode(label)
       n.setLabel(label)
       n.setPosition(bounds.center.x.toFloat, bounds.center.y.toFloat)
-      n.setSize(radius.toFloat)
+      n.setSize(node.internalNodes)
 
       n.setAttribute(degreeColumn, node.degree)
       n.setAttribute(parentIdColumn, node.parentId)
@@ -315,6 +315,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     layoutNodes
   }
 
+  //noinspection ScalaStyle
   def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge]) : Array[LayoutNode] = {
     val layoutNodes = new Array[LayoutNode](gephiNodes.size)
 
@@ -342,6 +343,8 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     nl.setGraphModel(graphModel)
 
     nl.resetPropertiesValues()
+    nl.setRatio(1.0)
+    nl.setMargin(0.0)
     nl.initAlgo()
 
     while ( {
@@ -401,13 +404,13 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     }.map { case (farthestDistance, radiusOfFarthestPoint) =>
       val borderScale = (100.0 - terms.parameters.borderPercent) / 100.0
       // target max radius is bounds.radius * borderScale
-      val scale = (bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
+      val scale = Math.abs(bounds.radius * borderScale - radiusOfFarthestPoint) / farthestDistance
       // Scale both the size of each node, and the vector defining its position relative to its parent node location.
       for (i <- nodes.indices) {
         val node = nodes(i)
         val p = node.geometry.center
         val r = node.geometry.radius
-        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r)
+        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r * scale)
       }
     }
   }
