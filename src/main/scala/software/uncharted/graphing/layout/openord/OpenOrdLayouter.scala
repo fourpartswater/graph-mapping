@@ -28,15 +28,11 @@ import scala.util.{Random, Try} //scalastyle:ignore
 
 
 /**
-  * A class that knows how to run a force-directed layout on a graph. The heart of the algorithm is in
+  * A class that knows how to run an open ord layout on a graph. The heart of the algorithm is in
   * layoutConnectedNodes; all other routines are administration, or handle simple cases that don't require forces
   * in a deterministic manner.
   *
   * @param parameters The parameters governing how the force-directed layout algorithm is to run.
-  *
-  * TODO: This class should have the force set passed in.  I will make that change soon, but not in this checkin -
-  * I will soon have a second use case for it, and would like to do so then, when I can see both ways it is needed.
-  * For instance, I'm not sure if they should get passed into the class, or inot the run method.
   */
 class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable {
   private var iterationCallback: Option[(Array[LayoutNode], Iterable[LayoutEdge], Int, Double) => Unit] = None
@@ -112,8 +108,8 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
   // Note that this does, however, shrink the area of the node to nodeAreaFactor * the parent area - why do we
   // do this?
   private def oneNodeLayout (nodes: Iterable[GraphNode],
-                     parentId: Long,
-                     bounds: Circle): Iterable[LayoutNode] = {
+                             parentId: Long,
+                             bounds: Circle): Iterable[LayoutNode] = {
     assert(1 == nodes.size)
 
     Array(LayoutNode(nodes.head, bounds.center, ifUseNodeSizes(bounds.radius, 1.0)))
@@ -261,7 +257,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
         // TODO: Should the random vector range over [-1, 1) instead of [-0.5, 0.5)?
         bounds.center + (V2.randomVector(random) - V2(0.5, 0.5)) * bounds.radius
       }
-      val radius = ifUseNodeSizes(radiusFromArea(area * parameters.nodeAreaFactor * node.internalNodes / totalInternalNodes), border)
+      val radius = ifUseNodeSizes(radiusFromArea((area * parameters.nodeAreaFactor) * (node.internalNodes.toDouble / totalInternalNodes.toDouble)), border)
 
       val label = node.id.toString
       val n = graphModel.factory.newNode(label)
@@ -271,7 +267,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
       n.setAttribute(degreeColumn, node.degree)
       n.setAttribute(parentIdColumn, node.parentId)
-      n.setAttribute(internalNodesColumn, node.parentId)
+      n.setAttribute(internalNodesColumn, node.internalNodes)
       n.setAttribute(metadataColumn, node.metadata)
 
       gephiNodes.put(node.id, n)
@@ -411,7 +407,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
         val node = nodes(i)
         val p = node.geometry.center
         val r = node.geometry.radius
-        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r * scale)
+        nodes(i) = LayoutNode(node, bounds.center + (p - bounds.center) * scale, r)
       }
     }
   }
