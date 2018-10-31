@@ -387,7 +387,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val project = pc.getCurrentProject
 
     // get the current workspace for the project
-    val workspace = pc.getCurrentWorkspace
+    val workspace = pc.duplicateWorkspace(pc.getCurrentWorkspace)
 
     // get the graphmodel for the workspace and add custom columns to the node table
     val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel(workspace)
@@ -413,11 +413,10 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     scaleNodesToArea(layoutNodes, bounds, terms)
 
     // close
-    pc.closeCurrentWorkspace
     pc.deleteWorkspace(workspace)
 
+    pc.closeCurrentWorkspace
     pc.closeCurrentProject
-    pc.removeProject(project)
 
     layoutNodes
   }
