@@ -393,7 +393,9 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val pc = Lookup.getDefault.lookup(classOf[ProjectController])
     pc.newProject()
 
-    val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel
+    val workspace = pc.getCurrentWorkspace
+
+    val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel(workspace)
     if (!graphModel.getNodeTable.hasColumn(degreeColumnLabel)) graphModel.getNodeTable.addColumn(degreeColumnLabel, classOf[Int])
     if (!graphModel.getNodeTable.hasColumn(parentIdColumnLabel)) graphModel.getNodeTable.addColumn(parentIdColumnLabel, classOf[Long])
     if (!graphModel.getNodeTable.hasColumn(internalNodesColumnLabel)) graphModel.getNodeTable.addColumn(internalNodesColumnLabel, classOf[Long])
