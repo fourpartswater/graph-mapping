@@ -386,8 +386,8 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     pc.newProject
     val project = pc.getCurrentProject
 
-    // get the current workspace for the project
-    val workspace = pc.duplicateWorkspace(pc.getCurrentWorkspace)
+    // create a fresh new workspace for the current project
+    val workspace = pc.newWorkspace(project)
 
     // get the graphmodel for the workspace and add custom columns to the node table
     val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel(workspace)
