@@ -334,13 +334,7 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
   }
 
   //noinspection ScalaStyle
-  def runLayout(graphModel: GraphModel, gephiNodes: Map[Long, Node], gephiEdges: Iterable[Edge], bounds: Circle, terms: OpenOrdLayoutTerms) : Array[LayoutNode] = {
-    val layoutNodes = new Array[LayoutNode](gephiNodes.size)
-
-    val graph = graphModel.getDirectedGraph
-
-    graph.addAllNodes(gephiNodes.values)
-    graph.addAllEdges(gephiEdges)
+  private def runLayout(graphModel: GraphModel, bounds: Circle, terms: OpenOrdLayoutTerms) : Array[LayoutNode] = {
 
     //Layout
     val oolb = new OpenOrdLayoutBuilder
@@ -373,13 +367,11 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
 
     nl.endAlgo()
 
-    val nodeMap = graphModel.getUndirectedGraph.getNodes.map(x => (x.getLabel.toLong, x)).toMap
-
-    convertGephiNodesToLayoutNodes(graphModel.getUndirectedGraph.getNodes.toArray)
+    convertGephiNodesToLayoutNodes(graphModel.getDirectedGraph.getNodes.toArray)
   }
 
   // Lay out an arbitrarily large number of connected nodes (i.e., nodes that do have a sufficient connection to others
-  // in thier community).  This routine is the one that actually performs force-directed layout; all other layout
+  // in their community).  This routine is the one that actually performs force-directed layout; all other layout
   // routines in this class are deterministic.
   private def layoutConnectedNodes (nodes: Seq[GraphNode],
                                     edges: Iterable[GraphEdge],
@@ -390,11 +382,14 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val random = parameters.randomSeed.map(r => new Random(r)).getOrElse(new Random())
 
     // create new gephi project
-    val pc = Lookup.getDefault.lookup(classOf[ProjectController])
-    pc.newProject()
+    val pc =  Lookup.getDefault.lookup(classOf[ProjectController])
+    pc.newProject
+    val project = pc.getCurrentProject
 
+    // get the current workspace for the project
     val workspace = pc.getCurrentWorkspace
 
+    // get the graphmodel for the workspace and add custom columns to the node table
     val graphModel = Lookup.getDefault.lookup(classOf[GraphController]).getGraphModel(workspace)
     if (!graphModel.getNodeTable.hasColumn(degreeColumnLabel)) graphModel.getNodeTable.addColumn(degreeColumnLabel, classOf[Int])
     if (!graphModel.getNodeTable.hasColumn(parentIdColumnLabel)) graphModel.getNodeTable.addColumn(parentIdColumnLabel, classOf[Long])
@@ -406,13 +401,23 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     val terms = new OpenOrdLayoutTerms(numNodes, bounds.radius, parameters, edges.map(_.weight).max)
     val gephiEdges = convertGraphEdgesToGephiEdges(graphModel, edges, gephiNodes)
 
-    val layoutNodes = runLayout(graphModel, gephiNodes, gephiEdges, bounds, terms)
+    val graph = graphModel.getDirectedGraph
+
+    graph.addAllNodes(gephiNodes.values)
+    graph.addAllEdges(gephiEdges)
+
+    // run open ord layout algorithm on nodes
+    val layoutNodes = runLayout(graphModel, bounds, terms)
 
     // final scaling to make sure the nodes fit in the area
     scaleNodesToArea(layoutNodes, bounds, terms)
 
+    // close
     pc.closeCurrentWorkspace
+    pc.deleteWorkspace(workspace)
+
     pc.closeCurrentProject
+    pc.removeProject(project)
 
     layoutNodes
   }
