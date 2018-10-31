@@ -415,7 +415,6 @@ class OpenOrdLayouter(parameters: OpenOrdLayoutParameters) extends Serializable 
     // close
     pc.deleteWorkspace(workspace)
 
-    pc.closeCurrentWorkspace
     pc.closeCurrentProject
 
     layoutNodes
